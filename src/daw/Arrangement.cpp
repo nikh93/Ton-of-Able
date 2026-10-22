@@ -104,6 +104,57 @@ const Clip* ArrangementState::findClip(const juce::Uuid& id, int* index) const n
     return nullptr;
 }
 
+int ArrangementState::returnTrackIndex(int slot) const noexcept
+{
+    for (size_t index = 0; index < tracks.size(); ++index)
+        if (tracks[index].returnSlot == slot)
+            return static_cast<int>(index);
+    return -1;
+}
+
+int ArrangementState::firstReturnIndex() const noexcept
+{
+    for (size_t index = 0; index < tracks.size(); ++index)
+        if (tracks[index].isReturn())
+            return static_cast<int>(index);
+    return static_cast<int>(tracks.size());
+}
+
+juce::int64 Track::contentEnd() const noexcept
+{
+    return clips.empty() ? 0 : clips.back().end();
+}
+
+bool Track::isFrozen(const ArrangementState& state) const
+{
+    return frozen != nullptr && frozen->signature == freezeSignature(*this, state);
+}
+
+juce::String freezeSignature(const Track& track, const ArrangementState& state)
+{
+    juce::String text;
+    text << state.sampleRate << '|' << state.bpm << '|' << (track.drums ? 1 : 0);
+    for (const auto& clip : track.clips)
+        text << "|c" << clip.file.getFullPathName() << ',' << clip.start << ',' << clip.length << ',' << clip.offset << ','
+             << clip.stretchRatio << ',' << clip.pitchSemitones << ',' << clip.gainDb << ',' << clip.fadeIn << ','
+             << clip.fadeOut << ',' << clip.pattern;
+    if (track.drums)
+    {
+        for (const auto& pattern : track.patterns)
+            text << "|p" << pattern.toValueTree().toXmlString(juce::XmlElement::TextFormat().singleLine());
+        text << "|i" << track.instrument->settings.toXmlString(juce::XmlElement::TextFormat().singleLine());
+    }
+    // Only an active insert chain changes the sound; printed effects are in the recording.
+    if (track.fx->enabled.load() && ! track.fx->printWhileRecording.load() && track.fx->settings.isValid())
+        text << "|f" << track.fx->settings.toXmlString(juce::XmlElement::TextFormat().singleLine());
+    return juce::String::toHexString(text.hashCode64()) + ":" + juce::String(text.length());
+}
+
+juce::String returnName(int slot)
+{
+    return juce::String::charToString(static_cast<juce::juce_wchar>('A' + juce::jlimit(0, maximumReturns - 1, slot)));
+}
+
 juce::int64 TimeGrid::snap(juce::int64 position, double divisionInBars) const noexcept
 {
     if (divisionInBars <= 0.0)
@@ -138,6 +189,32 @@ Track makeDrumTrack(const ArrangementState& state, const juce::String& name)
     track.drums = true;
     track.patterns = defaultDrumPatterns();
     return track;
+}
+
+std::optional<Track> makeReturnTrack(const ArrangementState& state)
+{
+    for (int slot = 0; slot < maximumReturns; ++slot)
+        if (state.returnTrackIndex(slot) < 0)
+        {
+            auto track = makeTrack(state, "Return " + returnName(slot));
+            static const juce::uint32 palette[] { 0xff7fb2c9, 0xff9a8fd0, 0xff6fc0a4, 0xffc98fb6 };
+            track.colour = juce::Colour(palette[slot]);
+            track.returnSlot = slot;
+            track.monitorInput = false;
+            return track;
+        }
+    return std::nullopt;
+}
+
+int addTrack(ArrangementState& state, Track track)
+{
+    // Return tracks stay at the bottom, sorted by slot; everything else goes above them.
+    auto index = state.firstReturnIndex();
+    if (track.isReturn())
+        while (index < static_cast<int>(state.tracks.size()) && state.tracks[static_cast<size_t>(index)].returnSlot < track.returnSlot)
+            ++index;
+    state.tracks.insert(state.tracks.begin() + index, std::move(track));
+    return index;
 }
 
 Clip makePatternClip(int patternIndex, const juce::String& name, juce::int64 start, juce::int64 length)
@@ -236,7 +313,8 @@ bool move(ArrangementState& state, const juce::Uuid& clipId, juce::int64 newStar
 {
     int sourceTrack = -1;
     auto* clip = state.findClip(clipId, &sourceTrack);
-    if (clip == nullptr || targetTrack < 0 || targetTrack >= static_cast<int>(state.tracks.size()))
+    if (clip == nullptr || targetTrack < 0 || targetTrack >= static_cast<int>(state.tracks.size())
+        || state.tracks[static_cast<size_t>(targetTrack)].isReturn())
         return false;
 
     auto moved = *clip;
@@ -358,8 +436,8 @@ bool remove(ArrangementState& state, const juce::Uuid& clipId)
 
 juce::Uuid insert(ArrangementState& state, Clip clip, int trackIndex)
 {
-    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()))
-        return {};
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()) || state.tracks[static_cast<size_t>(trackIndex)].isReturn())
+        return juce::Uuid::null(); // a default-constructed Uuid would be random
     clip.id = juce::Uuid();
     const auto id = clip.id;
     place(state, std::move(clip), trackIndex);
@@ -368,7 +446,8 @@ juce::Uuid insert(ArrangementState& state, Clip clip, int trackIndex)
 
 void place(ArrangementState& state, Clip clip, int trackIndex)
 {
-    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()))
+    // Return tracks carry no clips; they are fed by the sends of other tracks.
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()) || state.tracks[static_cast<size_t>(trackIndex)].isReturn())
         return;
     clip.start = std::max<juce::int64>(0, clip.start);
     clampFades(clip);
@@ -384,7 +463,8 @@ bool moveMany(ArrangementState& state, const std::vector<MoveRequest>& requests)
     for (const auto& request : requests)
     {
         const auto* clip = state.findClip(request.clipId);
-        if (clip == nullptr || request.track < 0 || request.track >= static_cast<int>(state.tracks.size()))
+        if (clip == nullptr || request.track < 0 || request.track >= static_cast<int>(state.tracks.size())
+            || state.tracks[static_cast<size_t>(request.track)].isReturn())
             continue;
         auto copy = *clip;
         copy.start = request.start;
@@ -421,6 +501,20 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
         node.setProperty("armed", track.armed, nullptr);
         node.setProperty("monitorInput", track.monitorInput, nullptr);
         node.setProperty("inputChannel", track.inputChannel, nullptr);
+        if (track.isReturn())
+            node.setProperty("returnSlot", track.returnSlot, nullptr);
+        for (int slot = 0; slot < maximumReturns; ++slot)
+            if (const auto send = track.mixer->sendGain[static_cast<size_t>(slot)].load(); send > 0.0f)
+                node.setProperty("send" + returnName(slot), send, nullptr);
+        if (track.frozen != nullptr)
+        {
+            juce::ValueTree frozen("Frozen");
+            const auto relative = projectDirectory != juce::File() && track.frozen->file.isAChildOf(projectDirectory);
+            frozen.setProperty("file", relative ? track.frozen->file.getRelativePathFrom(projectDirectory).replaceCharacter('\\', '/') : track.frozen->file.getFullPathName(), nullptr);
+            frozen.setProperty("relative", relative, nullptr);
+            frozen.setProperty("signature", track.frozen->signature, nullptr);
+            node.addChild(frozen, -1, nullptr);
+        }
         if (track.drums)
         {
             node.setProperty("drums", true, nullptr);
@@ -492,6 +586,18 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
         track.armed = node.getProperty("armed", false);
         track.monitorInput = node.getProperty("monitorInput", true);
         track.inputChannel = node.getProperty("inputChannel", -1);
+        track.returnSlot = juce::jlimit(-1, maximumReturns - 1, static_cast<int>(node.getProperty("returnSlot", -1)));
+        for (int slot = 0; slot < maximumReturns; ++slot)
+            track.mixer->sendGain[static_cast<size_t>(slot)] = juce::jlimit(0.0f, 2.0f, static_cast<float>(node.getProperty("send" + returnName(slot), 0.0f)));
+        if (const auto frozen = node.getChildWithName("Frozen"); frozen.isValid())
+        {
+            auto render = std::make_shared<FrozenRender>();
+            const auto path = frozen.getProperty("file").toString();
+            render->file = static_cast<bool>(frozen.getProperty("relative", false)) ? projectDirectory.getChildFile(path) : juce::File(path);
+            render->signature = frozen.getProperty("signature").toString();
+            if (render->file.existsAsFile())
+                track.frozen = std::move(render);
+        }
         track.drums = static_cast<bool>(node.getProperty("drums", false));
         if (track.drums)
         {
@@ -538,7 +644,11 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
                 track.clips.push_back(std::move(clip));
         }
         edit::sortClips(track);
-        state.tracks.push_back(std::move(track));
+        if (track.isReturn() && (state.returnTrackIndex(track.returnSlot) >= 0 || track.drums))
+            track.returnSlot = -1; // a damaged file must not create two returns for one slot
+        if (track.isReturn())
+            track.clips.clear();
+        edit::addTrack(state, std::move(track));
     }
     return state;
 }

@@ -45,6 +45,8 @@ set(DAW_SOURCES
     src/daw/AudioData.h
     src/audio/effects/LivePitchShifter.cpp
     src/audio/effects/LivePitchShifter.h
+    src/audio/effects/CompressorProcessor.h
+    src/audio/effects/FlipFlopOctaver.h
     src/daw/DawText.h
     src/daw/Drums.cpp
     src/daw/Drums.h
@@ -119,6 +121,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/playback/WavFileBrowser.h
     src/daw/ArrangementController.cpp
     src/daw/ArrangementController.h
+    src/ui/shortcuts/Shortcuts.cpp
+    src/ui/shortcuts/Shortcuts.h
     src/ui/arrangement/ArrangementView.cpp
     src/ui/arrangement/ArrangementView.h
     src/ui/arrangement/DrumMachineComponent.cpp
@@ -190,6 +194,8 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         src/audio/effects/DriveProcessor.cpp
         tests/ArrangementTests.cpp
         tests/BundledModelTests.cpp
+        tests/MixingTests.cpp
+        src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}
         ${NAM_CORE_SOURCES}
@@ -204,6 +210,7 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         juce::juce_dsp
         juce::juce_events
         juce::juce_graphics
+        juce::juce_gui_extra
     )
     if (MSVC)
         target_compile_options(NamTestProgramTests PRIVATE /utf-8 /bigobj)

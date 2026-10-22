@@ -161,7 +161,8 @@ void TrackFxComponent::loadFromTrack()
         sound.namBypassed = true;
         sound.irBypassed = true;
     }
-    printMode.setEnabled(track->inputChannel >= 0);
+    printMode.setEnabled(track->inputChannel >= 0 && ! track->isReturn());
+    insertMode.setEnabled(! track->isReturn());
     showState();
 }
 
@@ -187,7 +188,9 @@ void TrackFxComponent::showState()
     vstInfo.setText(vst > 0 ? juce::String(vst) + text(" VST3-Slot(s) vom Live-Rig übernommen") : text("Keine VST3-Plugins (über \"Live-Rig übernehmen\" kopierbar)"), juce::dontSendNotification);
     clearVst.setEnabled(vst > 0);
     const auto* track = controller.state().findTrack(trackId);
-    modeInfo.setText(track != nullptr && track->inputChannel < 0
+    modeInfo.setText(track != nullptr && track->isReturn()
+                         ? text("Return-Spur: die Kette bearbeitet, was die Spuren per SEND schicken – Hall/Delay hier auf 100 % Mix lassen.")
+                         : track != nullptr && track->inputChannel < 0
                          ? text("Rig-Spur: aufgenommen wird das Live-Rig; diese Kette wirkt zusätzlich als Insert bei der Wiedergabe.")
                          : print ? text("Print: Effekte werden in die Aufnahme eingerechnet.")
                                  : text("Insert: trocken aufnehmen, Effekte bei der Wiedergabe – nachträglich änderbar."),

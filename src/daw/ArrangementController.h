@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <map>
+#include <set>
 #include <memory>
 
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -59,6 +60,24 @@ public:
     using FxConfigurator = std::function<void(TrackProcessor&, const juce::ValueTree& settings)>;
     void setTrackFxHandlers(FxFactory factory, FxConfigurator configurator);
     void setTrackFx(const juce::Uuid& trackId, const juce::ValueTree& settings, bool enabled, bool print);
+
+    // Send effects: up to four return tracks (A-D) at the bottom, fed by post-fader sends.
+    /** Supplies the effect settings a new return track starts with (e.g. a 100 % wet reverb). */
+    using ReturnDefaults = std::function<juce::ValueTree(int slot)>;
+    void setReturnDefaults(ReturnDefaults defaults) { returnDefaults = std::move(defaults); }
+    /** Adds the next free return track; null when all four exist. */
+    juce::Uuid addReturnTrack();
+    /** Send level of a track to return slot 0-3 (linear gain, 0 = off). */
+    void setSend(const juce::Uuid& trackId, int slot, float gain);
+
+    // Freeze: renders a track through its instrument and effect chain into a
+    // file, which then plays instead of the live chain until the track changes.
+    void freezeTrack(const juce::Uuid& trackId);
+    void unfreezeTrack(const juce::Uuid& trackId);
+    /** Freezes if needed, then replaces the track's clips by the render and switches its chain off. */
+    void flattenTrack(const juce::Uuid& trackId);
+    [[nodiscard]] bool isFreezing(const juce::Uuid& trackId) const noexcept { return freezing.count(trackId) > 0; }
+    [[nodiscard]] bool isTrackFrozen(const juce::Uuid& trackId) const;
 
     // Drum machine. Without a factory every drum track uses the built-in DrumSynth.
     using InstrumentFactory = std::function<std::shared_ptr<TrackInstrument>(const juce::ValueTree& settings)>;
@@ -130,6 +149,12 @@ private:
     void ensureInstruments();
     std::shared_ptr<TrackInstrument> createInstrument(const juce::ValueTree& settings, int blockSize);
     std::shared_ptr<TrackProcessor> createProcessor(const juce::ValueTree& settings);
+    /** Takes the chains of these tracks out of live playback for exclusive offline use. */
+    void detachFx(const std::set<juce::Uuid>& tracks);
+    /** Gives detached chains back to live playback with fresh (reset) state. */
+    void reattachFx(const std::set<juce::Uuid>& tracks);
+    void startFreeze(const juce::Uuid& trackId, std::function<void(std::shared_ptr<const FrozenRender>)> done);
+    void reportThawedTracks();
 
     ArrangementEngine& audio;
     juce::AudioDeviceManager& devices;
@@ -146,6 +171,11 @@ private:
     FxFactory fxFactory;
     FxConfigurator fxConfigurator;
     InstrumentFactory instrumentFactory;
+    ReturnDefaults returnDefaults;
+    std::set<juce::Uuid> detachedFx;  // chains in offline use (export, freeze)
+    std::set<juce::Uuid> freezing;
+    std::set<juce::Uuid> frozenBefore; // to report tracks that were thawed by an edit
+    bool exporting = false;
 
     StretchService stretcher;
     juce::ThreadPool loader { juce::ThreadPoolOptions {}.withThreadName("Audio loader").withNumberOfThreads(2) };

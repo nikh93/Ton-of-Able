@@ -20,7 +20,7 @@ class GlassHeaderLook final : public juce::LookAndFeel_V4
 public:
     void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour&, bool, bool) override;
 };
-/** GUI editor for pre-NAM Drive and the post-amp effect rack. */
+/** GUI editor for pre-NAM Drive, the post-amp effect rack and the compressor. */
 class EffectParameterPanel final : public juce::Component, private juce::Timer
 {
 public:
@@ -41,10 +41,11 @@ private:
     void animateTo(int index);
     void timerCallback() override;
     double animationStart = 0;
-    float openness[5] { 0, 1, 0, 0, 0 }, from[5] {};
+    static constexpr int numCards = 6;
+    float openness[numCards] { 0, 1, 0, 0, 0, 0 }, from[numCards] {};
     GlassHeaderLook headerLook;
-    GlassEffectSurface surfaces[5];
-    juce::Component reveals[5], parameters[5];
+    GlassEffectSurface surfaces[numCards];
+    juce::Component reveals[numCards], parameters[numCards];
     void configureControls();
     void publish();
     void layoutEffect(juce::Rectangle<int> area,
@@ -54,13 +55,13 @@ private:
     SoundState lastPublishedState;
     void updateCardLabels();
     int expandedCard = 1;
-    juce::TextButton driveCard { "DRIVE" }, wahCard { "AUTO-WAH" }, chorusCard { "CHORUS" }, delayCard { "DELAY" }, reverbCard { "REVERB" };
+    juce::TextButton driveCard { "DRIVE" }, wahCard { "AUTO-WAH" }, chorusCard { "CHORUS" }, delayCard { "DELAY" }, reverbCard { "REVERB" }, compressorCard { "KOMPRESSOR" };
     juce::Component cardContent;
     juce::Viewport cardViewport;
-    juce::ToggleButton power[5];
+    juce::ToggleButton power[numCards];
     juce::ComboBox driveType;
     RotaryParameterControl ampPush { "AMP PUSH" };
-    juce::ComboBox effectPresets[5];
+    juce::ComboBox effectPresets[numCards];
     void applyEffectPreset(int effect, int preset);
     RotaryParameterControl driveAmount { "DRIVE" }, driveTone { "TONE" }, driveCharacter { "WARMTH" }, driveSustain { "SUSTAIN" }, driveLevel { "LEVEL" }, driveMix { "MIX" };
     juce::ToggleButton wahDirection { "UP" };
@@ -72,6 +73,9 @@ private:
         delayLowCut { "LOW CUT" }, delayHighCut { "HIGH CUT" };
     RotaryParameterControl reverbSize { "SIZE" }, reverbDecay { "DECAY" }, reverbDamping { "DAMP" },
         reverbPreDelay { "PRE DELAY" }, reverbMix { "MIX" }, reverbLowCut { "LOW CUT" }, reverbHighCut { "HIGH CUT" };
+    juce::ToggleButton compressorPreAmp { "VOR AMP" };
+    RotaryParameterControl compressorThreshold { "THRESHOLD" }, compressorRatio { "RATIO" }, compressorAttack { "ATTACK" },
+        compressorRelease { "RELEASE" }, compressorKnee { "KNEE" }, compressorMakeup { "MAKEUP" }, compressorMix { "MIX" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EffectParameterPanel)
 };

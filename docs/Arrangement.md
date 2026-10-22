@@ -40,6 +40,47 @@ Rechtsklick auf den Spurkopf: Umbenennen, Farbe, Spur-Effekte, Spur exportieren,
 
 Rig-Spuren nehmen das Live-Rig auf. Ihre eigene Kette wirkt dort zusätzlich als Insert.
 
+## Send-Effekte (Return-Spuren A–D)
+
+Statt jeder Spur einen eigenen Hall zu geben, teilen sich mehrere Spuren einen Effekt. Das klingt zusammenhängender und spart Rechenleistung.
+
+- **+ Spur → Return-Spur (Send-Effekt)** oder **Strg+Umschalt+R** legt bis zu vier Return-Spuren an. Sie stehen immer unten.
+- Die Effektvorgabe ist 100 % nass: A = Hall, B = Delay, C = Plate, D = Slapback. Über **FX** lässt sich jede Kette wie eine Spurkette bearbeiten, inklusive NAM, IR, EQ und Kompressor.
+- **SEND** im Spurkopf (oder Rechtsklick → **Sends …**) öffnet je Return einen Regler (aus … +6 dB). Der Button leuchtet, sobald ein Send aktiv ist.
+- Sends sind **post-Fader**: Lautstärke, Panorama und Mute der Spur gelten auch für den Send.
+- Return-Spuren haben Lautstärke, Panorama, Mute, Solo und Pegelanzeige. Sie nehmen keine Clips auf. Beim Solo einer anderen Spur bleiben sie hörbar, so bleibt der Hall der Solo-Spur erhalten.
+- Beim Export enthält der Mix die Returns. Bei Stems bekommt jede Return-Spur eine eigene Datei mit dem Effektanteil, die normalen Spuren sind dann trocken.
+
+## Spuren einfrieren (Freeze)
+
+Spuren mit rechenintensiven NAMs, VST3-Effekten oder VST3-Drums lassen sich vorberechnen:
+
+- Rechtsklick auf den Spurkopf → **Spur einfrieren** oder **Strg+Umschalt+F** für die ausgewählte Spur.
+- Die Spur wird im Hintergrund durch Instrument und Effektkette in `Audio/Freeze/` gerendert, mit 4 s Nachlauf für Hall und Delay. Danach spielt sie diese Datei statt der Kette. Der Spurkopf zeigt ❄, die Clips einen hellblauen Schleier.
+- Lautstärke, Panorama, Mute/Solo und Sends wirken weiter, weil sie nach dem Einfrieren kommen.
+- **Bearbeiten taut automatisch auf**: Wer Clips, Patterns, Instrument, Effekte oder Tempo ändert, hört wieder die Live-Kette, und die Statuszeile meldet es. Rückgängig stellt den eingefrorenen Zustand wieder her.
+- **Auftauen**: Klick auf ❄, Rechtsklick → **Spur auftauen** oder **Strg+Umschalt+U**.
+- **Einfrieren und in Audio umwandeln** ersetzt die Clips durch das Ergebnis und schaltet die Kette aus. Die Einstellungen bleiben dabei erhalten.
+- Eingefrorene Spuren nehmen nicht auf. Return-Spuren lassen sich nicht einfrieren.
+
+## Kompressor
+
+Im Effekt-Rack (Live-Rig und jede Spur- bzw. Return-Kette) gibt es die Karte **KOMPRESSOR** mit Threshold, Ratio, Attack, Release, Knee, Makeup und Mix.
+
+- **VOR AMP** setzt ihn wie ein Kompressor-Pedal vor Drive und NAM, für mehr Sustain. Aus heißt nach Amp, Box und EQs, wie im Studio.
+- Vorgaben: **Sanft** (2,5:1), **Clean Sustain** (Pedal), **Funk Squash** (12:1, schnell) und **Parallel** (Mix 45 % für New-York-Kompression).
+- Technik: Feed-Forward, Peak-Detektor über alle Kanäle, Soft Knee, Attack/Release auf der Gainreduktion in dB.
+
+## Tastenkürzel
+
+**Tasten** in der Werkzeugleiste oder **F1** öffnet die Übersicht aller Befehle, nach Bereich sortiert.
+
+- **Klick auf eine Taste**: ändern oder entfernen. **+**: weitere Taste für denselben Befehl.
+- Ist eine Taste schon belegt, fragt das Programm, ob sie umgelegt werden soll.
+- **Standard wiederherstellen** setzt alles zurück. Änderungen gelten sofort und werden gespeichert.
+- Ohne Standardtaste und frei belegbar sind z. B. Metronom, Count-In, In Audio umwandeln und Sends.
+- Die Mausgesten stehen unten in der Übersicht, sie sind fest.
+
 ## Bearbeiten
 
 | Aktion | Bedienung |
@@ -82,11 +123,12 @@ FFmpeg wird nicht mitgeliefert. Ton of Able findet `ffmpeg.exe` neben `Ton of Ab
 **Export** bietet:
 
 - **Mix** (ganzes Arrangement oder nur der Loop-Bereich)
-- **Alle Spuren einzeln (Stems)** in einen Ordner. Stems enthalten Lautstärke und Panorama der Spur und ignorieren Mute/Solo.
+- **Alle Spuren einzeln (Stems)** in einen Ordner. Stems enthalten Lautstärke und Panorama der Spur und ignorieren Mute/Solo. Return-Spuren erscheinen als eigene Stems.
 - **Ausgewählte Spur** (auch per Rechtsklick auf den Spurkopf)
 
 Formate: WAV 16/24/32-Bit-Float, AIFF 24, FLAC 24, Ogg Vorbis sowie MP3 320 kbps, AAC/M4A 256 kbps und Opus 192 kbps über FFmpeg.
 Ein Export ist erst möglich, wenn alle Rubber-Band-Berechnungen fertig sind.
+Die Effektketten der Spuren (Insert) und der Return-Spuren werden mitgerendert. Solange der Export läuft, spielen diese Spuren live ohne Effekte.
 
 ## Projekte
 
@@ -142,10 +184,10 @@ Für JDrummer oder jedes andere VST3-Drum-Instrument gibt es einen eigenen Test,
 
 10 Bänder nach ISO-Oktaven (31,5 Hz … 16 kHz, ±12 dB) mit Frequenzgang-Anzeige und Presets.
 Im Live-Rig über den Button **GRAPHIC EQ** (wird mit Presets/A-B gespeichert), pro Spur im FX-Fenster.
-Er sitzt in der Kette nach dem Amp-EQ und vor Auto-Wah/Chorus/Delay/Reverb.
+Er sitzt in der Kette nach dem Amp-EQ und vor Kompressor (Stellung „nach Amp“), Auto-Wah, Chorus, Delay und Reverb.
 Technisch sind es konstant-Q-RBJ-Peaking-Filter aus JUCEs `dsp::IIR::ArrayCoefficients`, die ohne Speicherallokation auskommen und damit echtzeitsicher sind.
 
 ## Lizenzen
 
 - **Rubber Band Library** (Breakfast Quay / Particular Programs, <https://breakfastquay.com/rubberband/>) liegt als Submodul unter `third_party/rubberband` (v4.0.0) und wird über den Single-File-Build einkompiliert. Lizenz: GPL-2.0-or-later. Wer die Anwendung unter anderen Bedingungen als der GPL verbreiten will, braucht eine kommerzielle Rubber-Band-Lizenz.
-- **FFmpeg** wird nur als externes Programm aufgerufen und nicht mitgeliefert. Für eine eigene Weitergabe gelten die Lizenzbedingungen des verwendeten FFmpeg-Builds (LGPL/GPL).
+- **FFmpeg** wird als externes Programm aufgerufen. Das Windows-Paket aus dem Release-Workflow legt einen statischen LGPL-Build (`ffmpeg.exe`) neben die exe, die Lizenz steht in `licenses/FFmpeg-LICENSE.txt`. Bei eigener Weitergabe gelten die Bedingungen des verwendeten Builds (LGPL/GPL).

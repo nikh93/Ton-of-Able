@@ -19,7 +19,9 @@ while recording, a 10-band graphic EQ, audio/video import and mix/stem export
 in common formats (FFmpeg for AAC, Opus, video, ...), a step-sequencer drum
 machine (built-in kit or any General MIDI VST3 drum instrument such as
 [JDrummer](https://github.com/jmantra/jdrummer)) and live pitch shifting with
-Rubber Band (e.g. an octave down) in front of the rig. See
+Rubber Band (e.g. an octave down) in front of the rig, send effects on up to
+four return tracks, track freezing (with "freeze and flatten"), a compressor
+in every effect chain and freely assignable keyboard shortcuts (F1). See
 [Arrangement](docs/Arrangement.md).
 
 The complete realtime core and the primary user workflow are implemented:

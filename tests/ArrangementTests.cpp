@@ -245,7 +245,7 @@ public:
             const auto expected = 1100.0f / 4000.0f;
             expectWithinAbsoluteError(mix.getSample(0, 100), 0.0f, 1.0e-6f); // track 2 panned hard right, track 1 muted
             expectWithinAbsoluteError(mix.getSample(1, 100), expected, 1.0e-5f);
-            ArrangementEngine::renderOffline(*snapshot, 1000, 256, mix.getWritePointer(0), mix.getWritePointer(1), scratch, 0);
+            ArrangementEngine::renderOffline(*snapshot, 1000, 256, mix.getWritePointer(0), mix.getWritePointer(1), scratch, { .onlyTrack = 0 });
             expectWithinAbsoluteError(mix.getSample(0, 100), expected, 1.0e-5f); // stems ignore mute
         }
 
@@ -756,7 +756,7 @@ public:
             copy->prepare(48000.0, 4096);
             std::vector<TrackInstrument*> instruments { copy.get() };
             juce::AudioBuffer<float> mix(2, 4096), scratch;
-            ArrangementEngine::renderOffline(*engine.currentSnapshot(), 0, 4096, mix.getWritePointer(0), mix.getWritePointer(1), scratch, -1, &instruments);
+            ArrangementEngine::renderOffline(*engine.currentSnapshot(), 0, 4096, mix.getWritePointer(0), mix.getWritePointer(1), scratch, { .instruments = &instruments });
             expect(mix.getMagnitude(0, 4096) > 0.01f);
         }
 

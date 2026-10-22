@@ -25,7 +25,7 @@ void configure(RotaryParameterControl& control, double minimum, double maximum,
 EffectParameterPanel::EffectParameterPanel()
 {
     configureControls();
-    for (int i=0; i<5; ++i)
+    for (int i=0; i<numCards; ++i)
     {
         cardContent.addAndMakeVisible(surfaces[i]);
         surfaces[i].addAndMakeVisible(reveals[i]);
@@ -36,9 +36,10 @@ EffectParameterPanel::EffectParameterPanel()
         { "Funky", "Vocal", "Slow Sweep", "Down Sweep" },
         { "Subtle", "Classic", "Wide", "Vibrato" },
         { "Slapback", "Analog", "Lead Echo", "Ambient" },
-        { "Room", "Hall", "Cave", "Bright Plate" }
+        { "Room", "Hall", "Cave", "Bright Plate" },
+        { "Sanft", "Clean Sustain", "Funk Squash", "Parallel" }
     };
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < numCards; ++i)
     {
         effectPresets[i].addItemList(presetNames[i], 1);
         effectPresets[i].setTextWhenNothingSelected("Custom");
@@ -49,7 +50,7 @@ EffectParameterPanel::EffectParameterPanel()
         surfaces[i].addAndMakeVisible(power[i]);
         power[i].onClick = [this, i]
         {
-            bool* bypass[] = { &currentState.driveBypassed, &currentState.autoWahBypassed, &currentState.chorusBypassed, &currentState.delayBypassed, &currentState.reverbBypassed };
+            bool* bypass[] = { &currentState.driveBypassed, &currentState.autoWahBypassed, &currentState.chorusBypassed, &currentState.delayBypassed, &currentState.reverbBypassed, &currentState.compressorBypassed };
             *bypass[i] = !power[i].getToggleState();
             publish();
         };
@@ -62,12 +63,19 @@ EffectParameterPanel::EffectParameterPanel()
                            &chorusRate, &chorusDepth, &chorusDelay, &chorusFeedback, &chorusMix,
                            &delayTime, &delayFeedback, &delayMix, &delayLowCut, &delayHighCut,
                            &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix,
-                           &reverbLowCut, &reverbHighCut })
+                           &reverbLowCut, &reverbHighCut, &compressorThreshold, &compressorRatio, &compressorAttack,
+                           &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix })
         cardContent.addAndMakeVisible(*control);
+    compressorPreAmp.setTooltip(juce::String(juce::CharPointer_UTF8("An: wie ein Kompressor-Pedal vor Drive und Amp (mehr Sustain). Aus: nach Amp und Box, wie im Studio.")));
+    compressorPreAmp.onClick = [this]
+    {
+        currentState.compressorPreAmp = compressorPreAmp.getToggleState();
+        publish();
+    };
     cardContent.addAndMakeVisible(wahDirection);
     parameters[0].addAndMakeVisible(ampPush);
     ampPush.slider().setTooltip("Pegel vor NAM: 0 dB = unveraendert. Wirkt auch bei Drive OFF. OUTPUT regelt die Abhoerlautstaerke.");
-    for (auto* card : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard })
+    for (auto* card : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard })
     {
         card->setLookAndFeel(&headerLook);
         card->setConnectedEdges(juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
@@ -77,6 +85,7 @@ EffectParameterPanel::EffectParameterPanel()
     chorusCard.onClick = [this] { animateTo(expandedCard == 2 ? -1 : 2); };
     delayCard.onClick = [this] { animateTo(expandedCard == 3 ? -1 : 3); };
     reverbCard.onClick = [this] { animateTo(expandedCard == 4 ? -1 : 4); };
+    compressorCard.onClick = [this] { animateTo(expandedCard == 5 ? -1 : 5); };
     wahDirection.onClick = [this]
     {
         currentState.autoWahUpward = wahDirection.getToggleState();
@@ -92,14 +101,14 @@ EffectParameterPanel::EffectParameterPanel()
 EffectParameterPanel::~EffectParameterPanel()
 {
     stopTimer();
-    for (auto* c : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard }) c->setLookAndFeel(nullptr);
+    for (auto* c : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard }) c->setLookAndFeel(nullptr);
 }
 
 void EffectParameterPanel::previewExpanded(int index)
 {
     stopTimer();
     expandedCard = index;
-    for (int i=0; i<5; ++i) openness[i] = i == index ? 1.f : 0.f;
+    for (int i=0; i<numCards; ++i) openness[i] = i == index ? 1.f : 0.f;
     resized();
     cardViewport.setViewPosition(0, juce::jmax(0, index) * 92);
 }
@@ -107,7 +116,7 @@ void EffectParameterPanel::previewExpanded(int index)
 void EffectParameterPanel::animateTo(int index)
 {
     expandedCard = index;
-    for (int i=0; i<5; ++i) from[i] = openness[i];
+    for (int i=0; i<numCards; ++i) from[i] = openness[i];
     animationStart = juce::Time::getMillisecondCounterHiRes();
     updateCardLabels();
     startTimerHz(60);
@@ -117,7 +126,7 @@ void EffectParameterPanel::timerCallback()
 {
     const float t = juce::jlimit(0.f, 1.f, float((juce::Time::getMillisecondCounterHiRes()-animationStart)/280.0));
     const float eased = t*t*(3.f-2.f*t);
-    for (int i=0; i<5; ++i)
+    for (int i=0; i<numCards; ++i)
         openness[i] = from[i] + ((i == expandedCard ? 1.f : 0.f)-from[i])*eased;
     resized();
     if (t >= 1.f) stopTimer();
@@ -183,6 +192,19 @@ void EffectParameterPanel::configureControls()
     configure(reverbMix, 0.0, 1.0, [](double v) { return juce::String(v * 100.0, 0) + "%"; });
     configure(reverbLowCut, 20.0, 1000.0, [](double v) { return unit(v, " Hz"); });
     configure(reverbHighCut, 1000.0, 20000.0, [](double v) { return unit(v, " Hz"); });
+    configure(compressorThreshold, -60.0, 0.0, [](double v) { return unit(v, " dB"); });
+    compressorThreshold.setRange(-60.0, 0.0, 0.1);
+    configure(compressorRatio, 1.0, 20.0, [](double v) { return juce::String(v, v < 10.0 ? 1 : 0) + ":1"; });
+    compressorRatio.setRange(1.0, 20.0, 0.1);
+    configure(compressorAttack, 0.1, 200.0, [](double v) { return juce::String(v, v < 10.0 ? 1 : 0) + " ms"; });
+    configure(compressorRelease, 5.0, 2000.0, [](double v) { return unit(v, " ms"); });
+    configure(compressorKnee, 0.0, 18.0, [](double v) { return unit(v, " dB"); });
+    configure(compressorMakeup, 0.0, 24.0, [](double v) { return unit(v, " dB"); });
+    configure(compressorMix, 0.0, 1.0, [](double v) { return juce::String(v * 100.0, 0) + "%"; });
+    compressorAttack.setRange(0.1, 200.0, 0.1);
+    compressorRelease.setRange(5.0, 2000.0, 1.0);
+    for (auto* control : { &compressorAttack, &compressorRelease })
+        control->slider().setSkewFactorFromMidPoint(control == &compressorAttack ? 10.0 : 150.0);
 
     const auto bind = [this](RotaryParameterControl& control, float& value)
     {
@@ -202,6 +224,10 @@ void EffectParameterPanel::configureControls()
     bind(reverbSize, currentState.reverbSize); bind(reverbDecay, currentState.reverbDecay); bind(reverbDamping, currentState.reverbDamping);
     bind(reverbPreDelay, currentState.reverbPreDelayMs); bind(reverbMix, currentState.reverbMix);
     bind(reverbLowCut, currentState.reverbLowCutHz); bind(reverbHighCut, currentState.reverbHighCutHz);
+    bind(compressorThreshold, currentState.compressorThresholdDb); bind(compressorRatio, currentState.compressorRatio);
+    bind(compressorAttack, currentState.compressorAttackMs); bind(compressorRelease, currentState.compressorReleaseMs);
+    bind(compressorKnee, currentState.compressorKneeDb); bind(compressorMakeup, currentState.compressorMakeupDb);
+    bind(compressorMix, currentState.compressorMix);
 }
 
 void EffectParameterPanel::setState(const SoundState& state, const juce::NotificationType notification)
@@ -223,6 +249,11 @@ void EffectParameterPanel::setState(const SoundState& state, const juce::Notific
     reverbSize.setValue(state.reverbSize, notification); reverbDecay.setValue(state.reverbDecay, notification); reverbDamping.setValue(state.reverbDamping, notification);
     reverbPreDelay.setValue(state.reverbPreDelayMs, notification); reverbMix.setValue(state.reverbMix, notification);
     reverbLowCut.setValue(state.reverbLowCutHz, notification); reverbHighCut.setValue(state.reverbHighCutHz, notification);
+    compressorThreshold.setValue(state.compressorThresholdDb, notification); compressorRatio.setValue(state.compressorRatio, notification);
+    compressorAttack.setValue(state.compressorAttackMs, notification); compressorRelease.setValue(state.compressorReleaseMs, notification);
+    compressorKnee.setValue(state.compressorKneeDb, notification); compressorMakeup.setValue(state.compressorMakeupDb, notification);
+    compressorMix.setValue(state.compressorMix, notification);
+    compressorPreAmp.setToggleState(state.compressorPreAmp, juce::dontSendNotification);
     wahDirection.setToggleState(state.autoWahUpward, juce::dontSendNotification);
     updateCardLabels();
     resized();
@@ -230,8 +261,8 @@ void EffectParameterPanel::setState(const SoundState& state, const juce::Notific
 
 void EffectParameterPanel::updateCardLabels()
 {
-    bool bypass[] = { currentState.driveBypassed, currentState.autoWahBypassed, currentState.chorusBypassed, currentState.delayBypassed, currentState.reverbBypassed };
-    for (int i=0; i<5; ++i) power[i].setToggleState(!bypass[i], juce::dontSendNotification);
+    bool bypass[] = { currentState.driveBypassed, currentState.autoWahBypassed, currentState.chorusBypassed, currentState.delayBypassed, currentState.reverbBypassed, currentState.compressorBypassed };
+    for (int i=0; i<numCards; ++i) power[i].setToggleState(!bypass[i], juce::dontSendNotification);
     const juce::String driveNames[] { "CRUNCH", "WARM OVERDRIVE", "SINGING LEAD", "FUZZ" };
     const auto driveName = driveNames[juce::jlimit(0, 3, currentState.driveType)];
     driveCard.setButtonText("DRIVE / " + driveName + "  " + (currentState.driveBypassed ? "OFF" : "ON") + "  " + (expandedCard == 0 ? "-" : "+"));
@@ -239,6 +270,8 @@ void EffectParameterPanel::updateCardLabels()
     chorusCard.setButtonText("CHORUS  " + juce::String(currentState.chorusBypassed ? "OFF" : "ON") + "  " + (expandedCard == 2 ? "-" : "+"));
     delayCard.setButtonText("DELAY  " + juce::String(currentState.delayBypassed ? "OFF" : "ON") + "  " + (expandedCard == 3 ? "-" : "+"));
     reverbCard.setButtonText("REVERB  " + juce::String(currentState.reverbBypassed ? "OFF" : "ON") + "  " + (expandedCard == 4 ? "-" : "+"));
+    compressorCard.setButtonText("KOMPRESSOR " + juce::String(currentState.compressorPreAmp ? "(VOR AMP)" : "(NACH AMP)") + "  "
+                                 + (currentState.compressorBypassed ? "OFF" : "ON") + "  " + (expandedCard == 5 ? "-" : "+"));
     driveAmount.setName(currentState.driveType == 2 ? "GAIN" : currentState.driveType == 3 ? "FUZZ" : "DRIVE");
     driveCharacter.setName(currentState.driveType == 1 ? "WARMTH" : currentState.driveType == 2 ? "PRESENCE" : "BIAS");
 }
@@ -246,8 +279,8 @@ void EffectParameterPanel::updateCardLabels()
 void EffectParameterPanel::applyEffectPreset(int effect, int preset)
 {
     const int p = juce::jlimit(0, 3, preset - 1);
-    std::array<int, 5> selections;
-    for (int i = 0; i < 5; ++i) selections[i] = effectPresets[i].getSelectedId();
+    std::array<int, numCards> selections;
+    for (int i = 0; i < numCards; ++i) selections[i] = effectPresets[i].getSelectedId();
     auto state = currentState;
     switch (effect)
     {
@@ -289,11 +322,23 @@ void EffectParameterPanel::applyEffectPreset(int effect, int preset)
             state.reverbMix = std::array<float,4>{ .18f, .26f, .4f, .22f }[p];
             state.reverbLowCutHz = 160.f; state.reverbHighCutHz = p == 3 ? 12000.f : 7500.f;
             break;
+        case 5:
+            // Gentle levelling, a pedal-style sustainer, a hard funk squash and parallel compression.
+            state.compressorBypassed = false;
+            state.compressorPreAmp = p == 1 || p == 2;
+            state.compressorThresholdDb = std::array<float,4>{ -16.f, -30.f, -36.f, -32.f }[p];
+            state.compressorRatio = std::array<float,4>{ 2.5f, 6.f, 12.f, 8.f }[p];
+            state.compressorAttackMs = std::array<float,4>{ 15.f, 8.f, 1.f, 3.f }[p];
+            state.compressorReleaseMs = std::array<float,4>{ 180.f, 300.f, 90.f, 120.f }[p];
+            state.compressorKneeDb = std::array<float,4>{ 8.f, 6.f, 2.f, 4.f }[p];
+            state.compressorMakeupDb = std::array<float,4>{ 3.f, 10.f, 14.f, 12.f }[p];
+            state.compressorMix = p == 3 ? .45f : 1.f;
+            break;
         default: return;
     }
     setState(state);
     publish();
-    for (int i = 0; i < 5; ++i) effectPresets[i].setSelectedId(selections[i], juce::dontSendNotification);
+    for (int i = 0; i < numCards; ++i) effectPresets[i].setSelectedId(selections[i], juce::dontSendNotification);
     effectPresets[effect].setSelectedId(preset, juce::dontSendNotification);
 }
 
@@ -301,13 +346,13 @@ void EffectParameterPanel::publish()
 {
     const auto before = lastPublishedState.toValueTree();
     const auto after = currentState.toValueTree();
-    const juce::String prefixes[] { "drive", "autoWah", "chorus", "delay", "reverb" };
+    const juce::String prefixes[] { "drive", "autoWah", "chorus", "delay", "reverb", "compressor" };
     for (int property = 0; property < after.getNumProperties(); ++property)
     {
         const auto key = after.getPropertyName(property);
         if (key.toString().endsWith("Bypassed") || before[key] == after[key]) continue;
         if (key.toString() == "namInputTrimDb") effectPresets[0].setSelectedId(0, juce::dontSendNotification);
-        for (int effect = 0; effect < 5; ++effect)
+        for (int effect = 0; effect < numCards; ++effect)
             if (key.toString().startsWith(prefixes[effect])) effectPresets[effect].setSelectedId(0, juce::dontSendNotification);
     }
     lastPublishedState = currentState;
@@ -351,24 +396,30 @@ void EffectParameterPanel::resized()
 {
     updateCardLabels();
     cardViewport.setBounds(getLocalBounds().reduced(14).withTrimmedTop(30));
-    cardContent.setSize(juce::jmax(240, cardViewport.getWidth()-16), 5*92 + juce::roundToInt(350*(openness[0]+openness[1]+openness[2]+openness[3]+openness[4])));
+    float totalOpen = 0.0f;
+    for (const auto open : openness)
+        totalOpen += open;
+    cardContent.setSize(juce::jmax(240, cardViewport.getWidth()-16), numCards*92 + juce::roundToInt(350*totalOpen));
     auto area = cardContent.getLocalBounds();
-    juce::TextButton* cards[] = { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard };
+    juce::TextButton* cards[] = { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard };
     std::initializer_list<RotaryParameterControl*> groups[] = {
         { &wahSensitivity, &wahAttack, &wahRelease, &wahMin, &wahMax, &wahQ, &wahMix },
         { &chorusRate, &chorusDepth, &chorusDelay, &chorusFeedback, &chorusMix },
         { &delayTime, &delayFeedback, &delayMix, &delayLowCut, &delayHighCut },
-        { &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix, &reverbLowCut, &reverbHighCut }
+        { &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix, &reverbLowCut, &reverbHighCut },
+        { &compressorThreshold, &compressorRatio, &compressorAttack, &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix }
     };
     for (auto* control : { &driveAmount, &driveTone, &driveCharacter, &driveSustain, &driveLevel, &driveMix,
                            &wahSensitivity, &wahAttack, &wahRelease, &wahMin, &wahMax, &wahQ, &wahMix,
                            &chorusRate, &chorusDepth, &chorusDelay, &chorusFeedback, &chorusMix,
                            &delayTime, &delayFeedback, &delayMix, &delayLowCut, &delayHighCut,
-                           &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix, &reverbLowCut, &reverbHighCut })
+                           &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix, &reverbLowCut, &reverbHighCut,
+                           &compressorThreshold, &compressorRatio, &compressorAttack, &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix })
         control->setVisible(false);
-    driveType.setVisible(false); wahDirection.setVisible(false);
+    driveType.setVisible(false); wahDirection.setVisible(false); compressorPreAmp.setVisible(false);
     parameters[1].addAndMakeVisible(wahDirection);
-    for (int i=0; i<5; ++i)
+    parameters[5].addAndMakeVisible(compressorPreAmp);
+    for (int i=0; i<numCards; ++i)
     {
         const int height = juce::roundToInt(350*openness[i]);
         surfaces[i].setBounds(area.removeFromTop(82+height));
@@ -401,6 +452,7 @@ void EffectParameterPanel::resized()
             auto direction = content.removeFromBottom(26);
             layoutEffect(content, groups[i - 1]);
             if (i == 1) { wahDirection.setVisible(height > 0); wahDirection.setBounds(direction.removeFromRight(70)); }
+            if (i == 5) { compressorPreAmp.setVisible(height > 0); compressorPreAmp.setBounds(direction.removeFromRight(110)); }
         }
         area.removeFromTop(10);
     }

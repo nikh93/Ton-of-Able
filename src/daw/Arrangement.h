@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -13,6 +14,9 @@
 
 namespace daw
 {
+/** Number of return tracks (send effects A-D). */
+constexpr int maximumReturns = 4;
+
 // Mixer values are shared between the UI and the audio thread and are changed
 // without rebuilding the playback snapshot, so fader moves are glitch-free.
 struct TrackMixer
@@ -22,10 +26,13 @@ struct TrackMixer
     std::atomic<bool> muted { false };
     std::atomic<bool> soloed { false };
     std::atomic<float> meter { 0.0f };    // written by the audio thread
+    // Post-fader send levels (linear gain, 0 = off) to the return tracks A-D.
+    std::array<std::atomic<float>, maximumReturns> sendGain {};
 
     // Audio-thread state for click-free gain changes.
     float currentLeft = 0.0f, currentRight = 0.0f;
     bool gainInitialised = false;
+    std::array<float, maximumReturns> currentSend {};
 };
 
 /** A track's insert chain (NAM pedal/amp, IR, EQs, effects, VST3). The app
@@ -57,6 +64,18 @@ struct InstrumentSlot
 {
     std::shared_ptr<TrackInstrument> instrument;
     juce::ValueTree settings = builtInInstrumentSettings(); // message thread only
+};
+
+struct ArrangementState;
+
+/** A track rendered offline through its instrument and effect chain ("freeze").
+    Playback uses this file instead of the live chain while the signature
+    (clips, patterns, instrument, effects, tempo) still matches the track. */
+struct FrozenRender
+{
+    juce::File file;
+    AudioDataPtr data;               // null while loading
+    juce::String signature;
 };
 
 /** One region of a source file placed on the timeline.
@@ -110,6 +129,13 @@ struct Track
     bool drums = false;              // drum track: pattern clips played by its instrument
     std::vector<DrumPattern> patterns;
     std::shared_ptr<InstrumentSlot> instrument = std::make_shared<InstrumentSlot>();
+    int returnSlot = -1;             // >= 0: return track (send effect A-D), fed only by sends
+    std::shared_ptr<const FrozenRender> frozen;
+
+    [[nodiscard]] bool isReturn() const noexcept { return returnSlot >= 0; }
+    /** True when the track has a frozen render that matches its current content. */
+    [[nodiscard]] bool isFrozen(const ArrangementState& state) const;
+    [[nodiscard]] juce::int64 contentEnd() const noexcept;
 };
 
 struct ArrangementState
@@ -129,7 +155,17 @@ struct ArrangementState
     [[nodiscard]] int trackIndex(const juce::Uuid& id) const noexcept;
     [[nodiscard]] Clip* findClip(const juce::Uuid& id, int* trackIndex = nullptr) noexcept;
     [[nodiscard]] const Clip* findClip(const juce::Uuid& id, int* trackIndex = nullptr) const noexcept;
+    /** Index of the return track for slot (0-3), or -1. */
+    [[nodiscard]] int returnTrackIndex(int slot) const noexcept;
+    /** Where new tracks go: before the return tracks, which stay at the bottom. */
+    [[nodiscard]] int firstReturnIndex() const noexcept;
 };
+
+/** Everything that changes how a track sounds before its fader; a frozen
+    render is valid while this matches the signature it was made with. */
+juce::String freezeSignature(const Track&, const ArrangementState&);
+/** "A" ... "D". */
+juce::String returnName(int slot);
 
 /** Tempo grid helper: musical positions <-> samples. */
 struct TimeGrid
@@ -156,6 +192,10 @@ Track makeTrack(const ArrangementState& state, const juce::String& name);
 Clip makeClip(const juce::File& file, AudioDataPtr source, juce::int64 start);
 /** Creates a drum track with the default patterns and the built-in kit. */
 Track makeDrumTrack(const ArrangementState& state, const juce::String& name);
+/** Creates a return track for a free slot (A-D); returns nullopt when all four exist. */
+std::optional<Track> makeReturnTrack(const ArrangementState& state);
+/** Adds a track above the return tracks; returns its index. */
+int addTrack(ArrangementState& state, Track track);
 /** A clip repeating pattern patternIndex for length samples. */
 Clip makePatternClip(int patternIndex, const juce::String& name, juce::int64 start, juce::int64 length);
 

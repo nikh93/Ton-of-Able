@@ -4,6 +4,7 @@
 #include <atomic>
 #include <limits>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -12,6 +13,16 @@
 
 namespace daw
 {
+/** Options for ArrangementEngine::renderOffline (mixdown, stems, freezing). */
+struct OfflineRender
+{
+    int onlyTrack = -1;         // >= 0: just this track (a return track renders what the others send to it)
+    bool preFader = false;      // with onlyTrack: unity gain, centred, no sends (freezing)
+    bool useProcessors = false; // run the tracks' effect chains; the caller must own them exclusively
+    int processorBlock = 512;   // the chains' prepared maximum block size
+    const std::vector<TrackInstrument*>* instruments = nullptr; // offline instrument copies per track
+};
+
 /** Realtime side of the arrangement: transport, multitrack playback, input
     monitoring, metronome/count-in and multitrack recording.
 
@@ -44,6 +55,8 @@ public:
         bool drums = false;
         TrackInstrument* instrument = nullptr;
         const std::vector<DrumPattern>* patterns = nullptr;
+        int returnSlot = -1;          // >= 0: return track fed by the sends
+        bool frozen = false;          // clips hold the frozen render, chain and instrument are skipped
     };
 
     struct Snapshot
@@ -56,7 +69,11 @@ public:
         std::vector<std::shared_ptr<TrackInstrument>> retainedInstruments;
         std::vector<std::shared_ptr<const std::vector<DrumPattern>>> retainedPatterns;
         double samplesPerStep = 6000.0;       // one sixteenth note
+        std::array<int, maximumReturns> returnTracks { -1, -1, -1, -1 }; // index into tracks per slot
     };
+
+
+    using OfflineRender = daw::OfflineRender;
 
     struct RecordTarget
     {
@@ -82,12 +99,15 @@ public:
     ArrangementEngine(const ArrangementEngine&) = delete;
     ArrangementEngine& operator=(const ArrangementEngine&) = delete;
 
-    [[nodiscard]] static std::shared_ptr<const Snapshot> buildSnapshot(const ArrangementState&);
+    /** detachedFx: tracks whose effect chain is in offline use (export, freeze) and must not run live. */
+    [[nodiscard]] static std::shared_ptr<const Snapshot> buildSnapshot(const ArrangementState&, const std::set<juce::Uuid>* detachedFx = nullptr);
 
     // Message thread.
     void publish(std::shared_ptr<const Snapshot>);
     [[nodiscard]] std::shared_ptr<const Snapshot> currentSnapshot() const { return owned; }
     void releaseRetiredSnapshots();
+    /** Waits (briefly) until no audio callback can still use an older snapshot. */
+    void waitForAudioCallbacks() const;
     juce::Result startRecording(const std::vector<RecordTarget>&, double sampleRate, juce::int64 punchIn);
     std::vector<Take> stopRecording();
 
@@ -125,10 +145,9 @@ public:
                  float* outLeft, float* outRight, int numSamples) noexcept;
 
     /** Offline mixdown of [start, start + numSamples) into left/right (overwritten).
-        onlyTrack >= 0 renders just that track (volume and pan, ignoring mute/solo). */
+        With onlyTrack the track is rendered with its volume and pan, ignoring mute/solo. */
     static void renderOffline(const Snapshot&, juce::int64 start, int numSamples, float* left, float* right,
-                              juce::AudioBuffer<float>& scratch, int onlyTrack = -1,
-                              const std::vector<TrackInstrument*>* instruments = nullptr);
+                              juce::AudioBuffer<float>& scratch, const OfflineRender& options = {});
 
 private:
     struct RecordSlot
@@ -167,7 +186,7 @@ private:
 
     float currentMaster = 1.0f;
     int maximumBlock = 0;
-    juce::AudioBuffer<float> trackBuffer, mixBuffer, monoBuffer, instrumentBuffer;
+    juce::AudioBuffer<float> trackBuffer, mixBuffer, monoBuffer, instrumentBuffer, returnBuffer;
     static constexpr int maximumEvents = 512;
     std::array<DrumEvent, maximumEvents> events;
     std::atomic<int> auditionTrackIndex { -1 }, auditionPatternIndex { 0 }, auditionStepNow { -1 };

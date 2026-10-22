@@ -20,6 +20,7 @@ void RigChain::prepare(double sampleRate, int maximumBlockSize)
     graphicEq.prepare(spec);
     pitchShifter.prepare(sampleRate, maximumBlock);
     driveProcessor.prepare(spec);
+    compressor.prepare(spec);
     namBypassRamp.prepare(spec.sampleRate, false);
     namInputTrim.prepare(spec.sampleRate, .030, 0.f);
     irProcessor.prepare(spec);
@@ -56,6 +57,8 @@ void RigChain::applyEffectState(const SoundState& state)
     for (int band = 0; band < static_cast<int>(state.graphicEqDb.size()); ++band)
         setGraphicEqBandDb(band, state.graphicEqDb[static_cast<size_t>(band)]);
     setPitch(state.pitchBypassed, state.pitchSemitones, state.pitchMix, state.pitchFormantPreserved, state.pitchHighQuality);
+    setCompressor(state.compressorBypassed, state.compressorPreAmp, state.compressorThresholdDb, state.compressorRatio, state.compressorAttackMs,
+                  state.compressorReleaseMs, state.compressorKneeDb, state.compressorMakeupDb, state.compressorMix);
 }
 
 float RigChain::processWithInputPeak(float* mono, float* left, float* right, int numSamples) noexcept
@@ -81,6 +84,10 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
     pitchShifter.process(mono, numSamples);
     // Stack-backed channel view: process exactly the current callback length.
     juce::AudioBuffer<float> activeBuffer(&mono, 1, numSamples);
+    // Compressor either as a pedal in front of the amp or on the miked signal.
+    const auto compressPreAmp = compressorPreAmp.load(std::memory_order_relaxed);
+    if (compressPreAmp)
+        compressor.process(activeBuffer);
     driveProcessor.process(activeBuffer);
     preVst3.process(activeBuffer);
     namPedalProcessor.process(mono, numSamples);
@@ -99,6 +106,8 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
     irProcessor.process(activeBuffer);
     eqProcessor.process(activeBuffer);
     graphicEq.process(activeBuffer);
+    if (! compressPreAmp)
+        compressor.process(activeBuffer);
     autoWahProcessor.process(activeBuffer);
     chorusProcessor.process(activeBuffer);
     delayProcessor.process(activeBuffer);

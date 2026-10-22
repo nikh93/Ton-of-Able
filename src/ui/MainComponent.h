@@ -24,8 +24,10 @@
 #include "ui/arrangement/DrumMachineComponent.h"
 #include "audio/plugins/PluginInstrument.h"
 #include "daw/ArrangementController.h"
+#include "ui/shortcuts/Shortcuts.h"
 
-class MainComponent final : public juce::Component, public juce::FileDragAndDropTarget, private juce::Timer
+class MainComponent final : public juce::Component, public juce::FileDragAndDropTarget, public juce::ApplicationCommandTarget,
+                            private juce::Timer, private juce::ChangeListener
 {
 public:
     MainComponent();
@@ -36,11 +38,16 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void exportDesignPreviews(const juce::File&);
-    bool keyPressed(const juce::KeyPress&) override;
     bool isInterestedInFileDrag(const juce::StringArray&) override;
     void filesDropped(const juce::StringArray&, int, int) override;
     /** Opens a .tonproj (e.g. passed on the command line) in the arrangement view. */
     void openProject(const juce::File&);
+
+    // juce::ApplicationCommandTarget: every keyboard shortcut is a command (see ui/shortcuts).
+    juce::ApplicationCommandTarget* getNextCommandTarget() override { return nullptr; }
+    void getAllCommands(juce::Array<juce::CommandID>&) override;
+    void getCommandInfo(juce::CommandID, juce::ApplicationCommandInfo&) override;
+    bool perform(const InvocationInfo&) override;
 
 private:
     void chooseNamFile();
@@ -57,6 +64,10 @@ private:
     juce::File defaultAssetsDirectory() const;
     void registerBundledDefaults();
     void timerCallback() override;
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
+    void setUpCommands();
+    void saveKeyMappings(juce::ValueTree& uiState);
+    void showShortcuts();
     [[nodiscard]] SoundState captureSoundState(bool includePlugins = true);
     void applySoundState(const SoundState& state);
     void configurePresetBrowser();
@@ -99,6 +110,8 @@ private:
     bool arrangementVisible = false;
     PluginRackPanel pluginRack { audioEngine };
     std::unique_ptr<juce::DocumentWindow> pluginWindow;
+    juce::ApplicationCommandManager commandManager;
+    std::unique_ptr<juce::DocumentWindow> shortcutWindow; // after commandManager: it edits its key mappings
     juce::TextButton pluginsButton { "Pedals / VST3" };
     NamLibrary namLibrary;
     IRLibrary irLibrary;

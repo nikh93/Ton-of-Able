@@ -368,6 +368,16 @@ void TimelineComponent::paint(juce::Graphics& g)
                 g.setColour(Theme::danger().withAlpha(0.06f));
                 g.fillRect(lane);
             }
+            if (const auto& track = state.tracks[index]; track.isReturn())
+            {
+                // Return tracks hold no clips: they play what the other tracks send.
+                g.setColour(track.colour.withAlpha(0.07f));
+                g.fillRect(lane);
+                g.setColour(track.colour.withAlpha(0.55f));
+                g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+                g.drawText(text("Return ") + daw::returnName(track.returnSlot) + text(" · spielt, was die Spuren per SEND schicken (keine Clips)"),
+                           lane.reduced(12, 0), juce::Justification::centredLeft);
+            }
             g.setColour(juce::Colours::black.withAlpha(0.4f));
             g.drawHorizontalLine(lane.getBottom() - 1, 0.0f, static_cast<float>(getWidth()));
         }
@@ -392,6 +402,21 @@ void TimelineComponent::paint(juce::Graphics& g)
                 if (bounds.getRight() < 0.0f || bounds.getX() > static_cast<float>(getWidth()))
                     continue;
                 paintClip(g, clip, static_cast<int>(index), state.tracks[index]);
+            }
+            // Frozen (or freezing) tracks: an icy veil over the content.
+            const auto& track = state.tracks[index];
+            const auto isFreezing = controller.isFreezing(track.id);
+            if ((isFreezing || track.isFrozen(state)) && ! track.clips.empty())
+            {
+                const auto x0 = std::max(0.0f, sampleToX(static_cast<double>(track.clips.front().start)));
+                const auto x1 = std::min(static_cast<float>(getWidth()), sampleToX(static_cast<double>(track.contentEnd())));
+                const auto veil = juce::Rectangle<float>(x0, static_cast<float>(top + 2), std::max(0.0f, x1 - x0), static_cast<float>(laneHeight - 4));
+                g.setColour(juce::Colour(0xff9fd8ff).withAlpha(isFreezing ? 0.10f : 0.16f));
+                g.fillRect(veil);
+                g.setColour(juce::Colour(0xff9fd8ff).withAlpha(0.8f));
+                g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+                g.drawText(isFreezing ? text("wird eingefroren …") : text("❄ eingefroren"),
+                           veil.reduced(6.0f, 3.0f).removeFromBottom(14.0f), juce::Justification::bottomLeft);
             }
         }
 

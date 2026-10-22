@@ -61,6 +61,17 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     addChildComponent(drums);
     for (auto* button : { &arm, &mute, &solo, &monitor, &fx })
         addAndMakeVisible(*button);
+    send.setTooltip(text("Sends: wie viel dieser Spur in die Return-Spuren (Hall, Delay …) geht"));
+    send.onClick = [this] { showSends(); };
+    addAndMakeVisible(send);
+    frozenBadge.setTooltip(text("Eingefroren: spielt eine vorberechnete Datei statt Effekten und Instrument. Klick zum Auftauen."));
+    frozenBadge.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff9fd8ff));
+    frozenBadge.onClick = [this] { if (frozen) controller.unfreezeTrack(id); };
+    addChildComponent(frozenBadge);
+    role.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    role.setColour(juce::Label::textColourId, Theme::subduedText());
+    role.setInterceptsMouseClicks(false, false);
+    addChildComponent(role);
 
     input.setTooltip(text("Aufnahmequelle: NAM-Rig (bearbeitet) oder ein trockener Eingang des Interfaces"));
     input.onChange = [this]
@@ -101,11 +112,24 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
 {
     mixer = track.mixer;
     colour = track.colour;
-    if (isDrumTrack != track.drums)
+    const auto nowFrozen = track.isFrozen(controller.state());
+    const auto nowFreezing = controller.isFreezing(track.id);
+    if (isDrumTrack != track.drums || isReturnTrack != track.isReturn() || frozen != nowFrozen || freezing != nowFreezing)
     {
         isDrumTrack = track.drums;
+        isReturnTrack = track.isReturn();
+        frozen = nowFrozen;
+        freezing = nowFreezing;
         resized();
     }
+    frozenBadge.setButtonText(freezing ? juce::String(juce::CharPointer_UTF8("\xe2\x80\xa6")) : juce::String(juce::CharPointer_UTF8("\xe2\x9d\x84")));
+    arm.setEnabled(! frozen);
+    if (isReturnTrack)
+        role.setText(text("RETURN ") + daw::returnName(track.returnSlot) + text(" · Send-Effekt"), juce::dontSendNotification);
+    bool anySend = false;
+    for (int slot = 0; slot < daw::maximumReturns; ++slot)
+        anySend = anySend || (track.mixer->sendGain[static_cast<size_t>(slot)].load() > 0.0f && controller.state().returnTrackIndex(slot) >= 0);
+    send.setToggleState(anySend, juce::dontSendNotification);
     isSelected = selected;
     if (! name.isBeingEdited())
         name.setText(track.name, juce::dontSendNotification);
@@ -182,27 +206,44 @@ void TrackHeaderComponent::resized()
     top.removeFromRight(2);
     arm.setBounds(top.removeFromRight(26));
     top.removeFromRight(4);
+    frozenBadge.setVisible(frozen || freezing);
+    if (frozen || freezing)
+    {
+        frozenBadge.setBounds(top.removeFromRight(24));
+        top.removeFromRight(2);
+    }
     name.setBounds(top);
 
     const auto roomy = area.getHeight() >= 46;
-    arm.setVisible(! isDrumTrack);
+    arm.setVisible(! isDrumTrack && ! isReturnTrack);
     drums.setVisible(roomy && isDrumTrack);
-    input.setVisible(roomy && ! isDrumTrack);
+    input.setVisible(roomy && ! isDrumTrack && ! isReturnTrack);
+    role.setVisible(roomy && isReturnTrack);
     fx.setVisible(roomy);
-    monitor.setVisible(roomy && ! isDrumTrack);
+    send.setVisible(roomy && ! isReturnTrack);
+    monitor.setVisible(roomy && ! isDrumTrack && ! isReturnTrack);
     volume.setVisible(roomy);
     pan.setVisible(roomy);
     if (! roomy)
         return;
     area.removeFromTop(4);
     auto second = area.removeFromTop(20);
-    monitor.setBounds(second.removeFromRight(30));
-    second.removeFromRight(2);
+    if (! isReturnTrack)
+    {
+        monitor.setBounds(second.removeFromRight(30));
+        second.removeFromRight(2);
+    }
     fx.setBounds(second.removeFromRight(36));
-    second.removeFromRight(4);
+    second.removeFromRight(2);
+    if (! isReturnTrack)
+    {
+        send.setBounds(second.removeFromRight(44));
+        second.removeFromRight(4);
+    }
     input.setBounds(second);
+    role.setBounds(second);
     if (isDrumTrack)
-        drums.setBounds(input.getBounds().getUnion(monitor.getBounds()).withRight(fx.getX() - 4));
+        drums.setBounds(second);
     area.removeFromTop(2);
     auto third = area.removeFromTop(22);
     pan.setBounds(third.removeFromRight(26));
@@ -229,6 +270,16 @@ void TrackHeaderComponent::showMenu()
     menu.addItem(2, "Farbe wechseln");
     menu.addItem(3, text("Spur exportieren …"));
     menu.addItem(5, text("Spur-Effekte …"));
+    if (! isReturnTrack)
+    {
+        menu.addItem(8, text("Sends …"));
+        menu.addSeparator();
+        const auto* track = controller.state().findTrack(id);
+        const auto hasRender = track != nullptr && track->frozen != nullptr;
+        menu.addItem(6, text("Spur einfrieren"), ! frozen && ! freezing);
+        menu.addItem(9, text("Spur auftauen"), hasRender && ! freezing);
+        menu.addItem(7, text("Einfrieren und in Audio umwandeln"), ! freezing);
+    }
     menu.addSeparator();
     menu.addItem(4, text("Spur löschen"));
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [safe = juce::Component::SafePointer<TrackHeaderComponent>(this)](int result)
@@ -250,8 +301,87 @@ void TrackHeaderComponent::showMenu()
             case 3: if (self.onExportTrack) self.onExportTrack(trackId); break;
             case 4: self.controller.removeTrack(trackId); break; // destroys this component
             case 5: if (self.onOpenFx) self.onOpenFx(trackId); break;
+            case 6: self.controller.freezeTrack(trackId); break;
+            case 7: self.controller.flattenTrack(trackId); break;
+            case 8: self.showSends(); break;
+            case 9: self.controller.unfreezeTrack(trackId); break;
             default: break;
         }
     });
+}
+
+namespace
+{
+/** Send levels of one track, one slider per existing return track. */
+class SendPanel final : public juce::Component
+{
+public:
+    SendPanel(daw::ArrangementController& c, const juce::Uuid& track) : controller(c), trackId(track)
+    {
+        const auto& state = controller.state();
+        const auto* owner = state.findTrack(trackId);
+        for (int slot = 0; slot < daw::maximumReturns && owner != nullptr; ++slot)
+        {
+            const auto index = state.returnTrackIndex(slot);
+            if (index < 0)
+                continue;
+            auto& row = rows.emplace_back(std::make_unique<Row>());
+            row->slot = slot;
+            row->label.setText(state.tracks[static_cast<size_t>(index)].name, juce::dontSendNotification);
+            row->label.setColour(juce::Label::textColourId, Theme::text());
+            row->slider.setRange(-60.0, 6.0, 0.1);
+            row->slider.setSkewFactorFromMidPoint(-12.0);
+            row->slider.setDoubleClickReturnValue(true, -60.0);
+            row->slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 64, 20);
+            row->slider.textFromValueFunction = [](double v) { return v <= -59.9 ? juce::String("aus") : juce::String(v, 1) + " dB"; };
+            row->slider.valueFromTextFunction = [](const juce::String& t) { return t.trim().startsWithIgnoreCase("aus") ? -60.0 : t.getDoubleValue(); };
+            const auto gain = owner->mixer->sendGain[static_cast<size_t>(slot)].load();
+            row->slider.setValue(gain > 0.0f ? juce::Decibels::gainToDecibels(gain, -60.0f) : -60.0, juce::dontSendNotification);
+            row->slider.onValueChange = [this, slot, slider = &row->slider]
+            {
+                const auto db = slider->getValue();
+                controller.setSend(trackId, slot, db <= -59.9 ? 0.0f : juce::Decibels::decibelsToGain(static_cast<float>(db)));
+            };
+            addAndMakeVisible(row->label);
+            addAndMakeVisible(row->slider);
+        }
+        hint.setText(rows.empty() ? text("Noch keine Return-Spur: \"+ Spur\" → \"Return-Spur (Send-Effekt)\".")
+                                  : text("Post-Fader: der Send folgt Lautstärke, Panorama und Mute der Spur."),
+                     juce::dontSendNotification);
+        hint.setColour(juce::Label::textColourId, Theme::subduedText());
+        hint.setFont(juce::FontOptions(12.0f));
+        addAndMakeVisible(hint);
+        setSize(360, 34 + static_cast<int>(std::max<size_t>(rows.size(), 1)) * 30);
+    }
+
+    void resized() override
+    {
+        auto area = getLocalBounds().reduced(8);
+        hint.setBounds(area.removeFromBottom(20));
+        for (auto& row : rows)
+        {
+            auto line = area.removeFromTop(28);
+            row->label.setBounds(line.removeFromLeft(110));
+            row->slider.setBounds(line);
+        }
+    }
+
+private:
+    struct Row
+    {
+        int slot = 0;
+        juce::Label label;
+        juce::Slider slider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+    };
+    daw::ArrangementController& controller;
+    juce::Uuid trackId;
+    std::vector<std::unique_ptr<Row>> rows;
+    juce::Label hint;
+};
+} // namespace
+
+void TrackHeaderComponent::showSends()
+{
+    juce::CallOutBox::launchAsynchronously(std::make_unique<SendPanel>(controller, id), send.getScreenBounds(), nullptr);
 }
 } // namespace nam::ui

@@ -43,6 +43,15 @@ juce::ValueTree SoundState::toValueTree() const
     juce::StringArray bands;
     for (const auto band : graphicEqDb) bands.add(juce::String(band, 2));
     tree.setProperty("graphicEqDb", bands.joinIntoString(","), nullptr);
+    tree.setProperty("compressorBypassed", compressorBypassed, nullptr);
+    tree.setProperty("compressorPreAmp", compressorPreAmp, nullptr);
+    tree.setProperty("compressorThresholdDb", compressorThresholdDb, nullptr);
+    tree.setProperty("compressorRatio", compressorRatio, nullptr);
+    tree.setProperty("compressorAttackMs", compressorAttackMs, nullptr);
+    tree.setProperty("compressorReleaseMs", compressorReleaseMs, nullptr);
+    tree.setProperty("compressorKneeDb", compressorKneeDb, nullptr);
+    tree.setProperty("compressorMakeupDb", compressorMakeupDb, nullptr);
+    tree.setProperty("compressorMix", compressorMix, nullptr);
     tree.setProperty("pitchBypassed", pitchBypassed, nullptr);
     tree.setProperty("pitchSemitones", pitchSemitones, nullptr);
     tree.setProperty("pitchMix", pitchMix, nullptr);
@@ -77,6 +86,21 @@ std::optional<SoundState> SoundState::fromValueTree(const juce::ValueTree& tree,
         const auto value = bands[band].getFloatValue();
         result.graphicEqDb[static_cast<size_t>(band)] = std::isfinite(value) ? juce::jlimit(-12.0f, 12.0f, value) : 0.0f;
     }
+    // Optional: presets saved before the compressor load with it switched off.
+    const auto number = [&tree](const char* name, float fallback, float low, float high)
+    {
+        const auto value = static_cast<float>(static_cast<double>(tree.getProperty(name, fallback)));
+        return std::isfinite(value) ? juce::jlimit(low, high, value) : fallback;
+    };
+    result.compressorBypassed = static_cast<bool>(tree.getProperty("compressorBypassed", true));
+    result.compressorPreAmp = static_cast<bool>(tree.getProperty("compressorPreAmp", false));
+    result.compressorThresholdDb = number("compressorThresholdDb", -18.0f, -60.0f, 0.0f);
+    result.compressorRatio = number("compressorRatio", 4.0f, 1.0f, 20.0f);
+    result.compressorAttackMs = number("compressorAttackMs", 10.0f, 0.1f, 200.0f);
+    result.compressorReleaseMs = number("compressorReleaseMs", 150.0f, 5.0f, 2000.0f);
+    result.compressorKneeDb = number("compressorKneeDb", 6.0f, 0.0f, 18.0f);
+    result.compressorMakeupDb = number("compressorMakeupDb", 0.0f, 0.0f, 24.0f);
+    result.compressorMix = number("compressorMix", 1.0f, 0.0f, 1.0f);
     result.pitchBypassed = static_cast<bool>(tree.getProperty("pitchBypassed", true));
     result.pitchSemitones = juce::jlimit(-24.0f, 24.0f, static_cast<float>(tree.getProperty("pitchSemitones", -12.0f)));
     result.pitchMix = juce::jlimit(0.0f, 1.0f, static_cast<float>(tree.getProperty("pitchMix", 1.0f)));

@@ -6,3 +6,4 @@
 #include "DelayProcessor.h"
 #include "ReverbProcessor.h"
 #include "DriveProcessor.h"
+#include "CompressorProcessor.h"

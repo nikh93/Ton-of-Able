@@ -63,6 +63,21 @@ private:
     std::shared_ptr<PluginInstrument> instrument;
 };
 
+class ShortcutWindow final : public juce::DocumentWindow
+{
+public:
+    explicit ShortcutWindow(juce::KeyPressMappingSet& mappings)
+        : DocumentWindow(uiText("Tastenkürzel"), Theme::surface(), closeButton)
+    {
+        setUsingNativeTitleBar(true);
+        setContentOwned(new nam::ui::ShortcutEditor(mappings), true);
+        setResizable(true, false);
+        setResizeLimits(520, 480, 1200, 1400);
+        centreWithSize(getWidth(), getHeight());
+    }
+    void closeButtonPressed() override { setVisible(false); }
+};
+
 class RackWindow final : public juce::DocumentWindow
 {
 public:
@@ -253,6 +268,7 @@ MainComponent::MainComponent()
             if (auto sound=SoundState::fromValueTree(saved); sound && rigLibrary.find(sound->rigId))
                 applySoundState(*sound);
     configureArrangement();
+    setUpCommands();
     startTimerHz(4);
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     setSize(1280, 800);
@@ -262,6 +278,9 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    shortcutWindow.reset();
+    commandManager.getKeyMappings()->removeChangeListener(this);
+    removeKeyListener(commandManager.getKeyMappings());
     instrumentEditors.clear();
     instrumentScanPool.removeAllJobs(true, 5000);
     pluginWindow.reset();
@@ -273,6 +292,7 @@ MainComponent::~MainComponent()
     uiState.addChild(pluginRack.saveRack(),-1,nullptr);
     arrangementView.autosave();
     uiState.setProperty("modelFolder", modelFolderRoot.getFullPathName(), nullptr);
+    saveKeyMappings(uiState);
     uiState.removeChild(uiState.getChildWithName("arrangementView"),nullptr);
     auto arrangementState = arrangementView.saveState();
     arrangementState.setProperty("visible", arrangementVisible, nullptr);
@@ -1014,6 +1034,34 @@ void MainComponent::configureArrangement()
                 if (const auto sound = SoundState::fromValueTree(settings))
                     applyTrackSound(*chain, *sound);
         });
+    arrangementController.setReturnDefaults([](int slot)
+    {
+        // Returns start 100 % wet: A hall, B delay, C plate, D slapback.
+        auto sound = SoundState::defaults();
+        sound.namBypassed = true;
+        sound.irBypassed = true;
+        if (slot == 1 || slot == 3)
+        {
+            sound.delayBypassed = false;
+            sound.delayMix = 1.0f;
+            sound.delayTimeMs = slot == 1 ? 375.0f : 110.0f;
+            sound.delayFeedback = slot == 1 ? 0.38f : 0.1f;
+            sound.delayLowCutHz = 150.0f;
+            sound.delayHighCutHz = slot == 1 ? 5000.0f : 7000.0f;
+        }
+        else
+        {
+            sound.reverbBypassed = false;
+            sound.reverbMix = 1.0f;
+            sound.reverbSize = slot == 0 ? 0.75f : 0.55f;
+            sound.reverbDecay = slot == 0 ? 2.8f : 1.6f;
+            sound.reverbDamping = slot == 0 ? 0.45f : 0.2f;
+            sound.reverbPreDelayMs = slot == 0 ? 25.0f : 10.0f;
+            sound.reverbLowCutHz = 180.0f;
+            sound.reverbHighCutHz = slot == 0 ? 8000.0f : 12000.0f;
+        }
+        return sound.toValueTree();
+    });
 
     for (const auto& item : audioEngine.appSettings().loadUiState().getChildWithName("drumInstruments"))
         if (const auto xml = item.createXml())
@@ -1070,14 +1118,67 @@ void MainComponent::openProject(const juce::File& file)
         setArrangementVisible(true);
 }
 
-bool MainComponent::keyPressed(const juce::KeyPress& key)
+//==============================================================================
+void MainComponent::setUpCommands()
 {
-    if (key.getKeyCode() == juce::KeyPress::tabKey && ! key.getModifiers().isAnyModifierKeyDown())
+    nam::ui::installGermanShortcutTexts();
+    commandManager.registerAllCommandsForTarget(this);
+    commandManager.setFirstCommandTarget(this);
+    // Only the keys that differ from the defaults are stored.
+    if (const auto stored = audioEngine.appSettings().loadUiState().getChildWithName("KEYMAPPINGS"); stored.isValid())
+        if (const auto xml = stored.createXml())
+            commandManager.getKeyMappings()->restoreFromXml(*xml);
+    commandManager.getKeyMappings()->addChangeListener(this);
+    addKeyListener(commandManager.getKeyMappings());
+    arrangementView.onShowShortcuts = [this] { showShortcuts(); };
+}
+
+void MainComponent::saveKeyMappings(juce::ValueTree& uiState)
+{
+    uiState.removeChild(uiState.getChildWithName("KEYMAPPINGS"), nullptr);
+    if (const auto xml = commandManager.getKeyMappings()->createXml(true))
+        uiState.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
+}
+
+void MainComponent::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    // A shortcut was changed in the overview: store it right away.
+    auto& settings = audioEngine.appSettings();
+    auto uiState = settings.loadUiState();
+    if (! uiState.isValid())
+        uiState = juce::ValueTree("uiState");
+    saveKeyMappings(uiState);
+    settings.saveUiState(uiState);
+    settings.flush();
+}
+
+void MainComponent::showShortcuts()
+{
+    if (shortcutWindow == nullptr)
+        shortcutWindow = std::make_unique<ShortcutWindow>(*commandManager.getKeyMappings());
+    shortcutWindow->setVisible(true);
+    shortcutWindow->toFront(true);
+}
+
+void MainComponent::getAllCommands(juce::Array<juce::CommandID>& ids)
+{
+    for (const auto& definition : nam::ui::commandDefinitions())
+        ids.add(definition.id);
+}
+
+void MainComponent::getCommandInfo(juce::CommandID id, juce::ApplicationCommandInfo& info)
+{
+    nam::ui::describeCommand(id, info, arrangementVisible);
+}
+
+bool MainComponent::perform(const InvocationInfo& info)
+{
+    switch (info.commandID)
     {
-        setArrangementVisible(! arrangementVisible);
-        return true;
+        case nam::ui::commands::toggleView: setArrangementVisible(! arrangementVisible); return true;
+        case nam::ui::commands::showShortcuts: showShortcuts(); return true;
+        default: return arrangementVisible && arrangementView.performCommand(info.commandID);
     }
-    return false;
 }
 
 void MainComponent::applyGraphicEq(bool bypassed, const std::array<float, 10>& bands)

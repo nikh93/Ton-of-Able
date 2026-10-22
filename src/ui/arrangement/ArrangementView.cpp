@@ -3,6 +3,7 @@
 
 #include "daw/DawText.h"
 #include "ui/components/AmberTheme.h"
+#include "ui/shortcuts/Shortcuts.h"
 
 namespace nam::ui
 {
@@ -104,7 +105,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     exportButton.setTooltip("Mix oder einzelne Spuren exportieren");
 
     for (auto* button : { &toStart, &play, &stopButton, &record, &loop, &metronome, &countIn, &pointerTool, &splitTool, &stretchTool,
-                          &zoomOut, &zoomIn, &zoomFit, &undo, &redo, &addTrack, &importButton, &exportButton, &projectButton })
+                          &zoomOut, &zoomIn, &zoomFit, &undo, &redo, &addTrack, &importButton, &exportButton, &projectButton, &shortcutsButton })
     {
         button->setWantsKeyboardFocus(false);
         addAndMakeVisible(*button);
@@ -150,11 +151,17 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
         for (const auto& input : controller.availableInputs())
             if (input.channel >= 0)
                 menu.addItem("Spur mit " + input.name, [this, channel = input.channel] { controller.addTrack({}, channel); });
+        menu.addSeparator();
+        menu.addItem(text("Return-Spur (Send-Effekt: Hall, Delay …)"), daw::edit::makeReturnTrack(controller.state()).has_value(), false,
+                     [this] { controller.addReturnTrack(); });
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&addTrack));
     };
     importButton.onClick = [this] { chooseImport(); };
     exportButton.onClick = [this] { showExportMenu(); };
     projectButton.onClick = [this] { showProjectMenu(); };
+    shortcutsButton.setButtonText(text("Tasten"));
+    shortcutsButton.setTooltip(text("Tastenkürzel ansehen und frei belegen (F1)"));
+    shortcutsButton.onClick = [this] { if (onShowShortcuts) onShowShortcuts(); };
 
     position.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 15.0f, juce::Font::bold));
     position.setColour(juce::Label::textColourId, Theme::amberBright());
@@ -492,7 +499,8 @@ void ArrangementView::resized()
     place(redo, 74, 12);
     place(addTrack, 66, 4);
     place(importButton, 66, 4);
-    place(exportButton, 66, 8);
+    place(exportButton, 66, 4);
+    place(shortcutsButton, 60, 8);
     projectName.setBounds(row);
 
     area.removeFromTop(6);
@@ -510,52 +518,63 @@ void ArrangementView::visibilityChanged()
         timeline.grabKeyboardFocus();
 }
 
-bool ArrangementView::keyPressed(const juce::KeyPress& key)
+bool ArrangementView::performCommand(juce::CommandID id)
 {
-    const auto mods = key.getModifiers();
-    const auto command = mods.isCommandDown();
-    const auto code = key.getKeyCode();
-    const auto character = juce::CharacterFunctions::toLowerCase(key.getTextCharacter());
-    if (code == juce::KeyPress::spaceKey) { controller.togglePlay(); return true; }
-    if (code == juce::KeyPress::F9Key) { controller.toggleRecord(timeline.selectedTrack()); return true; }
-    if (code == juce::KeyPress::homeKey) { controller.locate(0); return true; }
-    if (code == juce::KeyPress::deleteKey || code == juce::KeyPress::backspaceKey) { timeline.deleteSelection(); return true; }
-    if (code == juce::KeyPress::escapeKey) { controller.cancelGesture(); return true; }
-    if (command)
+    namespace cmd = commands;
+    const auto selected = timeline.selectedTrack();
+    const auto* track = selected >= 0 && selected < static_cast<int>(controller.state().tracks.size())
+                      ? &controller.state().tracks[static_cast<size_t>(selected)] : nullptr;
+    const auto needTrack = [this, track]
     {
-        const auto upper = juce::CharacterFunctions::toUpperCase(static_cast<juce::juce_wchar>(code));
-        switch (upper)
-        {
-            case 'Z': mods.isShiftDown() ? controller.redo() : controller.undo(); return true;
-            case 'Y': controller.redo(); return true;
-            case 'E': timeline.splitAtPlayhead(); return true;
-            case 'D': timeline.duplicateSelection(); return true;
-            case 'C': timeline.copySelection(); return true;
-            case 'X': timeline.cutSelection(); return true;
-            case 'V': timeline.paste(); return true;
-            case 'A': timeline.selectAll(); return true;
-            case 'T': controller.addTrack({}, -1); return true;
-            case 'I': chooseImport(); return true;
-            case 'L': loop.triggerClick(); return true;
-            case 'S': saveProject(mods.isShiftDown()); return true;
-            case 'O': openProject(); return true;
-            case '+':
-            case '=': timeline.zoomBy(0.5, static_cast<float>(timeline.getWidth()) * 0.5f); return true;
-            case '-': timeline.zoomBy(2.0, static_cast<float>(timeline.getWidth()) * 0.5f); return true;
-            default: break;
-        }
-        return false;
-    }
-    switch (character)
+        if (track == nullptr)
+            status(text("Erst eine Spur auswählen (Klick auf den Spurkopf)."));
+        return track != nullptr;
+    };
+    switch (id)
     {
-        case 'v': pointerTool.setToggleState(true, juce::sendNotificationSync); return true;
-        case 'c': splitTool.setToggleState(true, juce::sendNotificationSync); return true;
-        case 't': stretchTool.setToggleState(true, juce::sendNotificationSync); return true;
-        case 'f': followEnabled = ! followEnabled; status(followEnabled ? "Mitlaufen an" : "Mitlaufen aus"); return true;
-        case 'z': timeline.zoomToFit(); return true;
-        default: break;
+        case cmd::playStop: controller.togglePlay(); return true;
+        case cmd::record: controller.toggleRecord(selected); return true;
+        case cmd::toStart: controller.locate(0); return true;
+        case cmd::loop: loop.triggerClick(); return true;
+        case cmd::metronome: metronome.triggerClick(); return true;
+        case cmd::countIn: countIn.triggerClick(); return true;
+        case cmd::undo: controller.undo(); return true;
+        case cmd::redo: controller.redo(); return true;
+        case cmd::split: timeline.splitAtPlayhead(); return true;
+        case cmd::duplicate: timeline.duplicateSelection(); return true;
+        case cmd::copy: timeline.copySelection(); return true;
+        case cmd::cut: timeline.cutSelection(); return true;
+        case cmd::paste: timeline.paste(); return true;
+        case cmd::selectAll: timeline.selectAll(); return true;
+        case cmd::deleteSelection: timeline.deleteSelection(); return true;
+        case cmd::cancel: controller.cancelGesture(); return true;
+        case cmd::pointerTool: pointerTool.setToggleState(true, juce::sendNotificationSync); return true;
+        case cmd::splitTool: splitTool.setToggleState(true, juce::sendNotificationSync); return true;
+        case cmd::stretchTool: stretchTool.setToggleState(true, juce::sendNotificationSync); return true;
+        case cmd::zoomIn: timeline.zoomBy(0.5, static_cast<float>(timeline.getWidth()) * 0.5f); return true;
+        case cmd::zoomOut: timeline.zoomBy(2.0, static_cast<float>(timeline.getWidth()) * 0.5f); return true;
+        case cmd::zoomFit: timeline.zoomToFit(); return true;
+        case cmd::follow: followEnabled = ! followEnabled; status(followEnabled ? "Mitlaufen an" : "Mitlaufen aus"); return true;
+        case cmd::newTrack: controller.addTrack({}, -1); return true;
+        case cmd::newDrumTrack: openDrumMachine(controller.addDrumTrack(), 0); return true;
+        case cmd::newReturnTrack: controller.addReturnTrack(); return true;
+        case cmd::freezeTrack: if (needTrack()) controller.freezeTrack(track->id); return true;
+        case cmd::unfreezeTrack: if (needTrack()) controller.unfreezeTrack(track->id); return true;
+        case cmd::flattenTrack: if (needTrack()) controller.flattenTrack(track->id); return true;
+        case cmd::trackFx: if (needTrack()) openTrackFx(track->id); return true;
+        case cmd::trackSends:
+            if (needTrack())
+                for (auto& header : headers)
+                    if (header->trackId() == track->id)
+                        header->showSends();
+            return true;
+        case cmd::save: saveProject(false); return true;
+        case cmd::saveAs: saveProject(true); return true;
+        case cmd::open: openProject(); return true;
+        case cmd::import: chooseImport(); return true;
+        case cmd::exportAudio: showExportMenu(); return true;
+        default: return false;
     }
-    return false; // e.g. Tab bubbles up to switch views
 }
 
 //==============================================================================

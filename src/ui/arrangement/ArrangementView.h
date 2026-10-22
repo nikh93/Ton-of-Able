@@ -12,8 +12,9 @@
 namespace nam::ui
 {
 /** Multitrack arrangement view: transport and tool bars, track headers,
-    timeline and scroll bars. Keyboard shortcuts follow Ableton Live where
-    possible (Space, F9, Ctrl+E, Ctrl+D, Ctrl+T, Ctrl+L, Ctrl+Z ...). */
+    timeline and scroll bars. Keyboard commands arrive through the app's
+    command manager; their default keys follow Ableton Live where possible
+    (Space, F9, Ctrl+E, Ctrl+D, Ctrl+T, Ctrl+L, Ctrl+Z ...) and can be changed. */
 class ArrangementView final : public juce::Component, private juce::Timer, private juce::ScrollBar::Listener
 {
 public:
@@ -27,6 +28,8 @@ public:
     void autosave();
 
     std::function<void(const juce::String&)> onStatus;
+    /** Opens the shortcut overview (owned by the app). */
+    std::function<void()> onShowShortcuts;
     /** Supplies the editor for a track's effect chain (needs the app's libraries). */
     std::function<std::unique_ptr<juce::Component>(const juce::Uuid& trackId)> createTrackFxEditor;
     void openTrackFx(const juce::Uuid& trackId);
@@ -36,8 +39,9 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
-    bool keyPressed(const juce::KeyPress&) override;
     void visibilityChanged() override;
+    /** Executes a keyboard command (see ui/shortcuts/Shortcuts.h); false if unknown. */
+    bool performCommand(juce::CommandID);
 
 private:
     class HeaderColumn;
@@ -72,7 +76,7 @@ private:
     juce::Slider master { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
     juce::TextButton pointerTool { "Zeiger" }, splitTool { "Schere" }, stretchTool { "Stretch" };
     juce::TextButton zoomOut { "-" }, zoomIn { "+" }, zoomFit { "Alles" };
-    juce::TextButton undo, redo, addTrack { "+ Spur" }, importButton { "Import" }, exportButton { "Export" }, projectButton { "Projekt" };
+    juce::TextButton undo, redo, addTrack { "+ Spur" }, importButton { "Import" }, exportButton { "Export" }, projectButton { "Projekt" }, shortcutsButton;
     juce::Label projectName;
 
     daw::codecs::ExportFormat exportFormat = daw::codecs::ExportFormat::wav24;

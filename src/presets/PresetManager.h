@@ -33,6 +33,10 @@ struct SoundState
     // Ten-band graphic EQ after the amp EQ: 31.5 Hz ... 16 kHz, +/-12 dB.
     bool graphicEqBypassed = true;
     std::array<float, 10> graphicEqDb {};
+    // Compressor: after the amp (mixing) or, with compressorPreAmp, in front of drive and NAM (pedal).
+    bool compressorBypassed = true, compressorPreAmp = false;
+    float compressorThresholdDb = -18.0f, compressorRatio = 4.0f, compressorAttackMs = 10.0f, compressorReleaseMs = 150.0f,
+          compressorKneeDb = 6.0f, compressorMakeupDb = 0.0f, compressorMix = 1.0f;
     // Live pitch shifter (Rubber Band) in front of the rig, e.g. an octave down.
     bool pitchBypassed = true;
     float pitchSemitones = -12.0f, pitchMix = 1.0f;

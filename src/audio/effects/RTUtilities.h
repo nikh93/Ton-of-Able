@@ -69,6 +69,12 @@ public:
         return mix.getNextValue();
     }
 
+    /** Audio thread: bypassed and the fade-out has finished, so processing can be skipped. */
+    [[nodiscard]] bool isFullyBypassed() const noexcept
+    {
+        return bypassed.load(std::memory_order_relaxed) && cachedBypass && ! mix.isSmoothing();
+    }
+
 private:
     std::atomic<bool> bypassed { false };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mix;

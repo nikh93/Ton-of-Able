@@ -104,6 +104,38 @@ bool anySolo(const ArrangementEngine::Snapshot& snapshot) noexcept
             return true;
     return false;
 }
+
+// Return tracks are solo-safe: soloing a guitar keeps its reverb audible.
+bool silencedBySolo(const ArrangementEngine::TrackRender& track, bool solo) noexcept
+{
+    return solo && track.returnSlot < 0 && ! track.mixer->soloed.load(std::memory_order_relaxed);
+}
+
+// Adds left/right, scaled by a send gain ramping from -> to, into a return bus.
+void addToReturn(const float* left, const float* right, float* busLeft, float* busRight, int length, float from, float to) noexcept
+{
+    if (from == 0.0f && to == 0.0f)
+        return;
+    for (int sample = 0; sample < length; ++sample)
+    {
+        const auto gain = from + (to - from) * static_cast<float>(sample + 1) / static_cast<float>(length);
+        busLeft[sample] += left[sample] * gain;
+        busRight[sample] += right[sample] * gain;
+    }
+}
+
+// Runs a chain over a stereo buffer in pieces no longer than its prepared block size.
+void runChain(TrackProcessor& processor, float* left, float* right, float* mono, int length, int block) noexcept
+{
+    for (int done = 0; done < length;)
+    {
+        const auto count = std::min(block, length - done);
+        for (int sample = 0; sample < count; ++sample)
+            mono[sample] = 0.5f * (left[done + sample] + right[done + sample]);
+        processor.process(mono, left + done, right + done, count);
+        done += count;
+    }
+}
 } // namespace
 
 ArrangementEngine::ArrangementEngine()
@@ -117,7 +149,7 @@ ArrangementEngine::~ArrangementEngine()
     diskThread.stopThread(2000);
 }
 
-std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnapshot(const ArrangementState& state)
+std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnapshot(const ArrangementState& state, const std::set<juce::Uuid>* detachedFx)
 {
     auto snapshot = std::make_shared<Snapshot>();
     snapshot->tracks.reserve(state.tracks.size());
@@ -127,8 +159,30 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         render.id = track.id;
         render.mixer = track.mixer.get();
         render.fx = track.fx.get();
-        render.processor = track.fx->processor.get();
+        render.returnSlot = track.returnSlot;
+        if (track.isReturn() && snapshot->returnTracks[static_cast<size_t>(track.returnSlot)] < 0)
+            snapshot->returnTracks[static_cast<size_t>(track.returnSlot)] = static_cast<int>(snapshot->tracks.size());
         snapshot->retainedFx.push_back(track.fx);
+        snapshot->retainedMixers.push_back(track.mixer);
+
+        // A frozen track plays its render: no chain, no instrument, no recording.
+        if (! track.isReturn() && track.isFrozen(state))
+        {
+            render.frozen = true;
+            if (const auto& data = track.frozen->data; data != nullptr && data->length() > 0)
+            {
+                ClipRender c;
+                c.length = data->length();
+                c.original = data.get();
+                snapshot->retainedAudio.push_back(data);
+                render.clips.push_back(c);
+            }
+            snapshot->tracks.push_back(std::move(render));
+            continue;
+        }
+
+        const auto detached = detachedFx != nullptr && detachedFx->count(track.id) > 0;
+        render.processor = detached ? nullptr : track.fx->processor.get();
         if (track.fx->processor != nullptr)
             snapshot->retainedProcessors.push_back(track.fx->processor);
         if (track.drums)
@@ -143,12 +197,13 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
                 snapshot->retainedInstruments.push_back(track.instrument->instrument);
             }
         }
-        render.armed = track.armed;
+        render.armed = track.armed && ! track.isReturn();
         render.monitorInput = track.monitorInput;
         render.inputChannel = track.inputChannel;
-        snapshot->retainedMixers.push_back(track.mixer);
         for (const auto& clip : track.clips)
         {
+            if (track.isReturn())
+                break;
             if (clip.isPattern() && clip.length > 0)
             {
                 ClipRender c;
@@ -197,6 +252,14 @@ void ArrangementEngine::releaseRetiredSnapshots()
     // with none in flight, no callback can still hold a retired pointer.
     if (! retired.empty() && callbacksInFlight.load() == 0)
         retired.clear();
+}
+
+void ArrangementEngine::waitForAudioCallbacks() const
+{
+    // A callback that starts after a publish sees the new snapshot; once none
+    // is in flight, nothing can still be using a chain left out of it.
+    for (int spin = 0; callbacksInFlight.load() != 0 && spin < 500; ++spin)
+        juce::Thread::sleep(1);
 }
 
 void ArrangementEngine::setPosition(juce::int64 value) noexcept
@@ -295,6 +358,7 @@ void ArrangementEngine::prepare(double rate, int maximumBlockSize)
     mixBuffer.setSize(2, maximumBlock, false, true, false);
     monoBuffer.setSize(1, maximumBlock, false, true, false);
     instrumentBuffer.setSize(2, maximumBlock, false, true, false);
+    returnBuffer.setSize(2 * maximumReturns, maximumBlock, false, true, false);
     silence.assign(static_cast<size_t>(maximumBlock), 0.0f);
     // The device is stopped here, so the published chains can be re-prepared.
     if (owned != nullptr)
@@ -392,104 +456,139 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
         auditionSeenGeneration = generation;
         auditionPosition = 0;
     }
-    for (size_t trackIndex = 0; trackIndex < snapshot.tracks.size(); ++trackIndex)
-    {
-        const auto& track = snapshot.tracks[trackIndex];
-        auto& mixer = *track.mixer;
-        const auto fxOn = track.processor != nullptr && track.fx->enabled.load(std::memory_order_relaxed);
-        const auto print = fxOn && track.fx->printWhileRecording.load(std::memory_order_relaxed);
-        const auto* input = track.inputChannel >= 0 && track.inputChannel < numInputs && inputs[track.inputChannel] != nullptr
-                          ? inputs[track.inputChannel] + inputOffset : nullptr;
-        // Armed dry-input tracks listen to their input while recording, and
-        // while stopped when monitoring is on; otherwise they play their clips.
-        const auto takesInput = track.armed && input != nullptr && (recordingNow || (! playingNow && track.monitorInput));
+    for (int channel = 0; channel < returnBuffer.getNumChannels(); ++channel)
+        juce::FloatVectorOperations::clear(returnBuffer.getWritePointer(channel), length);
 
-        juce::FloatVectorOperations::clear(left, length);
-        juce::FloatVectorOperations::clear(right, length);
-        auto audible = true;
-        if (takesInput)
+    // First every normal track (feeding the sends), then the return tracks.
+    for (int pass = 0; pass < 2; ++pass)
+        for (size_t trackIndex = 0; trackIndex < snapshot.tracks.size(); ++trackIndex)
         {
-            if (fxOn)
+            const auto& track = snapshot.tracks[trackIndex];
+            const auto isReturn = track.returnSlot >= 0;
+            if (isReturn != (pass == 1))
+                continue;
+            auto& mixer = *track.mixer;
+            const auto fxOn = track.processor != nullptr && track.fx->enabled.load(std::memory_order_relaxed);
+            const auto print = fxOn && ! isReturn && track.fx->printWhileRecording.load(std::memory_order_relaxed);
+
+            juce::FloatVectorOperations::clear(left, length);
+            juce::FloatVectorOperations::clear(right, length);
+            auto audible = true;
+            if (isReturn)
             {
-                juce::FloatVectorOperations::copy(mono, input, length);
-                track.processor->process(mono, left, right, length);
-            }
-            else
-            {
-                juce::FloatVectorOperations::copy(left, input, length);
-                juce::FloatVectorOperations::copy(right, input, length);
-            }
-            if (recordingNow)
-                recordTrack(track.id, print ? left : input, print ? right : input, position, length);
-            audible = track.monitorInput;
-        }
-        else
-        {
-            if (playingNow && ! (recordingNow && track.armed))
-            {
-                renderTrackClips(track, position, length, left, right);
-                if (fxOn && ! print)
+                const auto slot = static_cast<int>(track.returnSlot);
+                juce::FloatVectorOperations::copy(left, returnBuffer.getReadPointer(2 * slot), length);
+                juce::FloatVectorOperations::copy(right, returnBuffer.getReadPointer(2 * slot + 1), length);
+                if (fxOn)
                 {
-                    // Insert mode: the chain is applied to the recorded audio on playback.
                     for (int sample = 0; sample < length; ++sample)
                         mono[sample] = 0.5f * (left[sample] + right[sample]);
                     track.processor->process(mono, left, right, length);
                 }
             }
             else
-                audible = false;
-            if (track.drums && track.instrument != nullptr)
             {
-                // The instrument always runs, so hits ring out and previews sound.
-                int count = 0;
-                if (playingNow && ! (recordingNow && track.armed))
-                    count = collectTrackEvents(track, snapshot.samplesPerStep, position, length, events.data(), maximumEvents);
-                else if (! playingNow && audition == static_cast<int>(trackIndex) && track.patterns != nullptr && ! track.patterns->empty())
+                const auto* input = track.inputChannel >= 0 && track.inputChannel < numInputs && inputs[track.inputChannel] != nullptr
+                                  ? inputs[track.inputChannel] + inputOffset : nullptr;
+                // Armed dry-input tracks listen to their input while recording, and
+                // while stopped when monitoring is on; otherwise they play their clips.
+                const auto takesInput = track.armed && input != nullptr && (recordingNow || (! playingNow && track.monitorInput));
+                if (takesInput)
                 {
-                    const auto& pattern = (*track.patterns)[static_cast<size_t>(std::min(auditionPatternIndex.load(), static_cast<int>(track.patterns->size()) - 1))];
-                    count = collectPatternEvents(pattern, snapshot.samplesPerStep, 0, std::numeric_limits<juce::int64>::max() / 2, 0.0,
-                                                 auditionPosition, length, events.data(), maximumEvents);
-                    auditionPosition += length;
-                    const auto step = static_cast<int>(static_cast<double>(auditionPosition) / snapshot.samplesPerStep) % std::max(1, pattern.steps);
-                    auditionStepNow.store(step);
+                    if (fxOn)
+                    {
+                        juce::FloatVectorOperations::copy(mono, input, length);
+                        track.processor->process(mono, left, right, length);
+                    }
+                    else
+                    {
+                        juce::FloatVectorOperations::copy(left, input, length);
+                        juce::FloatVectorOperations::copy(right, input, length);
+                    }
+                    if (recordingNow)
+                        recordTrack(track.id, print ? left : input, print ? right : input, position, length);
+                    audible = track.monitorInput;
                 }
-                sortEvents(events.data(), count);
-                auto* instrumentLeft = instrumentBuffer.getWritePointer(0);
-                auto* instrumentRight = instrumentBuffer.getWritePointer(1);
-                track.instrument->render(events.data(), count, instrumentLeft, instrumentRight, length);
-                juce::FloatVectorOperations::add(left, instrumentLeft, length);
-                juce::FloatVectorOperations::add(right, instrumentRight, length);
-                audible = true;
+                else
+                {
+                    if (playingNow && ! (recordingNow && track.armed))
+                    {
+                        renderTrackClips(track, position, length, left, right);
+                        if (fxOn && ! print)
+                        {
+                            // Insert mode: the chain is applied to the recorded audio on playback.
+                            for (int sample = 0; sample < length; ++sample)
+                                mono[sample] = 0.5f * (left[sample] + right[sample]);
+                            track.processor->process(mono, left, right, length);
+                        }
+                    }
+                    else
+                        audible = false;
+                    if (track.drums && track.instrument != nullptr)
+                    {
+                        // The instrument always runs, so hits ring out and previews sound.
+                        int count = 0;
+                        if (playingNow && ! (recordingNow && track.armed))
+                            count = collectTrackEvents(track, snapshot.samplesPerStep, position, length, events.data(), maximumEvents);
+                        else if (! playingNow && audition == static_cast<int>(trackIndex) && track.patterns != nullptr && ! track.patterns->empty())
+                        {
+                            const auto& pattern = (*track.patterns)[static_cast<size_t>(std::min(auditionPatternIndex.load(), static_cast<int>(track.patterns->size()) - 1))];
+                            count = collectPatternEvents(pattern, snapshot.samplesPerStep, 0, std::numeric_limits<juce::int64>::max() / 2, 0.0,
+                                                         auditionPosition, length, events.data(), maximumEvents);
+                            auditionPosition += length;
+                            const auto step = static_cast<int>(static_cast<double>(auditionPosition) / snapshot.samplesPerStep) % std::max(1, pattern.steps);
+                            auditionStepNow.store(step);
+                        }
+                        sortEvents(events.data(), count);
+                        auto* instrumentLeft = instrumentBuffer.getWritePointer(0);
+                        auto* instrumentRight = instrumentBuffer.getWritePointer(1);
+                        track.instrument->render(events.data(), count, instrumentLeft, instrumentRight, length);
+                        juce::FloatVectorOperations::add(left, instrumentLeft, length);
+                        juce::FloatVectorOperations::add(right, instrumentRight, length);
+                        audible = true;
+                    }
+                    if (recordingNow && track.armed && track.inputChannel < 0)
+                        recordTrack(track.id, rigLeft != nullptr ? rigLeft + inputOffset : silence.data(),
+                                    rigRight != nullptr ? rigRight + inputOffset : silence.data(), position, length);
+                }
             }
-            if (recordingNow && track.armed && track.inputChannel < 0)
-                recordTrack(track.id, rigLeft != nullptr ? rigLeft + inputOffset : silence.data(),
-                            rigRight != nullptr ? rigRight + inputOffset : silence.data(), position, length);
-        }
 
-        auto [targetLeft, targetRight] = balanceGains(mixer);
-        if ((solo && ! mixer.soloed.load(std::memory_order_relaxed)) || ! audible)
-            targetLeft = targetRight = 0.0f;
-        if (! mixer.gainInitialised)
-        {
+            auto [targetLeft, targetRight] = balanceGains(mixer);
+            if (silencedBySolo(track, solo) || ! audible)
+                targetLeft = targetRight = 0.0f;
+            if (! mixer.gainInitialised)
+            {
+                mixer.currentLeft = targetLeft;
+                mixer.currentRight = targetRight;
+                mixer.gainInitialised = true;
+            }
+            float peak = 0.0f;
+            for (int sample = 0; sample < length; ++sample)
+            {
+                const auto amount = static_cast<float>(sample + 1) / static_cast<float>(length);
+                left[sample] *= mixer.currentLeft + (targetLeft - mixer.currentLeft) * amount;
+                right[sample] *= mixer.currentRight + (targetRight - mixer.currentRight) * amount;
+                mixLeft[mixOffset + sample] += left[sample];
+                mixRight[mixOffset + sample] += right[sample];
+                peak = std::max(peak, std::max(std::abs(left[sample]), std::abs(right[sample])));
+            }
             mixer.currentLeft = targetLeft;
             mixer.currentRight = targetRight;
-            mixer.gainInitialised = true;
+            if (peak > mixer.meter.load(std::memory_order_relaxed))
+                mixer.meter.store(peak, std::memory_order_relaxed);
+
+            if (isReturn)
+                continue;
+            // Post-fader sends: the track as heard, scaled per return.
+            for (int slot = 0; slot < maximumReturns; ++slot)
+            {
+                auto& current = mixer.currentSend[static_cast<size_t>(slot)];
+                const auto target = snapshot.returnTracks[static_cast<size_t>(slot)] >= 0
+                                  ? mixer.sendGain[static_cast<size_t>(slot)].load(std::memory_order_relaxed) : 0.0f;
+                addToReturn(left, right, returnBuffer.getWritePointer(2 * slot), returnBuffer.getWritePointer(2 * slot + 1), length, current, target);
+                current = target;
+            }
         }
-        float peak = 0.0f;
-        for (int sample = 0; sample < length; ++sample)
-        {
-            const auto amount = static_cast<float>(sample + 1) / static_cast<float>(length);
-            const auto l = left[sample] * (mixer.currentLeft + (targetLeft - mixer.currentLeft) * amount);
-            const auto r = right[sample] * (mixer.currentRight + (targetRight - mixer.currentRight) * amount);
-            mixLeft[mixOffset + sample] += l;
-            mixRight[mixOffset + sample] += r;
-            peak = std::max(peak, std::max(std::abs(l), std::abs(r)));
-        }
-        mixer.currentLeft = targetLeft;
-        mixer.currentRight = targetRight;
-        if (peak > mixer.meter.load(std::memory_order_relaxed))
-            mixer.meter.store(peak, std::memory_order_relaxed);
-    }
 }
 
 void ArrangementEngine::recordTrack(const juce::Uuid& trackId, const float* left, const float* right, juce::int64 position, int length) noexcept
@@ -536,44 +635,95 @@ void ArrangementEngine::renderClick(juce::int64 position, float* outLeft, float*
 }
 
 void ArrangementEngine::renderOffline(const Snapshot& snapshot, juce::int64 start, int numSamples, float* left, float* right,
-                                      juce::AudioBuffer<float>& scratch, int onlyTrack,
-                                      const std::vector<TrackInstrument*>* instruments)
+                                      juce::AudioBuffer<float>& scratch, const OfflineRender& options)
 {
     juce::FloatVectorOperations::clear(left, numSamples);
     juce::FloatVectorOperations::clear(right, numSamples);
-    scratch.setSize(4, numSamples, false, false, true);
+    // 0/1 track, 2/3 instrument, 4 mono for the chains, then one stereo pair per return.
+    constexpr int returnChannel = 5;
+    scratch.setSize(returnChannel + 2 * maximumReturns, numSamples, false, false, true);
+    for (int channel = returnChannel; channel < scratch.getNumChannels(); ++channel)
+        juce::FloatVectorOperations::clear(scratch.getWritePointer(channel), numSamples);
     std::vector<DrumEvent> offlineEvents(static_cast<size_t>(maximumEvents) * 4);
     const auto solo = anySolo(snapshot);
-    for (size_t index = 0; index < snapshot.tracks.size(); ++index)
-    {
-        const auto& track = snapshot.tracks[index];
-        auto [gainLeft, gainRight] = balanceGains(*track.mixer);
-        if (onlyTrack >= 0)
+    const auto only = options.onlyTrack >= 0 && options.onlyTrack < static_cast<int>(snapshot.tracks.size()) ? options.onlyTrack : -1;
+    const auto onlyIsReturn = only >= 0 && snapshot.tracks[static_cast<size_t>(only)].returnSlot >= 0;
+    // Sends matter for the full mix and for the stem of a return track.
+    const auto withSends = ! options.preFader && (only < 0 || onlyIsReturn);
+    auto* trackLeft = scratch.getWritePointer(0);
+    auto* trackRight = scratch.getWritePointer(1);
+
+    for (int pass = 0; pass < 2; ++pass)
+        for (size_t index = 0; index < snapshot.tracks.size(); ++index)
         {
-            if (static_cast<int>(index) != onlyTrack)
+            const auto& track = snapshot.tracks[index];
+            const auto isReturn = track.returnSlot >= 0;
+            if (isReturn != (pass == 1))
                 continue;
-            const auto gain = juce::Decibels::decibelsToGain(track.mixer->volumeDb.load(), -60.0f);
-            const auto pan = juce::jlimit(-1.0f, 1.0f, track.mixer->pan.load());
-            gainLeft = gain * std::min(1.0f, 1.0f - pan);
-            gainRight = gain * std::min(1.0f, 1.0f + pan);
+            const auto toOutput = only < 0 || static_cast<int>(index) == only;
+            if (! toOutput && ! (onlyIsReturn && ! isReturn))
+                continue;
+
+            auto [gainLeft, gainRight] = balanceGains(*track.mixer);
+            if (silencedBySolo(track, solo))
+                gainLeft = gainRight = 0.0f;
+            if (static_cast<int>(index) == only)
+            {
+                // A single track or stem ignores mute and solo.
+                if (options.preFader)
+                    gainLeft = gainRight = 1.0f;
+                else
+                {
+                    const auto gain = juce::Decibels::decibelsToGain(track.mixer->volumeDb.load(), -60.0f);
+                    const auto pan = juce::jlimit(-1.0f, 1.0f, track.mixer->pan.load());
+                    gainLeft = gain * std::min(1.0f, 1.0f - pan);
+                    gainRight = gain * std::min(1.0f, 1.0f + pan);
+                }
+            }
+            if (gainLeft == 0.0f && gainRight == 0.0f)
+                continue;
+
+            juce::FloatVectorOperations::clear(trackLeft, numSamples);
+            juce::FloatVectorOperations::clear(trackRight, numSamples);
+            const auto chainOn = options.useProcessors && track.processor != nullptr && track.fx->enabled.load()
+                              && (isReturn || ! track.fx->printWhileRecording.load());
+            if (isReturn)
+            {
+                juce::FloatVectorOperations::copy(trackLeft, scratch.getReadPointer(returnChannel + 2 * track.returnSlot), numSamples);
+                juce::FloatVectorOperations::copy(trackRight, scratch.getReadPointer(returnChannel + 2 * track.returnSlot + 1), numSamples);
+            }
+            else
+                renderTrackClips(track, start, numSamples, trackLeft, trackRight);
+            if (chainOn)
+                runChain(*track.processor, trackLeft, trackRight, scratch.getWritePointer(4), numSamples, std::max(1, options.processorBlock));
+            if (auto* instrument = options.instruments != nullptr && index < options.instruments->size() ? (*options.instruments)[index] : nullptr;
+                instrument != nullptr && track.drums)
+            {
+                // Offline copies are rendered strictly in order, block after block.
+                const auto count = collectTrackEvents(track, snapshot.samplesPerStep, start, numSamples, offlineEvents.data(), static_cast<int>(offlineEvents.size()));
+                sortEvents(offlineEvents.data(), count);
+                instrument->render(offlineEvents.data(), count, scratch.getWritePointer(2), scratch.getWritePointer(3), numSamples);
+                juce::FloatVectorOperations::add(trackLeft, scratch.getReadPointer(2), numSamples);
+                juce::FloatVectorOperations::add(trackRight, scratch.getReadPointer(3), numSamples);
+            }
+            juce::FloatVectorOperations::multiply(trackLeft, gainLeft, numSamples);
+            juce::FloatVectorOperations::multiply(trackRight, gainRight, numSamples);
+            if (toOutput)
+            {
+                juce::FloatVectorOperations::add(left, trackLeft, numSamples);
+                juce::FloatVectorOperations::add(right, trackRight, numSamples);
+            }
+            if (withSends && ! isReturn)
+                for (int slot = 0; slot < maximumReturns; ++slot)
+                    if (snapshot.returnTracks[static_cast<size_t>(slot)] >= 0)
+                    {
+                        const auto send = track.mixer->sendGain[static_cast<size_t>(slot)].load();
+                        if (send > 0.0f)
+                        {
+                            juce::FloatVectorOperations::addWithMultiply(scratch.getWritePointer(returnChannel + 2 * slot), trackLeft, send, numSamples);
+                            juce::FloatVectorOperations::addWithMultiply(scratch.getWritePointer(returnChannel + 2 * slot + 1), trackRight, send, numSamples);
+                        }
+                    }
         }
-        else if (solo && ! track.mixer->soloed.load())
-            continue;
-        if (gainLeft == 0.0f && gainRight == 0.0f)
-            continue;
-        scratch.clear();
-        renderTrackClips(track, start, numSamples, scratch.getWritePointer(0), scratch.getWritePointer(1));
-        if (auto* instrument = instruments != nullptr && index < instruments->size() ? (*instruments)[index] : nullptr; instrument != nullptr && track.drums)
-        {
-            // Offline copies are rendered strictly in order, block after block.
-            const auto count = collectTrackEvents(track, snapshot.samplesPerStep, start, numSamples, offlineEvents.data(), static_cast<int>(offlineEvents.size()));
-            sortEvents(offlineEvents.data(), count);
-            instrument->render(offlineEvents.data(), count, scratch.getWritePointer(2), scratch.getWritePointer(3), numSamples);
-            juce::FloatVectorOperations::add(scratch.getWritePointer(0), scratch.getReadPointer(2), numSamples);
-            juce::FloatVectorOperations::add(scratch.getWritePointer(1), scratch.getReadPointer(3), numSamples);
-        }
-        juce::FloatVectorOperations::addWithMultiply(left, scratch.getReadPointer(0), gainLeft, numSamples);
-        juce::FloatVectorOperations::addWithMultiply(right, scratch.getReadPointer(1), gainRight, numSamples);
-    }
 }
 } // namespace daw
