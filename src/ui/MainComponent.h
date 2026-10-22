@@ -68,6 +68,9 @@ private:
     void setUpCommands();
     void saveKeyMappings(juce::ValueTree& uiState);
     void showShortcuts();
+    /** Mouse as wah pedal: the vertical position on the screen moves the pedal. */
+    void followMouseWithWah();
+    void toggleMouseWah();
     [[nodiscard]] SoundState captureSoundState(bool includePlugins = true);
     void applySoundState(const SoundState& state);
     void configurePresetBrowser();
@@ -111,6 +114,8 @@ private:
     PluginRackPanel pluginRack { audioEngine };
     std::unique_ptr<juce::DocumentWindow> pluginWindow;
     juce::ApplicationCommandManager commandManager;
+    juce::TimedCallback wahMouseTimer { [this] { followMouseWithWah(); } };
+    float lastMouseWah = -1.0f;
     std::unique_ptr<juce::DocumentWindow> shortcutWindow; // after commandManager: it edits its key mappings
     juce::TextButton pluginsButton { "Pedals / VST3" };
     NamLibrary namLibrary;

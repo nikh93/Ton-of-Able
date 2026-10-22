@@ -20,7 +20,7 @@ class GlassHeaderLook final : public juce::LookAndFeel_V4
 public:
     void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour&, bool, bool) override;
 };
-/** GUI editor for pre-NAM Drive, the post-amp effect rack and the compressor. */
+/** GUI editor for pre-NAM Drive, the post-amp effect rack, the compressor and the wah pedal. */
 class EffectParameterPanel final : public juce::Component, private juce::Timer
 {
 public:
@@ -31,6 +31,10 @@ public:
     void setState(const SoundState& state,
                   juce::NotificationType notification = juce::dontSendNotification);
     [[nodiscard]] SoundState state() const noexcept { return currentState; }
+    /** Shows a pedal position that came from outside (mouse control) without publishing it. */
+    void showWahPosition(float position);
+    /** Mouse control only exists for the live rig; track chains hide the switch. */
+    void setMouseWahAvailable(bool available) { mouseWahAvailable = available; resized(); }
 
     std::function<void(const SoundState&)> onStateChanged;
 
@@ -41,8 +45,8 @@ private:
     void animateTo(int index);
     void timerCallback() override;
     double animationStart = 0;
-    static constexpr int numCards = 6;
-    float openness[numCards] { 0, 1, 0, 0, 0, 0 }, from[numCards] {};
+    static constexpr int numCards = 7;
+    float openness[numCards] { 0, 1, 0, 0, 0, 0, 0 }, from[numCards] {};
     GlassHeaderLook headerLook;
     GlassEffectSurface surfaces[numCards];
     juce::Component reveals[numCards], parameters[numCards];
@@ -55,7 +59,7 @@ private:
     SoundState lastPublishedState;
     void updateCardLabels();
     int expandedCard = 1;
-    juce::TextButton driveCard { "DRIVE" }, wahCard { "AUTO-WAH" }, chorusCard { "CHORUS" }, delayCard { "DELAY" }, reverbCard { "REVERB" }, compressorCard { "KOMPRESSOR" };
+    juce::TextButton driveCard { "DRIVE" }, wahCard { "AUTO-WAH" }, chorusCard { "CHORUS" }, delayCard { "DELAY" }, reverbCard { "REVERB" }, compressorCard { "KOMPRESSOR" }, wahPedalCard { "WAH-PEDAL" };
     juce::Component cardContent;
     juce::Viewport cardViewport;
     juce::ToggleButton power[numCards];
@@ -76,6 +80,9 @@ private:
     juce::ToggleButton compressorPreAmp { "VOR AMP" };
     RotaryParameterControl compressorThreshold { "THRESHOLD" }, compressorRatio { "RATIO" }, compressorAttack { "ATTACK" },
         compressorRelease { "RELEASE" }, compressorKnee { "KNEE" }, compressorMakeup { "MAKEUP" }, compressorMix { "MIX" };
+    juce::ToggleButton wahMouse { "MAUS" };
+    bool mouseWahAvailable = true;
+    RotaryParameterControl wahPosition { "POSITION" }, wahHeel { "HEEL" }, wahToe { "TOE" }, wahPedalQ { "Q" }, wahPedalMix { "MIX" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EffectParameterPanel)
 };

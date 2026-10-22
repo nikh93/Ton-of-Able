@@ -124,6 +124,7 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
                                                                       &pitch, &graphicEq, &effects })
         addAndMakeVisible(*component);
 
+    effects.setMouseWahAvailable(false);
     loadFromTrack();
     setSize(980, 860);
 }

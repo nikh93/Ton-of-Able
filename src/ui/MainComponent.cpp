@@ -269,6 +269,7 @@ MainComponent::MainComponent()
                 applySoundState(*sound);
     configureArrangement();
     setUpCommands();
+    wahMouseTimer.startTimerHz(60);
     startTimerHz(4);
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     setSize(1280, 800);
@@ -278,6 +279,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    wahMouseTimer.stopTimer();
     shortcutWindow.reset();
     commandManager.getKeyMappings()->removeChangeListener(this);
     removeKeyListener(commandManager.getKeyMappings());
@@ -1160,6 +1162,42 @@ void MainComponent::showShortcuts()
     shortcutWindow->toFront(true);
 }
 
+void MainComponent::followMouseWithWah()
+{
+    if (! currentSound.pedalWahMouse || currentSound.pedalWahBypassed)
+    {
+        lastMouseWah = -1.0f;
+        return;
+    }
+    const auto mouse = juce::Desktop::getInstance().getMainMouseSource().getScreenPosition();
+    const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForPoint(mouse.roundToInt());
+    if (display == nullptr)
+        return;
+    // Top of the screen = toe (bright), bottom = heel (dark); 5 % at both
+    // edges are dead zones, so the end positions are easy to reach.
+    const auto area = display->userArea.toFloat();
+    const auto margin = area.getHeight() * 0.05f;
+    const auto position = juce::jlimit(0.0f, 1.0f, (area.getBottom() - margin - mouse.y) / std::max(1.0f, area.getHeight() - 2.0f * margin));
+    if (std::abs(position - lastMouseWah) < 0.002f)
+        return;
+    lastMouseWah = position;
+    currentSound.pedalWahPosition = position;
+    audioEngine.setWahPosition(position);
+    effectParameters.showWahPosition(position);
+}
+
+void MainComponent::toggleMouseWah()
+{
+    currentSound.pedalWahMouse = ! currentSound.pedalWahMouse;
+    if (currentSound.pedalWahMouse)
+        currentSound.pedalWahBypassed = false;
+    audioEngine.applyEffectState(currentSound);
+    effectParameters.setState(currentSound);
+    status.setText(currentSound.pedalWahMouse ? uiText("Wah-Pedal per Maus: oben = Toe (hell), unten = Heel (dunkel). W schaltet aus.")
+                                              : uiText("Wah-Pedal per Maus aus"),
+                   juce::dontSendNotification);
+}
+
 void MainComponent::getAllCommands(juce::Array<juce::CommandID>& ids)
 {
     for (const auto& definition : nam::ui::commandDefinitions())
@@ -1177,6 +1215,7 @@ bool MainComponent::perform(const InvocationInfo& info)
     {
         case nam::ui::commands::toggleView: setArrangementVisible(! arrangementVisible); return true;
         case nam::ui::commands::showShortcuts: showShortcuts(); return true;
+        case nam::ui::commands::wahMouse: toggleMouseWah(); return true;
         default: return arrangementVisible && arrangementView.performCommand(info.commandID);
     }
 }

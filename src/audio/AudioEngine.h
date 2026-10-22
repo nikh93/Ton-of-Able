@@ -65,6 +65,7 @@ public:
     void setPitch(bool bypassed, float semitones, float mix, bool formant, bool highQuality) noexcept { rig.setPitch(bypassed, semitones, mix, formant, highQuality); }
     int pitchLatencySamples() const noexcept { return rig.pitchLatencySamples(); }
     void applyEffectState(const SoundState& state) { rig.applyEffectState(state); }
+    void setWahPosition(float position) noexcept { rig.setWahPosition(position); }
     MeterSnapshot meterSnapshot() const noexcept;
     double estimatedLatencyMilliseconds() const;
     PerformanceMonitor::Snapshot performanceSnapshot() const noexcept { return performanceMonitor.snapshot(); }

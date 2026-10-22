@@ -7,3 +7,4 @@
 #include "ReverbProcessor.h"
 #include "DriveProcessor.h"
 #include "CompressorProcessor.h"
+#include "WahPedalProcessor.h"

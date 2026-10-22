@@ -71,6 +71,16 @@ Im Effekt-Rack (Live-Rig und jede Spur- bzw. Return-Kette) gibt es die Karte **K
 - Vorgaben: **Sanft** (2,5:1), **Clean Sustain** (Pedal), **Funk Squash** (12:1, schnell) und **Parallel** (Mix 45 % für New-York-Kompression).
 - Technik: Feed-Forward, Peak-Detektor über alle Kanäle, Soft Knee, Attack/Release auf der Gainreduktion in dB.
 
+## Wah-Pedal mit Maussteuerung
+
+Im Effekt-Rack gibt es die Karte **WAH-PEDAL**: ein klassisches Wah wie Cry Baby oder Vox. Es ist ein resonanter Bandpass, der beim Durchtreten exponentiell von **HEEL** (dunkel) nach **TOE** (hell) wandert. In der Kette sitzt es nach dem Kompressor (Stellung „vor Amp“) und vor Drive und NAM-Amp.
+
+- **MAUS** (oder Taste **W**, frei belegbar) macht die Maus zum Pedal. Die vertikale Mausposition auf dem Bildschirm steuert das Pedal: **oben = Toe** (hell, offen), **unten = Heel** (dunkel). Klicken muss man nicht, die Maus kann über jedem Fenster stehen.
+- Oben und unten sind je 5 % des Bildschirms Totzone, damit die Endstellungen leicht zu treffen sind. Der POSITION-Regler zeigt die aktuelle Stellung.
+- Regler: **POSITION** (fest eingestellt ergibt sich ein „Cocked Wah“), **HEEL**, **TOE**, **Q** (Resonanz) und **MIX**.
+- Vorgaben: **Cry Baby** (350–2200 Hz), **Vox** (450–1800 Hz), **Bass-Wah** (180–1100 Hz) und **Fester Wah** (ohne Maus, halb getreten).
+- Die Maussteuerung wirkt auf das Live-Rig, auch während der Aufnahme im Arrangement. In Spurketten gibt es das Pedal mit fester Position.
+
 ## Tastenkürzel
 
 **Tasten** in der Werkzeugleiste oder **F1** öffnet die Übersicht aller Befehle, nach Bereich sortiert.

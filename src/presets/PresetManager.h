@@ -37,6 +37,9 @@ struct SoundState
     bool compressorBypassed = true, compressorPreAmp = false;
     float compressorThresholdDb = -18.0f, compressorRatio = 4.0f, compressorAttackMs = 10.0f, compressorReleaseMs = 150.0f,
           compressorKneeDb = 6.0f, compressorMakeupDb = 0.0f, compressorMix = 1.0f;
+    // Wah pedal in front of drive and amp; the position (0 heel ... 1 toe) can follow the mouse.
+    bool pedalWahBypassed = true, pedalWahMouse = false;
+    float pedalWahPosition = 0.5f, pedalWahHeelHz = 350.0f, pedalWahToeHz = 2200.0f, pedalWahQ = 6.0f, pedalWahMix = 1.0f;
     // Live pitch shifter (Rubber Band) in front of the rig, e.g. an octave down.
     bool pitchBypassed = true;
     float pitchSemitones = -12.0f, pitchMix = 1.0f;

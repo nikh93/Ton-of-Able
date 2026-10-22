@@ -49,6 +49,8 @@ const std::vector<CommandDefinition>& commandDefinitions()
         { follow, "Mitlaufen an/aus", "Die Ansicht folgt der Abspielposition", "Ansicht", { key('F') } },
         { toggleView, "Rig / Arrangement wechseln", "Wechselt zwischen Live-Rig und Mehrspur-Arrangement", "Ansicht", { key(juce::KeyPress::tabKey) }, false },
         { showShortcuts, "Tastenkürzel …", "Zeigt diese Übersicht", "Ansicht", { key(juce::KeyPress::F1Key) }, false },
+        // Live-Rig
+        { wahMouse, "Wah-Pedal per Maus an/aus", "Die vertikale Mausposition steuert das Wah-Pedal (oben Toe, unten Heel)", "Live-Rig", { key('W') }, false },
         // Spuren
         { newTrack, "Neue Audiospur", "Neue Spur mit dem NAM-Rig als Quelle", "Spuren", { key('T', ctrl) } },
         { newDrumTrack, "Neue Drum-Spur", "Neue Spur mit Drumcomputer", "Spuren", { key('T', ctrl | shift) } },
@@ -196,7 +198,8 @@ ShortcutEditor::ShortcutEditor(juce::KeyPressMappingSet& mappings) : editor(std:
         "Umschalt + Klick / Rahmen ziehen – Mehrfachauswahl\n"
         "Doppelklick auf Clip – Clip-Eigenschaften (Name, Gain, Stretch, Transponieren)\n"
         "Rechtsklick auf Spurkopf – Spur-Menü (Einfrieren, Sends, Effekte, Export …)\n"
-        "Umschalt beim Malen im Drumcomputer – Akzent setzen"), juce::dontSendNotification);
+        "Umschalt beim Malen im Drumcomputer – Akzent setzen\n"
+        "Maus hoch/runter (Wah-Pedal mit MAUS an) – oben Toe (hell), unten Heel (dunkel)"), juce::dontSendNotification);
 
     for (auto* component : std::initializer_list<juce::Component*> { &title, &hint, editor.get(), &mouseTitle, &gestures })
         addAndMakeVisible(*component);

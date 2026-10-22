@@ -52,6 +52,13 @@ juce::ValueTree SoundState::toValueTree() const
     tree.setProperty("compressorKneeDb", compressorKneeDb, nullptr);
     tree.setProperty("compressorMakeupDb", compressorMakeupDb, nullptr);
     tree.setProperty("compressorMix", compressorMix, nullptr);
+    tree.setProperty("pedalWahBypassed", pedalWahBypassed, nullptr);
+    tree.setProperty("pedalWahMouse", pedalWahMouse, nullptr);
+    tree.setProperty("pedalWahPosition", pedalWahPosition, nullptr);
+    tree.setProperty("pedalWahHeelHz", pedalWahHeelHz, nullptr);
+    tree.setProperty("pedalWahToeHz", pedalWahToeHz, nullptr);
+    tree.setProperty("pedalWahQ", pedalWahQ, nullptr);
+    tree.setProperty("pedalWahMix", pedalWahMix, nullptr);
     tree.setProperty("pitchBypassed", pitchBypassed, nullptr);
     tree.setProperty("pitchSemitones", pitchSemitones, nullptr);
     tree.setProperty("pitchMix", pitchMix, nullptr);
@@ -101,6 +108,13 @@ std::optional<SoundState> SoundState::fromValueTree(const juce::ValueTree& tree,
     result.compressorKneeDb = number("compressorKneeDb", 6.0f, 0.0f, 18.0f);
     result.compressorMakeupDb = number("compressorMakeupDb", 0.0f, 0.0f, 24.0f);
     result.compressorMix = number("compressorMix", 1.0f, 0.0f, 1.0f);
+    result.pedalWahBypassed = static_cast<bool>(tree.getProperty("pedalWahBypassed", true));
+    result.pedalWahMouse = static_cast<bool>(tree.getProperty("pedalWahMouse", false));
+    result.pedalWahPosition = number("pedalWahPosition", 0.5f, 0.0f, 1.0f);
+    result.pedalWahHeelHz = number("pedalWahHeelHz", 350.0f, 100.0f, 1500.0f);
+    result.pedalWahToeHz = number("pedalWahToeHz", 2200.0f, 500.0f, 6000.0f);
+    result.pedalWahQ = number("pedalWahQ", 6.0f, 0.7f, 15.0f);
+    result.pedalWahMix = number("pedalWahMix", 1.0f, 0.0f, 1.0f);
     result.pitchBypassed = static_cast<bool>(tree.getProperty("pitchBypassed", true));
     result.pitchSemitones = juce::jlimit(-24.0f, 24.0f, static_cast<float>(tree.getProperty("pitchSemitones", -12.0f)));
     result.pitchMix = juce::jlimit(0.0f, 1.0f, static_cast<float>(tree.getProperty("pitchMix", 1.0f)));

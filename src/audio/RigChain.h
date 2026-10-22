@@ -15,7 +15,7 @@
 
 struct SoundState;
 
-/** The complete guitar chain: input gain, live pitch shifter, [compressor], drive, pre-VST3, NAM pedal,
+/** The complete guitar chain: input gain, live pitch shifter, [compressor], wah pedal, drive, pre-VST3, NAM pedal,
     NAM amp, cabinet IR, 3-band EQ, graphic EQ, [compressor], Auto-Wah, Chorus, Delay, Reverb,
     post-VST3 (stereo) and output gain.
 
@@ -70,6 +70,13 @@ public:
         compressor.setMix(mix); compressorPreAmp.store(preAmp); compressor.setBypassed(bypassed);
     }
     [[nodiscard]] float compressorGainReductionDb() const noexcept { return compressor.gainReductionDb(); }
+    void setWahPedal(bool bypassed, float position, float heelHz, float toeHz, float q, float mix) noexcept
+    {
+        wahPedal.setPosition(position); wahPedal.setHeelHz(heelHz); wahPedal.setToeHz(toeHz);
+        wahPedal.setQ(q); wahPedal.setMix(mix); wahPedal.setBypassed(bypassed);
+    }
+    /** Lock-free, any rate (e.g. from the mouse): 0 heel ... 1 toe. */
+    void setWahPosition(float position) noexcept { wahPedal.setPosition(position); }
     void setGraphicEqBandDb(int band, float db) noexcept { graphicEq.setBandGainDb(band, db); }
     void setPitch(bool bypassed, float semitones, float mix, bool formantPreserved, bool highQuality) noexcept
     {
@@ -95,6 +102,7 @@ private:
     nam::effects::LivePitchShifter pitchShifter;
     nam::effects::DriveProcessor driveProcessor;
     nam::effects::CompressorProcessor compressor;
+    nam::effects::WahPedalProcessor wahPedal;
     std::atomic<bool> compressorPreAmp { false };
     nam::effects::AutoWahProcessor autoWahProcessor;
     nam::effects::ChorusProcessor chorusProcessor;

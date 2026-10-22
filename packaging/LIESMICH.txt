@@ -35,6 +35,7 @@ Arrangement (Mehrspur)
 - Effekte und NAM-Modelle pro Spur: als Insert (nachtraeglich) oder Print
   (bei der Aufnahme eingerechnet). 10-Band-Graphic-EQ.
 - Send-Effekte (Return-Spuren A-D), Spuren einfrieren, Kompressor.
+- Wah-Pedal per Maus: Taste W, dann Maus hoch = Toe (hell), runter = Heel.
 - Tastenkuerzel: F1 zeigt alle und laesst sie frei belegen.
 - Drumcomputer mit Step-Sequencer. Eigene VST3-Drum-Instrumente (z. B.
   JDrummer) koennen pro Drum-Spur geladen werden.

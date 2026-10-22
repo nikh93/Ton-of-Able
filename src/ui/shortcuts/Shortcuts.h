@@ -17,6 +17,7 @@ enum : juce::CommandID
     undo = 0x2101, redo, split, duplicate, copy, cut, paste, selectAll, deleteSelection, cancel,
     pointerTool = 0x2201, splitTool, stretchTool,
     zoomIn = 0x2301, zoomOut, zoomFit, follow, toggleView, showShortcuts,
+    wahMouse = 0x2601,
     newTrack = 0x2401, newDrumTrack, newReturnTrack, freezeTrack, unfreezeTrack, flattenTrack, trackFx, trackSends,
     save = 0x2501, saveAs, open, import, exportAudio
 };

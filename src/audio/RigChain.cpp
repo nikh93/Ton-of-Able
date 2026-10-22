@@ -21,6 +21,7 @@ void RigChain::prepare(double sampleRate, int maximumBlockSize)
     pitchShifter.prepare(sampleRate, maximumBlock);
     driveProcessor.prepare(spec);
     compressor.prepare(spec);
+    wahPedal.prepare(spec);
     namBypassRamp.prepare(spec.sampleRate, false);
     namInputTrim.prepare(spec.sampleRate, .030, 0.f);
     irProcessor.prepare(spec);
@@ -57,6 +58,7 @@ void RigChain::applyEffectState(const SoundState& state)
     for (int band = 0; band < static_cast<int>(state.graphicEqDb.size()); ++band)
         setGraphicEqBandDb(band, state.graphicEqDb[static_cast<size_t>(band)]);
     setPitch(state.pitchBypassed, state.pitchSemitones, state.pitchMix, state.pitchFormantPreserved, state.pitchHighQuality);
+    setWahPedal(state.pedalWahBypassed, state.pedalWahPosition, state.pedalWahHeelHz, state.pedalWahToeHz, state.pedalWahQ, state.pedalWahMix);
     setCompressor(state.compressorBypassed, state.compressorPreAmp, state.compressorThresholdDb, state.compressorRatio, state.compressorAttackMs,
                   state.compressorReleaseMs, state.compressorKneeDb, state.compressorMakeupDb, state.compressorMix);
 }
@@ -88,6 +90,8 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
     const auto compressPreAmp = compressorPreAmp.load(std::memory_order_relaxed);
     if (compressPreAmp)
         compressor.process(activeBuffer);
+    // Pedalboard order: compressor, wah, then drive into the amp.
+    wahPedal.process(activeBuffer);
     driveProcessor.process(activeBuffer);
     preVst3.process(activeBuffer);
     namPedalProcessor.process(mono, numSamples);

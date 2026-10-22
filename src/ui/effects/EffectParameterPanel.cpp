@@ -37,7 +37,8 @@ EffectParameterPanel::EffectParameterPanel()
         { "Subtle", "Classic", "Wide", "Vibrato" },
         { "Slapback", "Analog", "Lead Echo", "Ambient" },
         { "Room", "Hall", "Cave", "Bright Plate" },
-        { "Sanft", "Clean Sustain", "Funk Squash", "Parallel" }
+        { "Sanft", "Clean Sustain", "Funk Squash", "Parallel" },
+        { "Cry Baby", "Vox", "Bass-Wah", "Fester Wah" }
     };
     for (int i = 0; i < numCards; ++i)
     {
@@ -50,7 +51,7 @@ EffectParameterPanel::EffectParameterPanel()
         surfaces[i].addAndMakeVisible(power[i]);
         power[i].onClick = [this, i]
         {
-            bool* bypass[] = { &currentState.driveBypassed, &currentState.autoWahBypassed, &currentState.chorusBypassed, &currentState.delayBypassed, &currentState.reverbBypassed, &currentState.compressorBypassed };
+            bool* bypass[] = { &currentState.driveBypassed, &currentState.autoWahBypassed, &currentState.chorusBypassed, &currentState.delayBypassed, &currentState.reverbBypassed, &currentState.compressorBypassed, &currentState.pedalWahBypassed };
             *bypass[i] = !power[i].getToggleState();
             publish();
         };
@@ -64,8 +65,17 @@ EffectParameterPanel::EffectParameterPanel()
                            &delayTime, &delayFeedback, &delayMix, &delayLowCut, &delayHighCut,
                            &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix,
                            &reverbLowCut, &reverbHighCut, &compressorThreshold, &compressorRatio, &compressorAttack,
-                           &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix })
+                           &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix,
+                           &wahPosition, &wahHeel, &wahToe, &wahPedalQ, &wahPedalMix })
         cardContent.addAndMakeVisible(*control);
+    wahMouse.setTooltip(juce::String(juce::CharPointer_UTF8("Die Maus ist das Pedal: oben = Toe (hell), unten = Heel (dunkel) – über den ganzen Bildschirm. Taste W schaltet um (frei belegbar).")));
+    wahMouse.onClick = [this]
+    {
+        currentState.pedalWahMouse = wahMouse.getToggleState();
+        if (currentState.pedalWahMouse)
+            currentState.pedalWahBypassed = false;
+        publish();
+    };
     compressorPreAmp.setTooltip(juce::String(juce::CharPointer_UTF8("An: wie ein Kompressor-Pedal vor Drive und Amp (mehr Sustain). Aus: nach Amp und Box, wie im Studio.")));
     compressorPreAmp.onClick = [this]
     {
@@ -75,7 +85,7 @@ EffectParameterPanel::EffectParameterPanel()
     cardContent.addAndMakeVisible(wahDirection);
     parameters[0].addAndMakeVisible(ampPush);
     ampPush.slider().setTooltip("Pegel vor NAM: 0 dB = unveraendert. Wirkt auch bei Drive OFF. OUTPUT regelt die Abhoerlautstaerke.");
-    for (auto* card : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard })
+    for (auto* card : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard })
     {
         card->setLookAndFeel(&headerLook);
         card->setConnectedEdges(juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
@@ -86,6 +96,7 @@ EffectParameterPanel::EffectParameterPanel()
     delayCard.onClick = [this] { animateTo(expandedCard == 3 ? -1 : 3); };
     reverbCard.onClick = [this] { animateTo(expandedCard == 4 ? -1 : 4); };
     compressorCard.onClick = [this] { animateTo(expandedCard == 5 ? -1 : 5); };
+    wahPedalCard.onClick = [this] { animateTo(expandedCard == 6 ? -1 : 6); };
     wahDirection.onClick = [this]
     {
         currentState.autoWahUpward = wahDirection.getToggleState();
@@ -101,7 +112,7 @@ EffectParameterPanel::EffectParameterPanel()
 EffectParameterPanel::~EffectParameterPanel()
 {
     stopTimer();
-    for (auto* c : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard }) c->setLookAndFeel(nullptr);
+    for (auto* c : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard }) c->setLookAndFeel(nullptr);
 }
 
 void EffectParameterPanel::previewExpanded(int index)
@@ -201,6 +212,11 @@ void EffectParameterPanel::configureControls()
     configure(compressorKnee, 0.0, 18.0, [](double v) { return unit(v, " dB"); });
     configure(compressorMakeup, 0.0, 24.0, [](double v) { return unit(v, " dB"); });
     configure(compressorMix, 0.0, 1.0, [](double v) { return juce::String(v * 100.0, 0) + "%"; });
+    configure(wahPosition, 0.0, 1.0, [](double v) { return juce::String(v * 100.0, 0) + "%"; });
+    configure(wahHeel, 100.0, 1500.0, [](double v) { return unit(v, " Hz"); });
+    configure(wahToe, 500.0, 6000.0, [](double v) { return unit(v, " Hz"); });
+    configure(wahPedalQ, 0.7, 15.0, [](double v) { return juce::String(v, 1); });
+    configure(wahPedalMix, 0.0, 1.0, [](double v) { return juce::String(v * 100.0, 0) + "%"; });
     compressorAttack.setRange(0.1, 200.0, 0.1);
     compressorRelease.setRange(5.0, 2000.0, 1.0);
     for (auto* control : { &compressorAttack, &compressorRelease })
@@ -228,6 +244,15 @@ void EffectParameterPanel::configureControls()
     bind(compressorAttack, currentState.compressorAttackMs); bind(compressorRelease, currentState.compressorReleaseMs);
     bind(compressorKnee, currentState.compressorKneeDb); bind(compressorMakeup, currentState.compressorMakeupDb);
     bind(compressorMix, currentState.compressorMix);
+    bind(wahPosition, currentState.pedalWahPosition); bind(wahHeel, currentState.pedalWahHeelHz);
+    bind(wahToe, currentState.pedalWahToeHz); bind(wahPedalQ, currentState.pedalWahQ); bind(wahPedalMix, currentState.pedalWahMix);
+}
+
+void EffectParameterPanel::showWahPosition(float position)
+{
+    currentState.pedalWahPosition = position;
+    lastPublishedState.pedalWahPosition = position;
+    wahPosition.setValue(position, juce::dontSendNotification);
 }
 
 void EffectParameterPanel::setState(const SoundState& state, const juce::NotificationType notification)
@@ -254,6 +279,10 @@ void EffectParameterPanel::setState(const SoundState& state, const juce::Notific
     compressorKnee.setValue(state.compressorKneeDb, notification); compressorMakeup.setValue(state.compressorMakeupDb, notification);
     compressorMix.setValue(state.compressorMix, notification);
     compressorPreAmp.setToggleState(state.compressorPreAmp, juce::dontSendNotification);
+    wahPosition.setValue(state.pedalWahPosition, notification); wahHeel.setValue(state.pedalWahHeelHz, notification);
+    wahToe.setValue(state.pedalWahToeHz, notification); wahPedalQ.setValue(state.pedalWahQ, notification);
+    wahPedalMix.setValue(state.pedalWahMix, notification);
+    wahMouse.setToggleState(state.pedalWahMouse, juce::dontSendNotification);
     wahDirection.setToggleState(state.autoWahUpward, juce::dontSendNotification);
     updateCardLabels();
     resized();
@@ -261,7 +290,7 @@ void EffectParameterPanel::setState(const SoundState& state, const juce::Notific
 
 void EffectParameterPanel::updateCardLabels()
 {
-    bool bypass[] = { currentState.driveBypassed, currentState.autoWahBypassed, currentState.chorusBypassed, currentState.delayBypassed, currentState.reverbBypassed, currentState.compressorBypassed };
+    bool bypass[] = { currentState.driveBypassed, currentState.autoWahBypassed, currentState.chorusBypassed, currentState.delayBypassed, currentState.reverbBypassed, currentState.compressorBypassed, currentState.pedalWahBypassed };
     for (int i=0; i<numCards; ++i) power[i].setToggleState(!bypass[i], juce::dontSendNotification);
     const juce::String driveNames[] { "CRUNCH", "WARM OVERDRIVE", "SINGING LEAD", "FUZZ" };
     const auto driveName = driveNames[juce::jlimit(0, 3, currentState.driveType)];
@@ -272,6 +301,8 @@ void EffectParameterPanel::updateCardLabels()
     reverbCard.setButtonText("REVERB  " + juce::String(currentState.reverbBypassed ? "OFF" : "ON") + "  " + (expandedCard == 4 ? "-" : "+"));
     compressorCard.setButtonText("KOMPRESSOR " + juce::String(currentState.compressorPreAmp ? "(VOR AMP)" : "(NACH AMP)") + "  "
                                  + (currentState.compressorBypassed ? "OFF" : "ON") + "  " + (expandedCard == 5 ? "-" : "+"));
+    wahPedalCard.setButtonText("WAH-PEDAL " + juce::String(currentState.pedalWahMouse ? "(MAUS)" : "") + "  "
+                               + (currentState.pedalWahBypassed ? "OFF" : "ON") + "  " + (expandedCard == 6 ? "-" : "+"));
     driveAmount.setName(currentState.driveType == 2 ? "GAIN" : currentState.driveType == 3 ? "FUZZ" : "DRIVE");
     driveCharacter.setName(currentState.driveType == 1 ? "WARMTH" : currentState.driveType == 2 ? "PRESENCE" : "BIAS");
 }
@@ -334,6 +365,15 @@ void EffectParameterPanel::applyEffectPreset(int effect, int preset)
             state.compressorMakeupDb = std::array<float,4>{ 3.f, 10.f, 14.f, 12.f }[p];
             state.compressorMix = p == 3 ? .45f : 1.f;
             break;
+        case 6:
+            // Dunlop Cry Baby, Vox V847, a deeper bass wah and a fixed "cocked" wah without mouse.
+            state.pedalWahBypassed = false;
+            state.pedalWahHeelHz = std::array<float,4>{ 350.f, 450.f, 180.f, 350.f }[p];
+            state.pedalWahToeHz = std::array<float,4>{ 2200.f, 1800.f, 1100.f, 2200.f }[p];
+            state.pedalWahQ = std::array<float,4>{ 6.f, 4.5f, 5.f, 7.f }[p];
+            state.pedalWahMix = 1.f;
+            if (p == 3) { state.pedalWahMouse = false; state.pedalWahPosition = .62f; }
+            break;
         default: return;
     }
     setState(state);
@@ -346,7 +386,7 @@ void EffectParameterPanel::publish()
 {
     const auto before = lastPublishedState.toValueTree();
     const auto after = currentState.toValueTree();
-    const juce::String prefixes[] { "drive", "autoWah", "chorus", "delay", "reverb", "compressor" };
+    const juce::String prefixes[] { "drive", "autoWah", "chorus", "delay", "reverb", "compressor", "pedalWah" };
     for (int property = 0; property < after.getNumProperties(); ++property)
     {
         const auto key = after.getPropertyName(property);
@@ -401,22 +441,25 @@ void EffectParameterPanel::resized()
         totalOpen += open;
     cardContent.setSize(juce::jmax(240, cardViewport.getWidth()-16), numCards*92 + juce::roundToInt(350*totalOpen));
     auto area = cardContent.getLocalBounds();
-    juce::TextButton* cards[] = { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard };
-    std::initializer_list<RotaryParameterControl*> groups[] = {
+    juce::TextButton* cards[numCards] = { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard };
+    std::initializer_list<RotaryParameterControl*> groups[numCards - 1] = {
         { &wahSensitivity, &wahAttack, &wahRelease, &wahMin, &wahMax, &wahQ, &wahMix },
         { &chorusRate, &chorusDepth, &chorusDelay, &chorusFeedback, &chorusMix },
         { &delayTime, &delayFeedback, &delayMix, &delayLowCut, &delayHighCut },
         { &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix, &reverbLowCut, &reverbHighCut },
-        { &compressorThreshold, &compressorRatio, &compressorAttack, &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix }
+        { &compressorThreshold, &compressorRatio, &compressorAttack, &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix },
+        { &wahPosition, &wahHeel, &wahToe, &wahPedalQ, &wahPedalMix }
     };
     for (auto* control : { &driveAmount, &driveTone, &driveCharacter, &driveSustain, &driveLevel, &driveMix,
                            &wahSensitivity, &wahAttack, &wahRelease, &wahMin, &wahMax, &wahQ, &wahMix,
                            &chorusRate, &chorusDepth, &chorusDelay, &chorusFeedback, &chorusMix,
                            &delayTime, &delayFeedback, &delayMix, &delayLowCut, &delayHighCut,
                            &reverbSize, &reverbDecay, &reverbDamping, &reverbPreDelay, &reverbMix, &reverbLowCut, &reverbHighCut,
-                           &compressorThreshold, &compressorRatio, &compressorAttack, &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix })
+                           &compressorThreshold, &compressorRatio, &compressorAttack, &compressorRelease, &compressorKnee, &compressorMakeup, &compressorMix,
+                           &wahPosition, &wahHeel, &wahToe, &wahPedalQ, &wahPedalMix })
         control->setVisible(false);
-    driveType.setVisible(false); wahDirection.setVisible(false); compressorPreAmp.setVisible(false);
+    driveType.setVisible(false); wahDirection.setVisible(false); compressorPreAmp.setVisible(false); wahMouse.setVisible(false);
+    parameters[6].addAndMakeVisible(wahMouse);
     parameters[1].addAndMakeVisible(wahDirection);
     parameters[5].addAndMakeVisible(compressorPreAmp);
     for (int i=0; i<numCards; ++i)
@@ -453,6 +496,7 @@ void EffectParameterPanel::resized()
             layoutEffect(content, groups[i - 1]);
             if (i == 1) { wahDirection.setVisible(height > 0); wahDirection.setBounds(direction.removeFromRight(70)); }
             if (i == 5) { compressorPreAmp.setVisible(height > 0); compressorPreAmp.setBounds(direction.removeFromRight(110)); }
+            if (i == 6) { wahMouse.setVisible(height > 0 && mouseWahAvailable); wahMouse.setBounds(direction.removeFromRight(90)); }
         }
         area.removeFromTop(10);
     }

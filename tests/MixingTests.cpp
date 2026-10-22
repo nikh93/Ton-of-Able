@@ -4,6 +4,8 @@
 #include <juce_core/juce_core.h>
 
 #include "../src/audio/effects/CompressorProcessor.h"
+#include "../src/audio/effects/WahPedalProcessor.h"
+#include "../src/presets/PresetManager.h"
 #include "../src/daw/Arrangement.h"
 #include "../src/daw/ArrangementEngine.h"
 #include "../src/ui/shortcuts/Shortcuts.h"
@@ -124,6 +126,100 @@ public:
             // After one attack time constant about 63 % of the final ~19 dB reduction.
             const auto afterAttack = -compressor.gainReductionDb();
             expect(afterAttack > 10.0f && afterAttack < 14.0f, juce::String(afterAttack));
+        }
+    }
+};
+
+class WahPedalTests final : public juce::UnitTest
+{
+public:
+    WahPedalTests() : UnitTest("Wah pedal", "DAW") {}
+
+    void runTest() override
+    {
+        using nam::effects::WahPedalProcessor;
+        const auto gainDb = [](float position, double frequency)
+        {
+            WahPedalProcessor wah;
+            wah.prepare({ 48000.0, 4800, 1 });
+            wah.setPosition(position);
+            wah.setHeelHz(350.0f);
+            wah.setToeHz(2200.0f);
+            wah.setQ(6.0f);
+            wah.setBypassed(false);
+            juce::AudioBuffer<float> buffer(1, 4800);
+            float out = 0.0f;
+            for (int block = 0; block < 6; ++block)
+            {
+                for (int sample = 0; sample < 4800; ++sample)
+                    buffer.setSample(0, sample, 0.1f * static_cast<float>(std::sin(juce::MathConstants<double>::twoPi * frequency * (block * 4800 + sample) / 48000.0)));
+                wah.process(buffer);
+                out = buffer.getMagnitude(0, 2400, 2400);
+            }
+            return juce::Decibels::gainToDecibels(out / 0.1f);
+        };
+
+        beginTest("Exponential sweep between heel and toe");
+        expectWithinAbsoluteError(WahPedalProcessor::centreFrequency(0.0f, 350.0f, 2200.0f), 350.0f, 0.01f);
+        expectWithinAbsoluteError(WahPedalProcessor::centreFrequency(1.0f, 350.0f, 2200.0f), 2200.0f, 0.1f);
+        expectWithinAbsoluteError(WahPedalProcessor::centreFrequency(0.5f, 350.0f, 2200.0f), std::sqrt(350.0f * 2200.0f), 0.1f);
+
+        beginTest("Heel boosts the lows, toe the highs");
+        const auto heelAtHeel = gainDb(0.0f, 350.0), heelAtToe = gainDb(0.0f, 2200.0);
+        const auto toeAtToe = gainDb(1.0f, 2200.0), toeAtHeel = gainDb(1.0f, 350.0);
+        logMessage("heel: " + juce::String(heelAtHeel, 1) + " dB @350 Hz, " + juce::String(heelAtToe, 1) + " dB @2200 Hz; toe: "
+                   + juce::String(toeAtToe, 1) + " dB @2200 Hz, " + juce::String(toeAtHeel, 1) + " dB @350 Hz");
+        expectWithinAbsoluteError(heelAtHeel, 6.0f, 0.5f);
+        expectWithinAbsoluteError(toeAtToe, 6.0f, 0.5f);
+        expect(heelAtToe < -15.0f && toeAtHeel < -15.0f);
+
+        beginTest("Fast sweeps stay stable; bypass is transparent");
+        {
+            WahPedalProcessor wah;
+            wah.prepare({ 48000.0, 64, 1 });
+            wah.setBypassed(false);
+            wah.setQ(15.0f);
+            juce::Random random(3);
+            juce::AudioBuffer<float> buffer(1, 64);
+            float peak = 0.0f;
+            for (int block = 0; block < 3000; ++block)
+            {
+                wah.setPosition(random.nextFloat()); // jerky mouse moves
+                for (int sample = 0; sample < 64; ++sample)
+                    buffer.setSample(0, sample, random.nextFloat() - 0.5f);
+                wah.process(buffer);
+                peak = std::max(peak, buffer.getMagnitude(0, 0, 64));
+            }
+            expect(std::isfinite(peak) && peak < 4.0f, juce::String(peak));
+            wah.setBypassed(true);
+            for (int block = 0; block < 20; ++block)
+                wah.process(buffer); // let the bypass fade finish
+            for (int sample = 0; sample < 64; ++sample)
+                buffer.setSample(0, sample, 0.25f);
+            wah.process(buffer);
+            expectWithinAbsoluteError(buffer.getSample(0, 10), 0.25f, 1.0e-6f);
+        }
+
+        beginTest("Presets keep the pedal, older presets load it switched off");
+        {
+            SoundState sound;
+            sound.pedalWahBypassed = false;
+            sound.pedalWahMouse = true;
+            sound.pedalWahPosition = 0.3f;
+            sound.pedalWahToeHz = 1800.0f;
+            const auto restored = SoundState::fromValueTree(sound.toValueTree());
+            expect(restored.has_value());
+            if (restored)
+            {
+                expect(! restored->pedalWahBypassed && restored->pedalWahMouse);
+                expectWithinAbsoluteError(restored->pedalWahPosition, 0.3f, 1.0e-6f);
+                expectWithinAbsoluteError(restored->pedalWahToeHz, 1800.0f, 1.0e-3f);
+            }
+            auto old = sound.toValueTree();
+            for (const auto* name : { "pedalWahBypassed", "pedalWahMouse", "pedalWahPosition", "pedalWahHeelHz", "pedalWahToeHz", "pedalWahQ", "pedalWahMix" })
+                old.removeProperty(name, nullptr);
+            const auto legacy = SoundState::fromValueTree(old);
+            expect(legacy.has_value() && legacy->pedalWahBypassed && ! legacy->pedalWahMouse);
         }
     }
 };
@@ -372,6 +468,7 @@ public:
 };
 
 CompressorTests compressorTests;
+WahPedalTests wahPedalTests;
 SendReturnTests sendReturnTests;
 FreezeTests freezeTests;
 ShortcutTests shortcutTests;

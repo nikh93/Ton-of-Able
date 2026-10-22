@@ -21,7 +21,8 @@ machine (built-in kit or any General MIDI VST3 drum instrument such as
 [JDrummer](https://github.com/jmantra/jdrummer)) and live pitch shifting with
 Rubber Band (e.g. an octave down) in front of the rig, send effects on up to
 four return tracks, track freezing (with "freeze and flatten"), a compressor
-in every effect chain and freely assignable keyboard shortcuts (F1). See
+and a wah pedal (playable with the vertical mouse position) in every effect
+chain, and freely assignable keyboard shortcuts (F1). See
 [Arrangement](docs/Arrangement.md).
 
 The complete realtime core and the primary user workflow are implemented:
