@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(NamTestProgram VERSION 0.1.0 LANGUAGES C CXX)
+project(NamTestProgram VERSION 0.2.0 LANGUAGES C CXX)
 
 # Keep the standalone application portable: embed the MSVC runtime instead of
 # requiring the Visual C++ Redistributable on the target machine. Third-party
@@ -205,6 +205,9 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         juce::juce_events
         juce::juce_graphics
     )
+    if (MSVC)
+        target_compile_options(NamTestProgramTests PRIVATE /utf-8 /bigobj)
+    endif()
     add_test(NAME NamTestProgramTests COMMAND NamTestProgramTests)
 endif()
 

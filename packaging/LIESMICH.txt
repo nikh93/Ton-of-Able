@@ -1,0 +1,61 @@
+Ton of Able - Gitarren-Amp-Modeler und Mehrspur-Recorder (Windows 10/11, 64 Bit)
+=================================================================================
+
+Start
+-----
+1. Den ganzen Ordner irgendwohin entpacken (z. B. Desktop).
+2. "Ton of Able.exe" starten. Keine Installation noetig.
+   Die exe, der Ordner "resources", ffmpeg.exe und die Plugins muessen im
+   selben Ordner bleiben.
+
+Audio / Latenz
+--------------
+- Hast du ein Audio-Interface mit ASIO-Treiber, wird das automatisch benutzt.
+- Ohne ASIO laeuft die App im Windows-Exklusiv-Modus (geringe Latenz).
+  Dann sind andere Programme (YouTube, Discord ...) stumm, solange die App
+  laeuft. Umstellen kannst du das in den Audio-Einstellungen der App.
+
+Arrangement (Mehrspur)
+----------------------
+- Spuren aufnehmen, schneiden, verschieben, kuerzen, Fades, Undo/Redo.
+- Zoom mit Strg + Mausrad.
+- Time-Stretch und Transponieren mit Rubber Band.
+- Effekte und NAM-Modelle pro Spur: als Insert (nachtraeglich) oder Print
+  (bei der Aufnahme eingerechnet). 10-Band-Graphic-EQ.
+- Drumcomputer mit Step-Sequencer. Eigene VST3-Drum-Instrumente (z. B.
+  JDrummer) koennen pro Drum-Spur geladen werden.
+- Import/Export: WAV, AIFF, FLAC, Ogg, MP3, AAC, Opus und Audio aus Videos.
+  Dafuer liegt ffmpeg.exe neben der exe.
+
+PITCH (Live-Transponieren)
+--------------------------
+- Genau -12 (eine Oktave tiefer) laeuft latenzfrei wie ein analoges
+  Oktavpedal (Flip-Flop). Nur einstimmig spielen, Akkorde verzerren.
+- Alle anderen Intervalle laufen ueber Rubber Band (ca. 30-45 ms bzw.
+  ca. 90 ms im Qualitaetsmodus).
+
+NAM-Modelle
+-----------
+- "NAM importieren" nimmt mehrere Dateien oder ganze Ordner auf einmal.
+  .nam-Dateien kann man auch ins Fenster ziehen.
+- Importierte Modelle werden in den Modellordner kopiert:
+  Dokumente\Ton of Able\Modelle (NAM und IR). Was du dort selbst
+  hineinlegst, wird beim Start uebernommen.
+
+Plugins
+-------
+BYOD (Drive) und Valhalla Supermassive (Delay/Reverb) liegen direkt neben
+der exe und werden beim Start automatisch gefunden.
+
+Supermassive-Presets (optional): Damit das Plugin seine Werks-Presets zeigt,
+den Ordner "Supermassive-Presets\Factory" hierhin kopieren:
+  C:\ProgramData\Valhalla DSP, LLC\ValhallaSupermassive\Presets\Factory
+Alternativ Supermassive kostenlos von valhalladsp.com installieren.
+
+Lizenzen
+--------
+Siehe Ordner "licenses" und resources\defaults\README.md.
+NAM-Modelle aus NAM_models: GPL-3.0. TONE3000-Modelle (Dateien "T3K ..."):
+nur fuer den privaten Gebrauch, nicht weitergeben.
+Rubber Band: GPL. FFmpeg: LGPL. BYOD: siehe licenses.
+Valhalla Supermassive ist Freeware von Valhalla DSP, LLC.

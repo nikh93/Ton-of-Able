@@ -1,0 +1,93 @@
+name: Windows release
+
+# Builds "Ton of Able" with MSVC, runs the unit tests and publishes a portable
+# ZIP as a GitHub release. Triggered by pushing a tag such as v0.2.0.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build and publish
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      # The plugins (BYOD, Valhalla Supermassive) are carried over from this release.
+      PLUGIN_SOURCE_RELEASE: v0.1.0
+      FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-lgpl-7.1.zip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --target NamTestProgram NamTestProgramTests --parallel
+
+      - name: Unit tests
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 3600
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkg = 'dist/Ton of Able'
+          New-Item -ItemType Directory -Force "$pkg/licenses" | Out-Null
+          Copy-Item 'build/NamTestProgram_artefacts/Release/Ton of Able.exe' $pkg
+          Copy-Item resources "$pkg/resources" -Recurse
+          Copy-Item packaging/LIESMICH.txt $pkg
+
+          # Plugins and their licences from the previous package.
+          gh release download $env:PLUGIN_SOURCE_RELEASE -p '*.zip' -D previous
+          7z x (Get-ChildItem previous/*.zip | Select-Object -First 1).FullName -oprevious/x -y | Out-Null
+          $old = Get-ChildItem previous/x -Directory | Select-Object -First 1
+          foreach ($item in 'BYOD.vst3', 'ValhallaSupermassive.vst3', 'Supermassive-Presets') {
+            Copy-Item (Join-Path $old.FullName $item) $pkg -Recurse
+          }
+          Copy-Item (Join-Path $old.FullName 'licenses/*') "$pkg/licenses" -Recurse
+
+          # FFmpeg (LGPL) for AAC, Opus, MP3 export and audio from video files.
+          try {
+            Invoke-WebRequest $env:FFMPEG_URL -OutFile ffmpeg.zip
+            7z x ffmpeg.zip -offmpeg -y | Out-Null
+            Copy-Item (Get-ChildItem ffmpeg -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName $pkg
+            Copy-Item (Get-ChildItem ffmpeg -Recurse -Filter LICENSE.txt | Select-Object -First 1).FullName "$pkg/licenses/FFmpeg-LICENSE.txt"
+          } catch {
+            Write-Warning "FFmpeg not bundled: $_"
+          }
+
+          Copy-Item third_party/rubberband/COPYING "$pkg/licenses/RubberBand-GPL.txt"
+          Copy-Item third_party/NeuralAmpModelerCore/LICENSE "$pkg/licenses/NeuralAmpModelerCore-MIT.txt"
+          Copy-Item third_party/JUCE/LICENSE.md "$pkg/licenses/JUCE-LICENSE.md"
+
+          $zip = "Ton-of-Able-$env:TAG-win64.zip"
+          Push-Location dist
+          7z a -tzip "../$zip" 'Ton of Able' | Out-Null
+          Pop-Location
+          "ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
+          Get-Item $zip | Format-List Name, Length
+
+      - name: Publish release
+        shell: pwsh
+        run: |
+          $notes = "packaging/release-notes-$env:TAG.md"
+          $notesArgs = if (Test-Path $notes) { @('--notes-file', $notes) } else { @('--generate-notes') }
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG $env:ZIP --clobber
+          } else {
+            gh release create $env:TAG $env:ZIP --title "Ton of Able $env:TAG" @notesArgs --verify-tag
+          }
+          exit $LASTEXITCODE
