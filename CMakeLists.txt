@@ -58,6 +58,7 @@ juce_add_gui_app(NamTestProgram
     PRODUCT_NAME "Ton of Able"
     COMPANY_NAME "Ton of Able"
     BUNDLE_ID "com.tonofable.standalone"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icon/app-icon.png"
 )
 set_target_properties(NamTestProgram PROPERTIES OUTPUT_NAME "Ton of Able")
 

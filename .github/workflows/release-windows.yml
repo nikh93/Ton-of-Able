@@ -1,7 +1,7 @@
 name: Windows release
 
-# Builds "Ton of Able" with MSVC, runs the unit tests and publishes a portable
-# ZIP as a GitHub release when a tag such as v0.2.0 is pushed (or created by
+# Builds "Ton of Able" with MSVC, runs the unit tests and publishes an
+# installer (Inno Setup) and a portable ZIP as a GitHub release when a tag such as v0.2.0 is pushed (or created by
 # publishing a release on GitHub). Branch pushes build, test and keep the ZIP
 # as a workflow artifact without publishing anything.
 on:
@@ -95,11 +95,31 @@ jobs:
           Write-Host ("::notice title=Package contents::" + ($top -join ', '))
           Write-Host ('::notice title=ZIP::{0} ({1:N1} MB)' -f $zip, ((Get-Item $zip).Length / 1MB))
 
-      - name: Keep ZIP as artifact
+      - name: Installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+          }
+          # Inno Setup wants a numeric version; branch builds use the CMake version.
+          $version = if ($env:TAG -match '^v(\d+(\.\d+){1,3})') { $Matches[1] } else { (Select-String -Path CMakeLists.txt -Pattern 'project\(NamTestProgram VERSION ([0-9.]+)').Matches[0].Groups[1].Value }
+          $name = "Ton-of-Able-$env:TAG-setup"
+          $source = (Resolve-Path 'dist/Ton of Able').Path
+          & $iscc "/DAppVersion=$version" "/DSourceDir=$source" "/DOutputName=$name" packaging/installer/TonOfAble.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+          $setup = "installer-out/$name.exe"
+          "SETUP=$setup" | Out-File -Append $env:GITHUB_ENV
+          Write-Host ('::notice title=Installer::{0} ({1:N1} MB, Version {2})' -f $name, ((Get-Item $setup).Length / 1MB), $version)
+
+      - name: Keep ZIP and installer as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Ton-of-Able-win64
-          path: ${{ env.ZIP }}
+          path: |
+            ${{ env.ZIP }}
+            ${{ env.SETUP }}
           retention-days: 14
 
       - name: Publish release
@@ -110,8 +130,8 @@ jobs:
           $notesArgs = if (Test-Path $notes) { @('--notes-file', $notes) } else { @('--generate-notes') }
           gh release view $env:TAG *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:TAG $env:ZIP --clobber
+            gh release upload $env:TAG $env:SETUP $env:ZIP --clobber
           } else {
-            gh release create $env:TAG $env:ZIP --title "Ton of Able $env:TAG" @notesArgs --verify-tag
+            gh release create $env:TAG $env:SETUP $env:ZIP --title "Ton of Able $env:TAG" @notesArgs --verify-tag
           }
           exit $LASTEXITCODE

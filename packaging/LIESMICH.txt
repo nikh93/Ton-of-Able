@@ -1,10 +1,22 @@
 Ton of Able - Gitarren-Amp-Modeler und Mehrspur-Recorder (Windows 10/11, 64 Bit)
 =================================================================================
 
-Start
------
+Installation
+------------
+Installer: "Ton-of-Able-...-setup.exe" ausfuehren. Er installiert nach
+C:\Programme\Ton of Able (oder auf Wunsch nur fuer dich, ohne Adminrechte),
+legt einen Startmenue-Eintrag an, auf Wunsch ein Desktop-Symbol, verknuepft
+.tonproj-Projekte und kann die Supermassive-Presets einrichten.
+Deinstallieren: Windows-Einstellungen > Apps > Ton of Able. Einstellungen,
+Projekte und der Modellordner unter Dokumente\Ton of Able bleiben erhalten.
+
+Der Installer ist nicht signiert. Windows SmartScreen meldet deshalb
+"Der Computer wurde durch Windows geschuetzt": "Weitere Informationen" und
+dann "Trotzdem ausfuehren" klicken.
+
+Ohne Installation (ZIP):
 1. Den ganzen Ordner irgendwohin entpacken (z. B. Desktop).
-2. "Ton of Able.exe" starten. Keine Installation noetig.
+2. "Ton of Able.exe" starten.
    Die exe, der Ordner "resources", ffmpeg.exe und die Plugins muessen im
    selben Ordner bleiben.
 
@@ -22,6 +34,8 @@ Arrangement (Mehrspur)
 - Time-Stretch und Transponieren mit Rubber Band.
 - Effekte und NAM-Modelle pro Spur: als Insert (nachtraeglich) oder Print
   (bei der Aufnahme eingerechnet). 10-Band-Graphic-EQ.
+- Send-Effekte (Return-Spuren A-D), Spuren einfrieren, Kompressor.
+- Tastenkuerzel: F1 zeigt alle und laesst sie frei belegen.
 - Drumcomputer mit Step-Sequencer. Eigene VST3-Drum-Instrumente (z. B.
   JDrummer) koennen pro Drum-Spur geladen werden.
 - Import/Export: WAV, AIFF, FLAC, Ogg, MP3, AAC, Opus und Audio aus Videos.
@@ -47,8 +61,8 @@ Plugins
 BYOD (Drive) und Valhalla Supermassive (Delay/Reverb) liegen direkt neben
 der exe und werden beim Start automatisch gefunden.
 
-Supermassive-Presets (optional): Damit das Plugin seine Werks-Presets zeigt,
-den Ordner "Supermassive-Presets\Factory" hierhin kopieren:
+Supermassive-Presets: Der Installer richtet sie auf Wunsch ein. Beim ZIP
+den Ordner "Supermassive-Presets\Factory" selbst hierhin kopieren:
   C:\ProgramData\Valhalla DSP, LLC\ValhallaSupermassive\Presets\Factory
 Alternativ Supermassive kostenlos von valhalladsp.com installieren.
 
