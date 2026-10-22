@@ -98,7 +98,7 @@ void NamProcessor::run()
         {
             const juce::ScopedLock lock(requestLock);
             modelFile = requestedFile;
-            requestedFile = {};
+            requestedFile = juce::File();
         }
 
         if (modelFile.existsAsFile())

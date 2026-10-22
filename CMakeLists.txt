@@ -26,6 +26,28 @@ file(GLOB NAM_CORE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore/NAM/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore/NAM/*/*.cpp")
 
+# Rubber Band Library (time-stretching / pitch-shifting, GPL-2.0-or-later) is
+# compiled from its single-file build with the built-in FFT and resampler, so no
+# separate library or extra runtime dependency is required.
+set(RUBBERBAND_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/third_party/rubberband/single/RubberBandSingle.cpp")
+if (MSVC)
+    set_source_files_properties(${RUBBERBAND_SOURCES} PROPERTIES COMPILE_OPTIONS "/W1")
+endif()
+
+set(DAW_SOURCES
+    src/daw/Arrangement.cpp
+    src/daw/Arrangement.h
+    src/daw/ArrangementEngine.cpp
+    src/daw/ArrangementEngine.h
+    src/daw/AudioCodecs.cpp
+    src/daw/AudioCodecs.h
+    src/daw/AudioData.cpp
+    src/daw/AudioData.h
+    src/daw/DawText.h
+    src/daw/TimeStretcher.cpp
+    src/daw/TimeStretcher.h
+)
+
 juce_add_gui_app(NamTestProgram
     PRODUCT_NAME "Ton of Able"
     COMPANY_NAME "Ton of Able"
@@ -41,6 +63,9 @@ target_sources(NamTestProgram PRIVATE
     src/audio/NamProcessor.h
     src/audio/IRProcessor.cpp
     src/audio/IRProcessor.h
+    src/audio/RigChain.cpp
+    src/audio/RigChain.h
+    src/audio/effects/GraphicEQProcessor.h
     src/audio/plugins/Vst3Slot.cpp
     src/ui/plugins/PluginRackPanel.cpp
     src/ui/plugins/NamPedalPanel.cpp
@@ -84,11 +109,26 @@ target_sources(NamTestProgram PRIVATE
     src/ui/effects/EffectParameterPanel.h
     src/ui/playback/WavFileBrowser.cpp
     src/ui/playback/WavFileBrowser.h
+    src/daw/ArrangementController.cpp
+    src/daw/ArrangementController.h
+    src/ui/arrangement/ArrangementView.cpp
+    src/ui/arrangement/ArrangementView.h
+    src/ui/arrangement/TrackFxComponent.cpp
+    src/ui/arrangement/TrackFxComponent.h
+    src/ui/effects/GraphicEqComponent.cpp
+    src/ui/effects/GraphicEqComponent.h
+    src/ui/arrangement/TimelineComponent.cpp
+    src/ui/arrangement/TimelineComponent.h
+    src/ui/arrangement/TrackHeaderComponent.cpp
+    src/ui/arrangement/TrackHeaderComponent.h
+    ${DAW_SOURCES}
+    ${RUBBERBAND_SOURCES}
     ${NAM_CORE_SOURCES}
 )
 
 target_include_directories(NamTestProgram PRIVATE
     src
+    third_party/rubberband
     third_party/NeuralAmpModelerCore
     third_party/NeuralAmpModelerCore/Dependencies/eigen
     third_party/NeuralAmpModelerCore/Dependencies/nlohmann
@@ -135,14 +175,18 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         src/playback/FilePlayer.cpp
         src/diagnostics/PerformanceMonitor.cpp
         src/audio/effects/DriveProcessor.cpp
+        tests/ArrangementTests.cpp
+        ${DAW_SOURCES}
+        ${RUBBERBAND_SOURCES}
     )
-    target_include_directories(NamTestProgramTests PRIVATE src)
+    target_include_directories(NamTestProgramTests PRIVATE src third_party/rubberband)
     target_compile_definitions(NamTestProgramTests PRIVATE JUCE_USE_CURL=0)
     target_link_libraries(NamTestProgramTests PRIVATE
         juce::juce_audio_formats
         juce::juce_data_structures
         juce::juce_dsp
         juce::juce_events
+        juce::juce_graphics
     )
     add_test(NAME NamTestProgramTests COMMAND NamTestProgramTests)
 endif()

@@ -21,7 +21,7 @@ public:
         : juce::DialogWindow("Audio Settings", Theme::surface(), true), onClosed(std::move(closed))
     {
         setUsingNativeTitleBar(true);
-        content = std::make_unique<juce::AudioDeviceSelectorComponent>(manager, 1, 1, 2, 2, false, false, false, false);
+        content = std::make_unique<juce::AudioDeviceSelectorComponent>(manager, 1, 16, 2, 2, false, false, false, false);
         setContentNonOwned(content.get(), true);
         setResizable(true, false);
         setResizeLimits(620, 420, 1000, 900);
@@ -36,6 +36,13 @@ private:
     std::unique_ptr<juce::AudioDeviceSelectorComponent> content;
     std::function<void()> onClosed;
 };
+// A track's own chain remembers which assets it has loaded, so knob edits
+// never reload NAM models, IRs or VST3 plugins.
+struct TrackRig final : RigChain
+{
+    juce::String namId, irId, preVst, postVst;
+};
+
 class RackWindow final : public juce::DocumentWindow
 {
 public:
@@ -51,6 +58,8 @@ public:
 MainComponent::MainComponent()
 {
     Theme::applyTo(lookAndFeel); setLookAndFeel(&lookAndFeel);
+    // Separate windows (track effects, plugin rack, call-outs) share the theme.
+    juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
     addAndMakeVisible(pluginsButton);
     pluginsButton.onClick = [this]
     {
@@ -217,6 +226,7 @@ MainComponent::MainComponent()
         if (const auto saved=audioEngine.appSettings().loadUiState().getChildWithName("lastRigSound").getChild(0); saved.isValid())
             if (auto sound=SoundState::fromValueTree(saved); sound && rigLibrary.find(sound->rigId))
                 applySoundState(*sound);
+    configureArrangement();
     startTimerHz(4);
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     setSize(1280, 800);
@@ -233,6 +243,11 @@ MainComponent::~MainComponent()
     if (!uiState.isValid()) uiState=juce::ValueTree("uiState");
     uiState.removeChild(uiState.getChildWithName("vst3Rack"),nullptr);
     uiState.addChild(pluginRack.saveRack(),-1,nullptr);
+    arrangementView.autosave();
+    uiState.removeChild(uiState.getChildWithName("arrangementView"),nullptr);
+    auto arrangementState = arrangementView.saveState();
+    arrangementState.setProperty("visible", arrangementVisible, nullptr);
+    uiState.addChild(arrangementState,-1,nullptr);
     uiState.removeChild(uiState.getChildWithName("lastRigSound"),nullptr);
     if (currentSound.rigId.isNotEmpty())
     {
@@ -246,6 +261,7 @@ MainComponent::~MainComponent()
     settings.savePresetLibrary(presetManager.toValueTree());
     settings.flush();
     setLookAndFeel(nullptr);
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
 }
 
 void MainComponent::configurePresetBrowser()
@@ -358,7 +374,8 @@ void MainComponent::timerCallback()
     const bool wav = audioEngine.getSourceMode() == AudioEngine::SourceMode::wav;
     liveMode.setToggleState(!wav, juce::dontSendNotification);
     wavMode.setToggleState(wav, juce::dontSendNotification);
-    wavBrowser.setVisible(wav);
+    wavBrowser.setVisible(wav && ! arrangementVisible);
+    graphicEqButton.setToggleState(! currentSound.graphicEqBypassed, juce::dontSendNotification);
     playWav.setEnabled(wav); pauseWav.setEnabled(wav); stopWav.setEnabled(wav);
     loopWav.setEnabled(wav); wavTimeline.setEnabled(wav);
     const auto latencyMs = audioEngine.estimatedLatencyMilliseconds();
@@ -774,6 +791,167 @@ void MainComponent::chooseRecordingTarget()
     recordChooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [self](const juce::FileChooser& chooser) { if (self == nullptr) return; auto file = chooser.getResult(); if (file.getFileName().isNotEmpty()) { if (!file.hasFileExtension("wav")) file = file.withFileExtension(".wav"); const auto result = self->audioEngine.startRecording(file); if (result.wasOk()) { self->record.setButtonText(uiText("■ STOP")); self->status.setText(uiText("Aufnahme läuft: ") + file.getFileName(), juce::dontSendNotification); } else self->status.setText(result.getErrorMessage(), juce::dontSendNotification); } self->recordChooser.reset(); });
 }
 
+std::vector<juce::Component*> MainComponent::rigComponents()
+{
+    return { &rigSelector, &loadRigButton, &rigDetailsButton, &rigInfo, &ampSelector, &configurationSelector,
+             &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &namEnabled, &irEnabled,
+             &graphicEqButton, &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
+             &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline, &record };
+}
+
+void MainComponent::configureArrangement()
+{
+    addChildComponent(arrangementView);
+    addAndMakeVisible(viewToggle);
+    viewToggle.setTooltip(uiText("Zwischen Live-Rig und Mehrspur-Arrangement wechseln (Tab)"));
+    viewToggle.onClick = [this] { setArrangementVisible(! arrangementVisible); };
+    addAndMakeVisible(graphicEqButton);
+    graphicEqButton.setTooltip(uiText("10-Band Graphic EQ des Live-Rigs"));
+    graphicEqButton.onClick = [this] { showGraphicEq(); };
+
+    arrangementView.onStatus = [this](const juce::String& text) { status.setText(text, juce::dontSendNotification); };
+    arrangementView.createTrackFxEditor = [this](const juce::Uuid& trackId) -> std::unique_ptr<juce::Component>
+    {
+        return std::make_unique<nam::ui::TrackFxComponent>(arrangementController, trackId, trackFxSources());
+    };
+    arrangementController.setTrackFxHandlers(
+        [] { return std::make_shared<TrackRig>(); },
+        [this](daw::TrackProcessor& processor, const juce::ValueTree& settings)
+        {
+            if (auto* chain = dynamic_cast<RigChain*>(&processor))
+                if (const auto sound = SoundState::fromValueTree(settings))
+                    applyTrackSound(*chain, *sound);
+        });
+
+    const auto saved = audioEngine.appSettings().loadUiState().getChildWithName("arrangementView");
+    arrangementView.restoreState(saved);
+    if (saved.isValid() && static_cast<bool>(saved.getProperty("visible", false)))
+        setArrangementVisible(true);
+}
+
+void MainComponent::setArrangementVisible(bool visible)
+{
+    arrangementVisible = visible;
+    for (auto* component : rigComponents())
+        component->setVisible(! visible);
+    wavBrowser.setVisible(! visible && audioEngine.getSourceMode() == AudioEngine::SourceMode::wav);
+    arrangementView.setVisible(visible);
+    viewToggle.setButtonText(visible ? "LIVE-RIG" : "ARRANGEMENT");
+    viewToggle.setToggleState(visible, juce::dontSendNotification);
+    resized();
+    repaint();
+}
+
+void MainComponent::openProject(const juce::File& file)
+{
+    arrangementView.autosave();
+    const auto result = arrangementController.openProject(file);
+    status.setText(result.wasOk() ? uiText("Projekt geöffnet: ") + file.getFileNameWithoutExtension() : result.getErrorMessage(), juce::dontSendNotification);
+    if (result.wasOk())
+        setArrangementVisible(true);
+}
+
+bool MainComponent::keyPressed(const juce::KeyPress& key)
+{
+    if (key.getKeyCode() == juce::KeyPress::tabKey && ! key.getModifiers().isAnyModifierKeyDown())
+    {
+        setArrangementVisible(! arrangementVisible);
+        return true;
+    }
+    return false;
+}
+
+void MainComponent::applyGraphicEq(bool bypassed, const std::array<float, 10>& bands)
+{
+    currentSound.graphicEqBypassed = bypassed;
+    currentSound.graphicEqDb = bands;
+    audioEngine.setGraphicEqBypassed(bypassed);
+    for (int band = 0; band < static_cast<int>(bands.size()); ++band)
+        audioEngine.setGraphicEqBandDb(band, bands[static_cast<size_t>(band)]);
+    graphicEqButton.setToggleState(! bypassed, juce::dontSendNotification);
+}
+
+void MainComponent::showGraphicEq()
+{
+    auto editor = std::make_unique<nam::ui::GraphicEqComponent>();
+    editor->setValues(currentSound.graphicEqBypassed, currentSound.graphicEqDb);
+    editor->onChange = [safe = juce::Component::SafePointer<MainComponent>(this)](bool bypassed, const std::array<float, 10>& bands)
+    {
+        if (safe != nullptr)
+            safe->applyGraphicEq(bypassed, bands);
+    };
+    editor->setSize(560, 330);
+    juce::CallOutBox::launchAsynchronously(std::move(editor), graphicEqButton.getScreenBounds(), nullptr);
+}
+
+nam::ui::TrackFxComponent::Sources MainComponent::trackFxSources()
+{
+    nam::ui::TrackFxComponent::Sources sources;
+    juce::Array<juce::File> curatedFiles;
+    for (const auto& model : curatedAmpLibrary.models())
+    {
+        const auto file = defaultAssetsDirectory().getChildFile(model.namFile);
+        for (const auto& item : namLibrary.items())
+            if (item.linkedFile == file)
+            {
+                sources.amps.push_back({ model.ampName + uiText(" · ") + model.configurationName, item.id.toString() });
+                curatedFiles.add(file);
+                break;
+            }
+    }
+    for (const auto& item : namLibrary.items())
+        if (! curatedFiles.contains(item.linkedFile) && ! item.isMissing())
+            sources.amps.push_back({ "Library: " + item.displayName, item.id.toString() });
+    for (const auto& item : irLibrary.items())
+        if (! item.isMissing())
+            sources.irs.push_back({ item.displayName, item.id.toString() });
+    for (const auto& file : defaultAssetsDirectory().getSiblingFile("pedal-models").findChildFiles(juce::File::findFiles, false, "*.nam"))
+        sources.pedals.push_back({ file.getFileNameWithoutExtension(), file.getFullPathName() });
+    std::sort(sources.pedals.begin(), sources.pedals.end(), [](const auto& a, const auto& b) { return a.name < b.name; });
+    sources.captureLiveRig = [this] { return captureSoundState(); };
+    return sources;
+}
+
+void MainComponent::applyTrackSound(RigChain& chain, const SoundState& sound)
+{
+    chain.applyEffectState(sound);
+    chain.setNamPedal(sound.namPedalPath, sound.namPedalBypassed, sound.namPedalInputDb, sound.namPedalOutputDb);
+    auto* rig = dynamic_cast<TrackRig*>(&chain);
+    if (rig == nullptr)
+        return;
+    if (rig->namId != sound.namId)
+    {
+        rig->namId = sound.namId;
+        if (const auto* item = namLibrary.find(juce::Uuid(sound.namId)); item != nullptr && ! item->isMissing())
+            chain.loadNamAsync(item->linkedFile);
+        else
+            chain.setNamBypassed(true);
+    }
+    if (sound.namId.isEmpty())
+        chain.setNamBypassed(true);
+    if (rig->irId != sound.irId)
+    {
+        rig->irId = sound.irId;
+        if (const auto* item = irLibrary.find(juce::Uuid(sound.irId)); item != nullptr && ! item->isMissing())
+            chain.loadIr(item->linkedFile);
+    }
+    if (sound.irId.isEmpty())
+        chain.setIrBypassed(true);
+    const auto restoreSlot = [](Vst3Slot& slot, const juce::ValueTree& state, juce::String& loaded)
+    {
+        const auto xml = state.isValid() ? state.toXmlString() : juce::String();
+        if (xml == loaded)
+            return;
+        loaded = xml;
+        if (state.isValid())
+            slot.restoreState(state);
+        else
+            slot.clear();
+    };
+    restoreSlot(chain.prePlugin(), sound.preVst3State, rig->preVst);
+    restoreSlot(chain.postPlugin(), sound.postVst3State, rig->postVst);
+}
+
 void MainComponent::exportDesignPreviews(const juce::File& folder)
 {
     folder.createDirectory();
@@ -855,6 +1033,8 @@ void MainComponent::paint(juce::Graphics& g)
         g.restoreState();
         g.setColour(juce::Colours::white.withAlpha(.15f)); g.drawRoundedRectangle(r.reduced(.5f), 14, 1);
     };
+    if (arrangementVisible)
+        return;
     wood(soundPanel, juce::Colour(0xff705139), juce::Colour(0xff38281f));
     wood(transportPanel, juce::Colour(0xff4b3c30), juce::Colour(0xff292722));
     g.setColour(Theme::subduedText()); g.setFont(juce::FontOptions(11, juce::Font::bold));
@@ -870,7 +1050,33 @@ void MainComponent::resized()
     title.setBounds(header.removeFromLeft(320));
     configureAudio.setBounds(header.removeFromRight(114).reduced(0,4));
     header.removeFromRight(8); pluginsButton.setBounds(header.removeFromRight(112).reduced(0,4));
+    header.removeFromRight(8); viewToggle.setBounds(header.removeFromRight(130).reduced(0,4));
     header.removeFromRight(12); audioSummaryLabel.setBounds(header);
+    const auto placeOverlays = [this]
+    {
+        if (diagnosticsPanel.isVisible())
+            diagnosticsPanel.setBounds(getLocalBounds().reduced(70).removeFromBottom(240));
+        if (librariesToggle.getToggleState())
+        {
+            auto panel = getLocalBounds().reduced(50).withTrimmedTop(80);
+            namBrowser.setBounds(panel.removeFromLeft(panel.getWidth()/2).reduced(4));
+            irBrowser.setBounds(panel.reduced(4));
+        }
+    };
+    if (arrangementVisible)
+    {
+        // The arrangement uses the full window below the header; the live rig keeps running.
+        auto full = getLocalBounds().reduced(16).withTrimmedTop(area.getY() - 16);
+        auto footer = full.removeFromBottom(28);
+        diagnosticsToggle.setBounds(footer.removeFromRight(112));
+        librariesToggle.setBounds(footer.removeFromRight(98));
+        latency.setBounds(footer.removeFromRight(330));
+        status.setBounds(footer);
+        arrangementView.setBounds(full.withTrimmedBottom(6));
+        soundPanel = transportPanel = {};
+        placeOverlays();
+        return;
+    }
     auto rigRow=area.removeFromTop(44).reduced(0,5);
     rigSelector.setBounds(rigRow.removeFromLeft(juce::jmin(400,rigRow.getWidth()/2)));
     rigRow.removeFromLeft(8); loadRigButton.setBounds(rigRow.removeFromLeft(90));
@@ -903,6 +1109,7 @@ void MainComponent::resized()
     sound.removeFromTop(8);
     namEnabled.setBounds(sound.removeFromLeft(66).withHeight(28));
     irEnabled.setBounds(sound.removeFromLeft(54).withHeight(28));
+    graphicEqButton.setBounds(sound.removeFromLeft(118).withHeight(28));
     selectIr.setBounds(sound.removeFromRight(110).withHeight(28)); sound.removeFromRight(6);
     selectNam.setBounds(sound.removeFromRight(126).withHeight(28));
     area.removeFromTop(14);
@@ -925,12 +1132,5 @@ void MainComponent::resized()
     transport.removeFromTop(8); wavBrowser.setBounds(transport);
     savePreset.setVisible(false); toggleAB.setVisible(false);
     for (auto* t : { &wahEnabled, &chorusEnabled, &delayEnabled, &reverbEnabled }) t->setVisible(false);
-    if (diagnosticsPanel.isVisible())
-        diagnosticsPanel.setBounds(getLocalBounds().reduced(70).removeFromBottom(240));
-    if (librariesToggle.getToggleState())
-    {
-        auto panel = getLocalBounds().reduced(50).withTrimmedTop(80);
-        namBrowser.setBounds(panel.removeFromLeft(panel.getWidth()/2).reduced(4));
-        irBrowser.setBounds(panel.reduced(4));
-    }
+    placeOverlays();
 }

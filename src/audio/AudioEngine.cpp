@@ -12,8 +12,9 @@ AudioEngine::AudioEngine()
     logger.start(dataDirectory.getChildFile("Ton of Able.log"));
     // The initial device selection happens outside the audio callback. One mono
     // input feeds two physical outputs; processors will operate on mono only.
+    // A second input is opened by default for dry arrangement tracks.
     const auto savedDeviceState = settings.loadAudioDeviceState();
-    const auto error = manager.initialise(1, 2, savedDeviceState.get(), true);
+    const auto error = manager.initialise(2, 2, savedDeviceState.get(), true);
     if (error.isNotEmpty())
     {
         const juce::ScopedLock lock(errorLock);
@@ -67,26 +68,6 @@ juce::Result AudioEngine::startRecording(const juce::File& target)
     return recorder.start(target, device->getCurrentSampleRate(), 2);
 }
 
-void AudioEngine::setNamPedal(const juce::String& filePath, bool bypass, float inputDb, float outputDb)
-{
-    namPedalProcessor.set(filePath, bypass, inputDb, outputDb);
-}
-
-void AudioEngine::applyEffectState(const SoundState& state)
-{
-    // Path loading is explicit via setNamPedal when selecting/restoring a pedal.
-    namPedalProcessor.setControls(state.namPedalBypassed, state.namPedalInputDb, state.namPedalOutputDb);
-    namInputTrim.set(juce::jlimit(-18.f, 18.f, state.namInputTrimDb));
-    setInputGainDb(state.inputGainDb); setOutputGainDb(state.outputGainDb);
-    setBassDb(state.bassDb); setMidDb(state.midDb); setTrebleDb(state.trebleDb);
-    setNamBypassed(state.namBypassed); setIrBypassed(state.irBypassed);
-    setDriveBypassed(state.driveBypassed); driveProcessor.setType(static_cast<nam::effects::DriveProcessor::DriveType>(juce::jlimit(0, 3, state.driveType))); driveProcessor.setDrive(state.driveAmount); driveProcessor.setTone(state.driveTone); driveProcessor.setWarmth(state.driveWarmth); driveProcessor.setPresence(state.drivePresence); driveProcessor.setSustain(state.driveSustain); driveProcessor.setBias(state.driveBias); driveProcessor.setLevel(state.driveLevel); driveProcessor.setMix(state.driveMix);
-    setAutoWahBypassed(state.autoWahBypassed); autoWahProcessor.setSensitivity(state.autoWahSensitivity); autoWahProcessor.setAttack(state.autoWahAttackMs * 0.001f); autoWahProcessor.setRelease(state.autoWahReleaseMs * 0.001f); autoWahProcessor.setMinFrequency(state.autoWahMinimumHz); autoWahProcessor.setMaxFrequency(state.autoWahMaximumHz); autoWahProcessor.setResonance(state.autoWahQ); autoWahProcessor.setMix(state.autoWahMix); autoWahProcessor.setDirectionUp(state.autoWahUpward);
-    setChorusBypassed(state.chorusBypassed); chorusProcessor.setRateHz(state.chorusRateHz); chorusProcessor.setDepth(juce::jlimit(0.0f, 1.0f, state.chorusDepthMs / 20.0f)); chorusProcessor.setCenterDelayMs(state.chorusDelayMs); chorusProcessor.setFeedback(state.chorusFeedback); chorusProcessor.setMix(state.chorusMix);
-    setDelayBypassed(state.delayBypassed); delayProcessor.setTimeSeconds(state.delayTimeMs * 0.001f); delayProcessor.setFeedback(state.delayFeedback); delayProcessor.setMix(state.delayMix); delayProcessor.setLowCutHz(state.delayLowCutHz); delayProcessor.setHighCutHz(state.delayHighCutHz);
-    setReverbBypassed(state.reverbBypassed); reverbProcessor.setSize(state.reverbSize); reverbProcessor.setDecay(state.reverbDecay); reverbProcessor.setDamping(state.reverbDamping); reverbProcessor.setPreDelay(state.reverbPreDelayMs); reverbProcessor.setMix(state.reverbMix); reverbProcessor.setLowCut(state.reverbLowCutHz); reverbProcessor.setHighCut(state.reverbHighCutHz);
-}
-
 AudioEngine::MeterSnapshot AudioEngine::meterSnapshot() const noexcept
 {
     return {
@@ -104,8 +85,7 @@ double AudioEngine::estimatedLatencyMilliseconds() const
     const auto samples = device->getInputLatencyInSamples()
         + device->getCurrentBufferSizeSamples()
         + device->getOutputLatencyInSamples()
-        + irProcessor.latencySamples() + driveProcessor.latencySamples()
-        + preVst3.latencySamples() + postVst3.latencySamples();
+        + rig.latencySamples();
     return static_cast<double>(samples) * 1000.0 / device->getCurrentSampleRate();
 }
 
@@ -117,33 +97,14 @@ juce::String AudioEngine::lastError() const
 
 void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
-    activeSampleRate.store(device->getCurrentSampleRate(), std::memory_order_relaxed);
-    filePlayer.setOutputSampleRate(device->getCurrentSampleRate());
-    namProcessor.setProcessingFormat(device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
-    namPedalProcessor.prepare(device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
-    monoBuffer.setSize(1, device->getCurrentBufferSizeSamples(), false, false, true);
-    namDryBuffer.setSize(1, device->getCurrentBufferSizeSamples(), false, false, true);
-    stereoBuffer.setSize(2, device->getCurrentBufferSizeSamples(), false, false, true);
-    preVst3.prepare(device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
-    postVst3.prepare(device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
-    const juce::dsp::ProcessSpec spec {
-        device->getCurrentSampleRate(),
-        static_cast<juce::uint32>(device->getCurrentBufferSizeSamples()),
-        1
-    };
-    eqProcessor.prepare(spec);
-    driveProcessor.prepare(spec);
-    namBypassRamp.prepare(spec.sampleRate, false);
-    namInputTrim.prepare(spec.sampleRate, .030, 0.f);
-    irProcessor.prepare(spec);
-    autoWahProcessor.prepare(spec);
-    chorusProcessor.prepare(spec);
-    delayProcessor.prepare(spec);
-    reverbProcessor.prepare(spec);
-    inputGain.reset(spec.sampleRate, 0.020);
-    outputGain.reset(spec.sampleRate, 0.020);
-    inputGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(inputGainDb.load(std::memory_order_relaxed)));
-    outputGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(outputGainDb.load(std::memory_order_relaxed)));
+    const auto rate = device->getCurrentSampleRate();
+    const auto block = device->getCurrentBufferSizeSamples();
+    activeSampleRate.store(rate, std::memory_order_relaxed);
+    filePlayer.setOutputSampleRate(rate);
+    monoBuffer.setSize(1, block, false, false, true);
+    stereoBuffer.setSize(2, block, false, false, true);
+    rig.prepare(rate, block);
+    arrangementEngine.prepare(rate, block);
     inputPeak.store(0.0f, std::memory_order_relaxed);
     outputPeak.store(0.0f, std::memory_order_relaxed);
 }
@@ -183,62 +144,23 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     }
 
     auto* mono = monoBuffer.getWritePointer(0);
-    inputGain.setTargetValue(juce::Decibels::decibelsToGain(inputGainDb.load(std::memory_order_relaxed)));
-    outputGain.setTargetValue(juce::Decibels::decibelsToGain(outputGainDb.load(std::memory_order_relaxed)));
     if (sourceMode.load(std::memory_order_relaxed) == SourceMode::wav)
-    {
         filePlayer.process(mono, numSamples);
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-            mono[sample] *= inputGain.getNextValue();
-            inPeak = std::max(inPeak, std::abs(mono[sample]));
-        }
-    }
+    else if (input != nullptr)
+        juce::FloatVectorOperations::copy(mono, input, numSamples);
     else
-    {
-        for (int sample = 0; sample < numSamples; ++sample)
-        {
-            mono[sample] = (input != nullptr ? input[sample] : 0.0f) * inputGain.getNextValue();
-            inPeak = std::max(inPeak, std::abs(mono[sample]));
-        }
-    }
+        juce::FloatVectorOperations::clear(mono, numSamples);
 
-    // Stack-backed channel view: process exactly the current callback length.
-    juce::AudioBuffer<float> activeBuffer(&mono, 1, numSamples);
-    driveProcessor.process(activeBuffer);
-    preVst3.process(activeBuffer);
-    namPedalProcessor.process(mono, numSamples);
-    // The independent NAM amp follows the NAM pedal. It is bypassed until the loader
-    // thread has supplied a prepared model.
-    auto* namDry = namDryBuffer.getWritePointer(0);
-    juce::FloatVectorOperations::copy(namDry, mono, numSamples);
-    for (int sample = 0; sample < numSamples; ++sample)
-        mono[sample] *= juce::Decibels::decibelsToGain(namInputTrim.next());
-    namProcessor.process(mono, numSamples);
-    for (int sample = 0; sample < numSamples; ++sample)
-    {
-        const auto mix = namBypassRamp.nextWetMix();
-        mono[sample] = namDry[sample] + mix * (mono[sample] - namDry[sample]);
-    }
-    irProcessor.process(activeBuffer);
-    eqProcessor.process(activeBuffer);
-    autoWahProcessor.process(activeBuffer);
-    chorusProcessor.process(activeBuffer);
-    delayProcessor.process(activeBuffer);
-    reverbProcessor.process(activeBuffer);
-    stereoBuffer.copyFrom(0, 0, mono, numSamples);
-    stereoBuffer.copyFrom(1, 0, mono, numSamples);
     auto* left = stereoBuffer.getWritePointer(0);
     auto* right = stereoBuffer.getWritePointer(1);
+    inPeak = rig.processWithInputPeak(mono, left, right, numSamples);
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
-    postVst3.process(stereoView);
-    for (int sample = 0; sample < numSamples; ++sample)
-    {
-        const float gain = outputGain.getNextValue();
-        left[sample] *= gain; right[sample] *= gain;
-    }
     recorder.process(stereoView);
+    // Multitrack playback, input monitoring and click are added on top of the
+    // live rig. Tracks recording the rig read left/right before the mix is
+    // added at the end of the arrangement block.
+    arrangementEngine.process(inputChannelData, numInputChannels, left, right, left, right, numSamples);
 
     for (int sample = 0; sample < numSamples; ++sample)
     {

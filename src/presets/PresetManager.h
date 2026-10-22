@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <optional>
+
 #include <juce_core/juce_core.h>
 #include <juce_data_structures/juce_data_structures.h>
 
@@ -27,6 +30,9 @@ struct SoundState
     float chorusRateHz = 0.8f, chorusDepthMs = 3.0f, chorusDelayMs = 12.0f, chorusFeedback = 0.0f, chorusMix = 0.3f;
     float delayTimeMs = 380.0f, delayFeedback = 0.35f, delayMix = 0.25f, delayLowCutHz = 80.0f, delayHighCutHz = 7000.0f;
     float reverbSize = 0.5f, reverbDecay = 0.5f, reverbDamping = 0.5f, reverbPreDelayMs = 0.0f, reverbMix = 0.2f, reverbLowCutHz = 80.0f, reverbHighCutHz = 12000.0f;
+    // Ten-band graphic EQ after the amp EQ: 31.5 Hz ... 16 kHz, +/-12 dB.
+    bool graphicEqBypassed = true;
+    std::array<float, 10> graphicEqDb {};
 
     juce::ValueTree toValueTree() const;
     static std::optional<SoundState> fromValueTree(const juce::ValueTree&, juce::String* error = nullptr);
@@ -42,6 +48,7 @@ struct SoundState
         rigId = live.rigId;
         namPedalPath = live.namPedalPath; namPedalBypassed = live.namPedalBypassed;
         namPedalInputDb = live.namPedalInputDb; namPedalOutputDb = live.namPedalOutputDb;
+        graphicEqBypassed = live.graphicEqBypassed; graphicEqDb = live.graphicEqDb;
     }
 };
 

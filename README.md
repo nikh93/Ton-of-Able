@@ -9,6 +9,16 @@ NAM pedal stage before the NAM amp. See [NAM pedal usage](docs/NAM-Pedals.md)
 and [VST3 rack usage](docs/VST3-Rack.md). Pedal input/output trims, bypass and
 model path are persisted independently in presets and A/B.
 
+Ton of Able also contains an Ableton-style **multitrack arrangement**: real
+multitrack recording from the NAM rig or dry interface inputs (count-in,
+metronome, latency compensation), clip editing (move, copy, trim, split, fades,
+undo/redo, snap, Ctrl+mouse-wheel zoom), time-stretching and pitch-shifting with
+the [Rubber Band Library](https://breakfastquay.com/rubberband/), per-track
+effect chains (NAM, IR, EQ, graphic EQ, effects, VST3) as insert or printed
+while recording, a 10-band graphic EQ, audio/video import and mix/stem export
+in common formats (FFmpeg for AAC, Opus, video, ...). See
+[Arrangement](docs/Arrangement.md).
+
 The complete realtime core and the primary user workflow are implemented:
 ASIO-first/WASAPI audio I/O, mono DSP routing, asynchronous NAM and IR loading,
 EQ, Auto-Wah, Chorus, Delay, Reverb, WAV playback, threaded recording,
@@ -31,6 +41,13 @@ not redistributed where their licence forbids it.
 - A Steinberg ASIO SDK-compatible installation/licensing arrangement when shipping ASIO support
 
 ## Configure and build
+
+Third-party code is pulled in as git submodules (JUCE, NeuralAmpModelerCore,
+Rubber Band):
+
+```powershell
+git submodule update --init --recursive
+```
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64

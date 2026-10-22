@@ -4,12 +4,9 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
-#include "NamProcessor.h"
-#include "NamPedalProcessor.h"
-#include "IRProcessor.h"
-#include "plugins/Vst3Slot.h"
-#include "audio/effects/Effects.h"
+#include "RigChain.h"
 #include "config/AppSettings.h"
+#include "daw/ArrangementEngine.h"
 #include "diagnostics/Logger.h"
 #include "diagnostics/PerformanceMonitor.h"
 #include "playback/FilePlayer.h"
@@ -37,13 +34,13 @@ public:
     juce::AudioDeviceManager& deviceManager() noexcept { return manager; }
     const juce::AudioDeviceManager& deviceManager() const noexcept { return manager; }
     AppSettings& appSettings() noexcept { return settings; }
-    void loadNamAsync(const juce::File& modelFile) { namProcessor.loadAsync(modelFile); }
-    juce::String activeNamName() const { return namProcessor.activeModelName(); }
-    void setNamPedal(const juce::String& filePath, bool bypass, float inputDb, float outputDb);
-    juce::String activeNamPedalName() const { return namPedalProcessor.name(); }
-    juce::String namPedalError() const { return namPedalProcessor.lastError(); }
-    juce::Result loadIr(const juce::File& file) { return irProcessor.loadAsync(file); }
-    juce::String activeIrName() const { return irProcessor.loadedName(); }
+    void loadNamAsync(const juce::File& modelFile) { rig.loadNamAsync(modelFile); }
+    juce::String activeNamName() const { return rig.activeNamName(); }
+    void setNamPedal(const juce::String& filePath, bool bypass, float inputDb, float outputDb) { rig.setNamPedal(filePath, bypass, inputDb, outputDb); }
+    juce::String activeNamPedalName() const { return rig.activeNamPedalName(); }
+    juce::String namPedalError() const { return rig.namPedalError(); }
+    juce::Result loadIr(const juce::File& file) { return rig.loadIr(file); }
+    juce::String activeIrName() const { return rig.activeIrName(); }
     juce::Result loadWav(const juce::File& file) { return filePlayer.load(file); }
     void setSourceMode(SourceMode mode) noexcept { sourceMode.store(mode, std::memory_order_release); }
     SourceMode getSourceMode() const noexcept { return sourceMode.load(std::memory_order_acquire); }
@@ -51,19 +48,21 @@ public:
     juce::Result startRecording(const juce::File& target);
     void stopRecording() noexcept { recorder.stop(); }
     bool isRecording() const noexcept { return recorder.isRecording(); }
-    void setInputGainDb(float value) noexcept { inputGainDb.store(juce::jlimit(-24.0f, 24.0f, value), std::memory_order_relaxed); }
-    void setOutputGainDb(float value) noexcept { outputGainDb.store(juce::jlimit(-24.0f, 24.0f, value), std::memory_order_relaxed); }
-    void setBassDb(float value) noexcept { eqProcessor.setLowGainDb(value); }
-    void setMidDb(float value) noexcept { eqProcessor.setMidGainDb(value); }
-    void setTrebleDb(float value) noexcept { eqProcessor.setHighGainDb(value); }
-    void setNamBypassed(bool value) noexcept { namBypassRamp.setBypassed(value); }
-    void setDriveBypassed(bool value) noexcept { driveProcessor.setBypassed(value); }
-    void setIrBypassed(bool value) noexcept { irProcessor.setBypassed(value); }
-    void setAutoWahBypassed(bool value) noexcept { autoWahProcessor.setBypassed(value); }
-    void setChorusBypassed(bool value) noexcept { chorusProcessor.setBypassed(value); }
-    void setDelayBypassed(bool value) noexcept { delayProcessor.setBypassed(value); }
-    void setReverbBypassed(bool value) noexcept { reverbProcessor.setBypassed(value); }
-    void applyEffectState(const SoundState& state);
+    void setInputGainDb(float value) noexcept { rig.setInputGainDb(value); }
+    void setOutputGainDb(float value) noexcept { rig.setOutputGainDb(value); }
+    void setBassDb(float value) noexcept { rig.setBassDb(value); }
+    void setMidDb(float value) noexcept { rig.setMidDb(value); }
+    void setTrebleDb(float value) noexcept { rig.setTrebleDb(value); }
+    void setNamBypassed(bool value) noexcept { rig.setNamBypassed(value); }
+    void setDriveBypassed(bool value) noexcept { rig.setDriveBypassed(value); }
+    void setIrBypassed(bool value) noexcept { rig.setIrBypassed(value); }
+    void setAutoWahBypassed(bool value) noexcept { rig.setAutoWahBypassed(value); }
+    void setChorusBypassed(bool value) noexcept { rig.setChorusBypassed(value); }
+    void setDelayBypassed(bool value) noexcept { rig.setDelayBypassed(value); }
+    void setReverbBypassed(bool value) noexcept { rig.setReverbBypassed(value); }
+    void setGraphicEqBypassed(bool value) noexcept { rig.setGraphicEqBypassed(value); }
+    void setGraphicEqBandDb(int band, float db) noexcept { rig.setGraphicEqBandDb(band, db); }
+    void applyEffectState(const SoundState& state) { rig.applyEffectState(state); }
     MeterSnapshot meterSnapshot() const noexcept;
     double estimatedLatencyMilliseconds() const;
     PerformanceMonitor::Snapshot performanceSnapshot() const noexcept { return performanceMonitor.snapshot(); }
@@ -71,8 +70,11 @@ public:
     const std::atomic<float>& inputPeakSource() const noexcept { return inputPeak; }
     const std::atomic<float>& outputPeakSource() const noexcept { return outputPeak; }
     juce::String lastError() const;
-    Vst3Slot& prePlugin() noexcept { return preVst3; }
-    Vst3Slot& postPlugin() noexcept { return postVst3; }
+    Vst3Slot& prePlugin() noexcept { return rig.prePlugin(); }
+    Vst3Slot& postPlugin() noexcept { return rig.postPlugin(); }
+    /** Processing latency of the live rig (IR, drive oversampling, VST3). */
+    int rigLatencySamples() const { return rig.latencySamples(); }
+    daw::ArrangementEngine& arrangement() noexcept { return arrangementEngine; }
 
 private:
     void audioDeviceAboutToStart(juce::AudioIODevice*) override;
@@ -90,29 +92,14 @@ private:
     juce::AudioDeviceManager manager;
     std::atomic<float> inputPeak { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
-    NamProcessor namProcessor;
-    NamPedalProcessor namPedalProcessor;
-    IRProcessor irProcessor;
+    RigChain rig;
     juce::AudioBuffer<float> monoBuffer;
-    juce::AudioBuffer<float> namDryBuffer;
     juce::AudioBuffer<float> stereoBuffer;
-    Vst3Slot preVst3, postVst3;
     std::atomic<double> activeSampleRate { 48000.0 };
-    nam::effects::EQProcessor eqProcessor;
-    nam::effects::DriveProcessor driveProcessor;
-    nam::effects::AutoWahProcessor autoWahProcessor;
-    nam::effects::ChorusProcessor chorusProcessor;
-    nam::effects::DelayProcessor delayProcessor;
-    nam::effects::ReverbProcessor reverbProcessor;
-    std::atomic<float> inputGainDb { 0.0f };
-    std::atomic<float> outputGainDb { 0.0f };
-    nam::effects::BypassRamp namBypassRamp;
-    nam::effects::SmoothedParameter namInputTrim { 0.f };
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputGain;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGain;
     std::atomic<SourceMode> sourceMode { SourceMode::live };
     FilePlayer filePlayer;
     Recorder recorder;
+    daw::ArrangementEngine arrangementEngine;
     PerformanceMonitor performanceMonitor;
     Logger logger;
     juce::String lastDeviceError;

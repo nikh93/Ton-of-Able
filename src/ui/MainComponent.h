@@ -17,6 +17,9 @@
 #include "library/CuratedAmpLibrary.h"
 #include "library/RigLibrary.h"
 #include "ui/plugins/PluginRackPanel.h"
+#include "ui/arrangement/ArrangementView.h"
+#include "ui/arrangement/TrackFxComponent.h"
+#include "daw/ArrangementController.h"
 
 class MainComponent final : public juce::Component, private juce::Timer
 {
@@ -29,6 +32,9 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void exportDesignPreviews(const juce::File&);
+    bool keyPressed(const juce::KeyPress&) override;
+    /** Opens a .tonproj (e.g. passed on the command line) in the arrangement view. */
+    void openProject(const juce::File&);
 
 private:
     void chooseNamFile();
@@ -53,8 +59,21 @@ private:
     void switchAB(bool useA);
     void showAudioSettings();
     juce::String audioSummary() const;
+    void configureArrangement();
+    void setArrangementVisible(bool visible);
+    void showGraphicEq();
+    void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
+    [[nodiscard]] nam::ui::TrackFxComponent::Sources trackFxSources();
+    void applyTrackSound(RigChain& chain, const SoundState& sound);
+    [[nodiscard]] std::vector<juce::Component*> rigComponents();
 
     AudioEngine audioEngine;
+    daw::ArrangementController arrangementController { audioEngine.arrangement(), audioEngine.deviceManager(),
+                                                       [this] { return audioEngine.rigLatencySamples(); } };
+    nam::ui::ArrangementView arrangementView { arrangementController };
+    juce::TextButton viewToggle { "ARRANGEMENT" };
+    juce::TextButton graphicEqButton { "GRAPHIC EQ" };
+    bool arrangementVisible = false;
     PluginRackPanel pluginRack { audioEngine };
     std::unique_ptr<juce::DocumentWindow> pluginWindow;
     juce::TextButton pluginsButton { "Pedals / VST3" };

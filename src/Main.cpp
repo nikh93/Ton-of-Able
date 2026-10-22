@@ -47,6 +47,9 @@ public:
             quit(); return;
         }
         mainWindow = std::make_unique<MainWindow>(getApplicationName());
+        if (args.size() == 1 && args[0].endsWithIgnoreCase(".tonproj"))
+            if (auto* c = dynamic_cast<MainComponent*>(mainWindow->getContentComponent()))
+                c->openProject(juce::File::getCurrentWorkingDirectory().getChildFile(args[0]));
         if (commandLine.startsWith("--design-preview="))
         {
             auto folder = juce::File(commandLine.fromFirstOccurrenceOf("=", false, false).unquoted());
