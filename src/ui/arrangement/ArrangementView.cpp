@@ -109,7 +109,10 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
         addAndMakeVisible(*button);
     }
     for (auto* button : { &pointerTool, &splitTool, &stretchTool })
+    {
+        button->setClickingTogglesState(true);
         button->setRadioGroupId(4711);
+    }
     pointerTool.setToggleState(true, juce::dontSendNotification);
 
     toStart.onClick = [this] { controller.locate(0); };
@@ -560,7 +563,7 @@ void ArrangementView::showExportMenu()
     menu.addItem(text("Mix – nur Loop-Bereich …"), controller.state().loopEnabled, false, [this] { exportTo(false, true); });
     menu.addItem(text("Alle Spuren einzeln (Stems) …"), [this] { exportTo(true, false); });
     if (const auto track = timeline.selectedTrack(); track >= 0 && track < static_cast<int>(controller.state().tracks.size()))
-        menu.addItem(text("Ausgewählte Spur \"") + controller.state().tracks[static_cast<size_t>(track)].name + "\" …",
+        menu.addItem(text("Ausgewählte Spur \"") + controller.state().tracks[static_cast<size_t>(track)].name + text("\" …"),
                      [this, id = controller.state().tracks[static_cast<size_t>(track)].id] { exportTo(false, false, id); });
     menu.addSeparator();
     menu.addSubMenu("Format", formats);
@@ -608,7 +611,7 @@ void ArrangementView::showProjectMenu()
     });
     menu.addItem(text("Projekt öffnen …\tCtrl+O"), [this] { openProject(); });
     menu.addItem("Speichern\tCtrl+S", [this] { saveProject(false); });
-    menu.addItem("Speichern unter …\tCtrl+Shift+S", [this] { saveProject(true); });
+    menu.addItem(text("Speichern unter …\tCtrl+Shift+S"), [this] { saveProject(true); });
     menu.addSeparator();
     menu.addItem(text("Aufnahme-Latenz feinjustieren …"), [this] { editLatencyOffset(); });
     const auto ffmpeg = daw::codecs::findFfmpeg();

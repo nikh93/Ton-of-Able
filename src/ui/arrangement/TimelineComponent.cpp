@@ -29,7 +29,11 @@ std::vector<ClipboardEntry>& clipboard()
     return entries;
 }
 
-juce::String percent(double ratio) { return juce::String(ratio * 100.0, ratio * 100.0 == std::round(ratio * 100.0) ? 0 : 1) + "%"; }
+juce::String percent(double ratio)
+{
+    const auto value = ratio * 100.0;
+    return juce::String(value, std::abs(value - std::round(value)) < 0.05 ? 0 : 1) + "%";
+}
 } // namespace
 
 TimelineComponent::TimelineComponent(daw::ArrangementController& c) : controller(c)
