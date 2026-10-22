@@ -739,9 +739,17 @@ void MainComponent::registerBundledDefaults()
         const auto file = iterator.getFile();
         juce::StringArray tags;
         const auto name = file.getFileNameWithoutExtension().toLowerCase();
-        if (name.contains("emerald")) tags.add("4x12");
-        else tags.add("4x12");
-        tags.add(name.contains("emerald") ? "Open Back" : "Closed Back");
+        const auto fromTone3000 = name.startsWith("t3k ");
+        if (name.contains("live room"))
+            tags.add("Room");
+        else
+        {
+            tags.add("4x12");
+            tags.add(name.contains("emerald") ? "Open Back" : "Closed Back");
+        }
+        if (fromTone3000)
+            tags.add("TONE3000");
+        const juce::String source = fromTone3000 ? "TONE3000" : "Jester Dyne Productions";
         juce::String error;
         juce::Array<juce::Uuid> matches;
         for (const auto& item : irLibrary.items())
@@ -751,13 +759,13 @@ void MainComponent::registerBundledDefaults()
         {
             const auto keep = matches.getFirst();
             irLibrary.relink(keep, file);
-            irLibrary.setMetadataJson(keep, "{\"source\":\"Jester Dyne Productions\",\"default\":true,\"file\":\"" + file.getFileName() + "\"}");
+            irLibrary.setMetadataJson(keep, "{\"source\":\"" + source + "\",\"default\":true,\"file\":\"" + file.getFileName() + "\"}");
             irLibrary.setTags(keep, tags);
             for (int i = 1; i < matches.size(); ++i)
                 irLibrary.erase(matches.getReference(i));
             irChanged = true;
         }
-        else if (irLibrary.importLink(file, tags, "{\"source\":\"Jester Dyne Productions\",\"default\":true,\"file\":\"" + file.getFileName() + "\"}", &error))
+        else if (irLibrary.importLink(file, tags, "{\"source\":\"" + source + "\",\"default\":true,\"file\":\"" + file.getFileName() + "\"}", &error))
             irChanged = true;
     }
     if (namChanged)

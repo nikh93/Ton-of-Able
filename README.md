@@ -36,6 +36,11 @@ and exposes Amp/Configuration selection while retaining technical filenames
 only in the library view. The curated IR list is documented in
 [resources/DEFAULT_ASSETS.md](resources/DEFAULT_ASSETS.md); third-party IRs are
 not redistributed where their licence forbids it.
+Twelve TONE3000 full-rig captures (Mesa Dual Rectifier, EVH 5150 Stealth,
+Vox AC30 1964, Fender Twin Reverb '67 SRV) and four TONE3000 IRs (Marshall
+JCM900 1960 4x12, Sunset Sound Studio 3 live room) are bundled for personal
+use; see [resources/defaults/README.md](resources/defaults/README.md) before
+publishing.
 
 **Model folder.** *NAM importieren* / *IR importieren* accept several files at
 once or whole folders (including subfolders); `.nam` files and folders can also

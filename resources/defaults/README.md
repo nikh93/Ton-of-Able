@@ -29,3 +29,26 @@ Source pages:
 
 - https://www.jester-dyne-productions.com/brutal-ir-pack/
 - https://www.jester-dyne-productions.com/emerald-ir-pack/
+
+## TONE3000 models and IRs (`T3K …`)
+
+Downloaded from TONE3000 by the project owner and bundled for personal use.
+All twelve models are full-rig captures (amp and cabinet), so the app switches
+the IR stage off when one is selected. Authors are credited in the file names
+and in `curated_catalog.json` (`source`, `sourceUrl`). **TONE3000 licences
+differ per tone; the standard T3K licence does not allow redistribution
+without the author's permission. Check each page before publishing builds or
+the repository.**
+
+| Files | Author | Source |
+| --- | --- | --- |
+| `T3K Mad Hatter - Mesa 90s Dual Rec Red Modern …` (2) | Mad Hatter Amp Lab | https://www.tone3000.com/tones/mesa-90s-dual-rectifier-ri-red-modern-full-rig-87866 |
+| `T3K jpisoutoftune - 5150 Stealth … Mesa OS` (Blue, Red, Green SD1) | jpisoutoftune | https://www.tone3000.com/tones/5150-stealth-100w-mesa-os-full-rig-blue-red-and-green-84864 |
+| `T3K amalgamaudio - Vox AC30 Top Boost 1964 Edge of Breakup A2` | amalgamaudio | https://www.tone3000.com/tones/1964-vox-ac30-top-boost-super-twin-edge-of-breakup-a2-82521 |
+| `T3K ronkiballe - Twin Reverb 67 …` (6) | ronkiballe | https://www.tone3000.com/tones/fender-twin-reverb-67-srv-94685 |
+| `T3K Marshall JCM900 1960 4x12 - …` (SM57, Sennheiser e609, Blended; cabinet IRs) | see source page | https://www.tone3000.com/tones/marshall-jcm900-lead-1960-cab-90295 |
+| `T3K Sunset Sound Studio 3 - Live Room` (room IR, mono) | see source page | https://www.tone3000.com/tones/studio-3-live-room-99227 |
+
+Not bundled: `S.R.V_get out of jail free card_X.nam` from the Twin pack is
+byte-identical to `BF_TWIN_67_SRV_Lenny_Duellist_Glass_X.nam`, and the stereo
+version of the Live Room IR is omitted because the rig is mono.

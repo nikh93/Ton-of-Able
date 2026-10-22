@@ -30,6 +30,14 @@ download. For example, TONE3000's standard T3K licence permits use and output
 publication but prohibits uploading, republishing, or distributing the data
 file without the author’s permission.
 
+### TONE3000 bundle (personal use)
+
+Twelve TONE3000 full-rig captures and four IRs (`T3K …` in
+`resources/defaults`) were supplied by the project owner and are bundled
+while the repository is private. Their redistribution terms were **not**
+verified; see `resources/defaults/README.md` for authors and source pages,
+and check each tone's licence before any public release.
+
 ## Bundled cabinet IRs
 
 The initial install includes three 48 kHz WAV IRs from Jester Dyne

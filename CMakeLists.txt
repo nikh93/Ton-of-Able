@@ -189,11 +189,15 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         src/diagnostics/PerformanceMonitor.cpp
         src/audio/effects/DriveProcessor.cpp
         tests/ArrangementTests.cpp
+        tests/BundledModelTests.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}
+        ${NAM_CORE_SOURCES}
     )
-    target_include_directories(NamTestProgramTests PRIVATE src third_party/rubberband)
-    target_compile_definitions(NamTestProgramTests PRIVATE JUCE_USE_CURL=0)
+    target_include_directories(NamTestProgramTests PRIVATE src third_party/rubberband third_party/NeuralAmpModelerCore
+        third_party/NeuralAmpModelerCore/Dependencies/eigen third_party/NeuralAmpModelerCore/Dependencies/nlohmann)
+    target_compile_definitions(NamTestProgramTests PRIVATE JUCE_USE_CURL=0 NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST NOMINMAX WIN32_LEAN_AND_MEAN
+        TON_OF_ABLE_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
     target_link_libraries(NamTestProgramTests PRIVATE
         juce::juce_audio_formats
         juce::juce_data_structures
