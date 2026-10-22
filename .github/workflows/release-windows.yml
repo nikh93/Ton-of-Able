@@ -26,7 +26,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       # The plugins (BYOD, Valhalla Supermassive) are carried over from this release.
       PLUGIN_SOURCE_RELEASE: v0.1.0
-      FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-lgpl-7.1.zip
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +39,14 @@ jobs:
         run: cmake --build build --config Release --target NamTestProgram NamTestProgramTests --parallel
 
       - name: Unit tests
-        run: ctest --test-dir build -C Release --output-on-failure --timeout 3600
+        shell: pwsh
+        run: |
+          & 'build/NamTestProgramTests_artefacts/Release/NamTestProgramTests.exe' | Tee-Object tests.log
+          $code = $LASTEXITCODE
+          $summary = Select-String -Path tests.log -Pattern 'test sections' | Select-Object -Last 1
+          Write-Host "::notice title=Unit tests::$summary"
+          Select-String -Path tests.log -Pattern '^!!! ' | Select-Object -First 20 | ForEach-Object { Write-Host "::error title=Test failure::$($_.Line)" }
+          exit $code
 
       - name: Package
         shell: pwsh
@@ -61,15 +67,19 @@ jobs:
           }
           Copy-Item (Join-Path $old.FullName 'licenses/*') "$pkg/licenses" -Recurse
 
-          # FFmpeg (LGPL) for AAC, Opus, MP3 export and audio from video files.
-          try {
-            Invoke-WebRequest $env:FFMPEG_URL -OutFile ffmpeg.zip
-            7z x ffmpeg.zip -offmpeg -y | Out-Null
-            Copy-Item (Get-ChildItem ffmpeg -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName $pkg
-            Copy-Item (Get-ChildItem ffmpeg -Recurse -Filter LICENSE.txt | Select-Object -First 1).FullName "$pkg/licenses/FFmpeg-LICENSE.txt"
-          } catch {
-            Write-Warning "FFmpeg not bundled: $_"
+          # FFmpeg (LGPL, static) for AAC, Opus, MP3 export and audio from video files.
+          $assets = gh api repos/BtbN/FFmpeg-Builds/releases/tags/latest --jq '.assets[] | .name + " " + .browser_download_url' | ForEach-Object { $_ -split ' ', 2 }
+          $ffmpegUrl = $null
+          for ($i = 0; $i -lt $assets.Count; $i += 2) {
+            if ($assets[$i] -match '^ffmpeg-n[\d.]+-latest-win64-lgpl-[\d.]+\.zip$') { $ffmpegUrl = $assets[$i + 1] }
           }
+          if (-not $ffmpegUrl) { throw 'No static win64 LGPL FFmpeg build found' }
+          Write-Host "::notice::FFmpeg from $ffmpegUrl"
+          Invoke-WebRequest $ffmpegUrl -OutFile ffmpeg.zip
+          7z x ffmpeg.zip -offmpeg -y | Out-Null
+          Copy-Item (Get-ChildItem ffmpeg -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName $pkg
+          Copy-Item (Get-ChildItem ffmpeg -Recurse -Filter LICENSE.txt | Select-Object -First 1).FullName "$pkg/licenses/FFmpeg-LICENSE.txt"
+          if (-not (Test-Path "$pkg/ffmpeg.exe")) { throw 'ffmpeg.exe missing from the package' }
 
           Copy-Item third_party/rubberband/COPYING "$pkg/licenses/RubberBand-GPL.txt"
           Copy-Item third_party/NeuralAmpModelerCore/LICENSE "$pkg/licenses/NeuralAmpModelerCore-MIT.txt"
@@ -80,7 +90,10 @@ jobs:
           7z a -tzip "../$zip" 'Ton of Able' | Out-Null
           Pop-Location
           "ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
-          Get-Item $zip | Format-List Name, Length
+          # Package contents as annotations, readable without the raw log.
+          $top = Get-ChildItem $pkg | ForEach-Object { '{0} ({1:N1} MB)' -f $_.Name, ((Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB) }
+          Write-Host ("::notice title=Package contents::" + ($top -join ', '))
+          Write-Host ('::notice title=ZIP::{0} ({1:N1} MB)' -f $zip, ((Get-Item $zip).Length / 1MB))
 
       - name: Keep ZIP as artifact
         uses: actions/upload-artifact@v4
