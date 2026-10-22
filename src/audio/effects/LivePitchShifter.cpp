@@ -41,6 +41,7 @@ void LivePitchShifter::prepare(double sampleRate, int maximumBlockSize)
         1.0, 0.5);
     stretcher->setMaxProcessSize(static_cast<size_t>(maximumBlock));
     liveShifter = std::make_unique<RubberBandLiveShifter>(sampleRateInt, 1, RubberBandLiveShifter::OptionWindowShort);
+    octaver.prepare(sampleRate);
 
     wet.reset(ringCapacity);
     liveInput.reset(ringCapacity);
@@ -55,7 +56,7 @@ void LivePitchShifter::prepare(double sampleRate, int maximumBlockSize)
     runningMode = -1;
     active = false;
     underruns = 0;
-    restartEngine(mode.load());
+    restartEngine(usesAnalogOctave(semitones.load()) ? analogEngine : mode.load());
 }
 
 int LivePitchShifter::latencySamples() const noexcept
@@ -74,7 +75,14 @@ void LivePitchShifter::restartEngine(int activeMode) noexcept
     std::fill(dryDelay.begin(), dryDelay.end(), 0.0f);
     std::fill(scratchIn.begin(), scratchIn.end(), 0.0f);
 
-    if (activeMode == static_cast<int>(Mode::lowLatency))
+    if (activeMode == analogEngine)
+    {
+        octaver.reset();
+        pendingDiscard = 0;
+        primed = true;
+        delaySamples = 0;
+    }
+    else if (activeMode == static_cast<int>(Mode::lowLatency))
     {
         using RubberBand::RubberBandStretcher;
         stretcher->reset();
@@ -176,18 +184,22 @@ void LivePitchShifter::process(float* mono, int numSamples) noexcept
     bypassRamp.setBypassed(isBypassed);
     if (isBypassed && ! active)
         return; // fully off: no CPU, no latency
+    const auto wantedMode = usesAnalogOctave(semitones.load()) ? analogEngine : mode.load();
     if (! active)
     {
         active = true;
-        restartEngine(mode.load()); // fresh, silent start when switching on
+        restartEngine(wantedMode); // fresh, silent start when switching on
     }
 
-    const auto wantedMode = mode.load();
     if (wantedMode != runningMode)
         restartEngine(wantedMode);
     const auto scale = std::pow(2.0, semitones.load() / 12.0);
     const auto wantFormant = formant.load();
-    if (std::abs(scale - appliedScale) > 1.0e-9)
+    if (runningMode == analogEngine)
+    {
+        // nothing to retune: the flip-flop octaver only does -12
+    }
+    else if (std::abs(scale - appliedScale) > 1.0e-9)
     {
         // The engines' delay depends on the ratio: restart so the reported
         // latency (dry alignment, recording compensation) stays exact.
@@ -202,9 +214,10 @@ void LivePitchShifter::process(float* mono, int numSamples) noexcept
             liveShifter->setFormantOption(wantFormant ? RubberBand::RubberBandLiveShifter::OptionFormantPreserved : RubberBand::RubberBandLiveShifter::OptionFormantShifted);
     }
 
+    const auto analog = runningMode == analogEngine;
     if (runningMode == static_cast<int>(Mode::lowLatency))
         runLowLatency(mono, numSamples);
-    else
+    else if (! analog)
         runHighQuality(mono, numSamples);
 
     mixSmoothed.setTargetValue(mix.load());
@@ -216,7 +229,9 @@ void LivePitchShifter::process(float* mono, int numSamples) noexcept
         const auto delayed = dryDelay[(dryPosition + dryDelay.size() - static_cast<size_t>(delaySamples)) % dryDelay.size()];
         dryPosition = (dryPosition + 1) % dryDelay.size();
         auto shifted = 0.0f;
-        if (primed)
+        if (analog)
+            shifted = octaver.process(dry);
+        else if (primed)
         {
             if (wet.size > 0)
                 shifted = wet.pop();

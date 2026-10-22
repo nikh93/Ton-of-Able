@@ -1,9 +1,11 @@
 #pragma once
 
 #include <atomic>
+#include <cmath>
 #include <memory>
 #include <vector>
 
+#include "FlipFlopOctaver.h"
 #include "RTUtilities.h"
 
 namespace RubberBand
@@ -22,6 +24,8 @@ namespace nam::effects
 //    short window; measured about 20-36 ms an octave down at 48 kHz,
 //    depending on the device block size - the playable default;
 //  - highQuality: RubberBandLiveShifter (R3), cleaner but about 87 ms late.
+// Exactly one octave down (-12) always uses the analog-style flip-flop
+// octaver instead: no latency, monophonic, like an octave pedal.
 // The dry signal is delayed by the same amount, so blending never flams.
 class LivePitchShifter final
 {
@@ -40,7 +44,10 @@ public:
     void setFormantPreserved(bool value) noexcept { formant.store(value); }
     void setMode(Mode value) noexcept { mode.store(static_cast<int>(value)); }
 
-    /** Processing delay in samples while active (0 when bypassed). */
+    /** True when -12 is set and the latency-free flip-flop octaver runs instead of Rubber Band. */
+    [[nodiscard]] static bool usesAnalogOctave(float semitoneValue) noexcept { return std::abs(semitoneValue + 12.0f) < 1.0e-3f; }
+
+    /** Processing delay in samples while active (0 when bypassed or for -12). */
     [[nodiscard]] int latencySamples() const noexcept;
 
     /** Audio thread, in place, mono. */
@@ -64,6 +71,8 @@ private:
 
     std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;
     std::unique_ptr<RubberBand::RubberBandLiveShifter> liveShifter;
+    FlipFlopOctaver octaver;
+    static constexpr int analogEngine = 2;
     std::atomic<bool> bypassed { true }, formant { false };
     std::atomic<float> semitones { -12.0f }, mix { 1.0f };
     std::atomic<int> mode { 0 };

@@ -1,5 +1,6 @@
 #include "PitchShiftComponent.h"
 
+#include "audio/effects/LivePitchShifter.h"
 #include "daw/DawText.h"
 #include "ui/components/AmberTheme.h"
 
@@ -45,7 +46,7 @@ PitchShiftComponent::PitchShiftComponent()
     for (const auto value : { -24, -12, -7, -5, 5, 7, 12 })
     {
         auto* button = quick.add(new juce::TextButton((value > 0 ? "+" : "") + juce::String(value)));
-        button->setTooltip(value == -12 ? text("Eine Oktave tiefer") : value == 12 ? text("Eine Oktave höher") : juce::String());
+        button->setTooltip(value == -12 ? text("Eine Oktave tiefer – latenzfrei wie ein analoges Oktavpedal (Flip-Flop), einstimmig") : value == 12 ? text("Eine Oktave höher") : juce::String());
         button->onClick = [this, value] { semitones.setValue(value, juce::sendNotificationSync); };
         addAndMakeVisible(*button);
     }
@@ -90,8 +91,12 @@ void PitchShiftComponent::publish()
 
 void PitchShiftComponent::timerCallback()
 {
+    const auto analog = nam::effects::LivePitchShifter::usesAnalogOctave(current.semitones);
+    mode.setEnabled(! analog);
     juce::String line = text("Dry und transponiertes Signal laufen zeitgleich; Aufnahmen werden ausgeglichen.");
-    if (latencyMs && ! current.bypassed)
+    if (analog)
+        line = text("−12: analoger Oktaver (Flip-Flop-Teiler) – keine Verzögerung. Einstimmig spielen, Akkorde verzerren.");
+    else if (latencyMs && ! current.bypassed)
         if (const auto ms = latencyMs(); ms > 0.0)
             line = text("Aktuelle Verzögerung: ") + juce::String(ms, 1) + " ms. " + line;
     info.setText(line, juce::dontSendNotification);

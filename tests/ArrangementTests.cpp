@@ -514,6 +514,135 @@ public:
                 }
             }
 
+        for (const auto block : { 32, 256, 1024 })
+        {
+            beginTest("-12 uses the latency-free flip-flop octaver, block " + juce::String(block));
+            for (const auto mode : { LivePitchShifter::Mode::lowLatency, LivePitchShifter::Mode::highQuality })
+            {
+                LivePitchShifter shifter;
+                shifter.setMode(mode);
+                shifter.setSemitones(-12.0f);
+                shifter.setBypassed(false);
+                shifter.prepare(rate, block);
+                std::vector<float> first(static_cast<size_t>(block), 0.0f);
+                shifter.process(first.data(), block);
+                expectEquals(shifter.latencySamples(), 0);
+            }
+
+            // Plucked guitar notes (Karplus-Strong, rich in overtones) from low E to a high A.
+            for (const auto frequency : { 82.41, 110.0, 196.0, 440.0, 880.0 })
+            {
+                LivePitchShifter shifter;
+                shifter.setSemitones(-12.0f);
+                shifter.setBypassed(false);
+                shifter.prepare(rate, block);
+                const int total = 48000;
+                std::vector<float> signal(static_cast<size_t>(total), 0.0f);
+                juce::Random random(7);
+                const auto period = rate / frequency;
+                std::vector<float> line(static_cast<size_t>(std::lround(period)));
+                for (auto& value : line)
+                    value = random.nextFloat() * 2.0f - 1.0f;
+                float previous = 0.0f;
+                for (size_t sample = 0; sample < signal.size(); ++sample)
+                {
+                    auto& current = line[sample % line.size()];
+                    const auto value = current;
+                    current = 0.996f * 0.5f * (current + previous);
+                    previous = value;
+                    signal[sample] = 0.5f * value;
+                }
+                auto output = signal;
+                for (int position = 0; position < total; position += block)
+                    shifter.process(output.data() + position, std::min(block, total - position));
+                const auto actual = rate / static_cast<double>(line.size());
+                const auto energy = [&](double hz)
+                {
+                    double re = 0.0, im = 0.0;
+                    for (int sample = 4800; sample < 28800; ++sample)
+                    {
+                        const auto phase = juce::MathConstants<double>::twoPi * hz * sample / rate;
+                        re += output[static_cast<size_t>(sample)] * std::cos(phase);
+                        im += output[static_cast<size_t>(sample)] * std::sin(phase);
+                    }
+                    return re * re + im * im;
+                };
+                const auto sub = energy(actual / 2.0), fundamental = energy(actual);
+                logMessage(juce::String(frequency) + " Hz: sub/fundamental " + juce::String(10.0 * std::log10(sub / fundamental), 1) + " dB");
+                expect(sub > 4.0 * fundamental, juce::String(frequency) + " Hz");
+            }
+        }
+
+        beginTest("Flip-flop octaver follows changing notes across the neck");
+        {
+            LivePitchShifter shifter;
+            shifter.setSemitones(-12.0f);
+            shifter.setBypassed(false);
+            shifter.prepare(rate, 128);
+            const double notes[] { 82.41, 880.0, 110.0, 659.3, 146.8, 1174.7, 196.0, 329.6, 82.41, 98.0 };
+            const int length = 24000;
+            std::vector<float> signal;
+            std::vector<double> actual;
+            juce::Random random(11);
+            for (const auto frequency : notes)
+            {
+                std::vector<float> line(static_cast<size_t>(std::lround(rate / frequency)));
+                actual.push_back(rate / static_cast<double>(line.size()));
+                for (auto& value : line)
+                    value = random.nextFloat() * 2.0f - 1.0f;
+                float previous = 0.0f;
+                for (int sample = 0; sample < length; ++sample)
+                {
+                    auto& current = line[static_cast<size_t>(sample) % line.size()];
+                    const auto value = current;
+                    current = 0.996f * 0.5f * (current + previous);
+                    previous = value;
+                    signal.push_back(0.5f * value);
+                }
+            }
+            for (size_t position = 0; position < signal.size(); position += 128)
+                shifter.process(signal.data() + position, static_cast<int>(std::min<size_t>(128, signal.size() - position)));
+            for (size_t note = 0; note < actual.size(); ++note)
+            {
+                const auto energy = [&](double hz)
+                {
+                    double re = 0.0, im = 0.0;
+                    for (int sample = 2400; sample < length; ++sample)
+                    {
+                        const auto phase = juce::MathConstants<double>::twoPi * hz * sample / rate;
+                        const auto value = signal[note * length + static_cast<size_t>(sample)];
+                        re += value * std::cos(phase);
+                        im += value * std::sin(phase);
+                    }
+                    return re * re + im * im;
+                };
+                const auto ratio = 10.0 * std::log10(energy(actual[note] / 2.0) / energy(actual[note]));
+                logMessage(juce::String(notes[note]) + " Hz in a run: sub/fundamental " + juce::String(ratio, 1) + " dB");
+                expect(ratio > 6.0, juce::String(notes[note]) + " Hz");
+            }
+        }
+
+        beginTest("Flip-flop octaver responds immediately and is silent on silence");
+        {
+            LivePitchShifter shifter;
+            shifter.setSemitones(-12.0f);
+            shifter.setBypassed(false);
+            shifter.prepare(rate, 256);
+            std::vector<float> buffer(48000, 0.0f);
+            for (int position = 0; position < 24000; position += 256)
+                shifter.process(buffer.data() + position, 256);
+            expectEquals(*std::max_element(buffer.begin(), buffer.begin() + 24000), 0.0f);
+            // A note starting at 24000 is audible within a couple of milliseconds.
+            for (int sample = 24000; sample < 48000; ++sample)
+                buffer[static_cast<size_t>(sample)] = 0.5f * std::sin(juce::MathConstants<float>::twoPi * 110.0f * static_cast<float>(sample - 24000) / 48000.0f);
+            for (int position = 24000; position < 48000; position += 256)
+                shifter.process(buffer.data() + position, std::min(256, 48000 - position));
+            float early = 0.0f;
+            for (int sample = 24000; sample < 24000 + 96; ++sample)
+                early = std::max(early, std::abs(buffer[static_cast<size_t>(sample)]));
+            expect(early > 0.01f, "peak in the first 2 ms: " + juce::String(early));
+        }
+
         beginTest("Bypassed shifter is transparent and adds no latency");
         LivePitchShifter shifter;
         shifter.prepare(rate, 256);
