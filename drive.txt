@@ -1,0 +1,523 @@
+# Aufgabe: Hochwertige Drive-/Distortion-Sektion für die NAM-Anwendung
+
+Erweitere die bestehende JUCE/C++-NAM-Anwendung um eine hochwertige Gitarren-Drive-Sektion.
+
+Die Drive-Sektion soll vier klar unterschiedliche Klangtypen bieten:
+
+1. Crunch
+2. Warm Overdrive
+3. Singing Lead Distortion
+4. Fuzz
+
+Die vier Modi sollen sich DSP-seitig tatsächlich deutlich unterscheiden.
+Nicht einfach denselben Waveshaper mit unterschiedlichen Gain-Werten verwenden.
+
+Ziel ist eine musikalische Gitarrenverzerrung mit möglichst wenig unangenehmem digitalem Aliasing.
+
+--------------------------------------------------
+1. Position im Signalweg
+--------------------------------------------------
+
+Die Drive-Sektion sitzt VOR dem NAM:
+
+Input
+→ Input Gain
+→ DRIVE
+→ NAM
+→ IR
+→ EQ
+→ Auto-Wah
+→ Chorus
+→ Delay
+→ Reverb
+→ Output Gain
+
+Dadurch soll der verzerrte/angeboostete Klang auch die nichtlineare Reaktion des NAM-Amps beeinflussen.
+
+Die Drive-Sektion benötigt einen eigenen Bypass.
+
+--------------------------------------------------
+2. Architektur
+--------------------------------------------------
+
+Implementiere einen gemeinsamen:
+
+DriveProcessor
+
+mit:
+
+enum class DriveType
+{
+    Crunch,
+    WarmOverdrive,
+    SingingLead,
+    Fuzz
+};
+
+Die einzelnen Modi dürfen eigene interne DSP-Ketten besitzen.
+
+Der DriveProcessor soll mindestens folgende Komponenten verwalten:
+
+- Pre-EQ
+- Pre-Gain
+- Nonlinear Processing / Waveshaping
+- gegebenenfalls mehrere Clipping-Stufen
+- Interstage Filtering
+- Post-EQ
+- Tone
+- Output Level
+- Dry/Wet Mix
+- Oversampling
+
+Die Implementierung muss modular bleiben, damit später weitere Drive-Typen ergänzt werden können.
+
+--------------------------------------------------
+3. Oversampling
+--------------------------------------------------
+
+Nichtlineare Verzerrung muss mit Oversampling verarbeitet werden, um Aliasing zu reduzieren.
+
+Verwende vorzugsweise:
+
+juce::dsp::Oversampling<float>
+
+Default:
+
+4x Oversampling
+
+Architektur so gestalten, dass später optional:
+
+2x
+4x
+8x
+
+möglich sind.
+
+Filterlatenz korrekt berücksichtigen, soweit relevant.
+
+Keine Speicherallokationen im Audio-Callback.
+
+--------------------------------------------------
+4. Modus: CRUNCH
+--------------------------------------------------
+
+Klangziel:
+
+- leichter bis mittlerer Amp-artiger Breakup
+- sehr gute Anschlagdynamik
+- leichtes Spielen bleibt relativ sauber
+- kräftiger Anschlag erzeugt hörbar mehr Verzerrung
+- offene Akkorde sollen definiert bleiben
+- keine starke Kompression
+- klassischer Rock/Blues-Crunch
+
+DSP-Ausgangspunkt:
+
+High Pass:
+ca. 60–90 Hz
+
+→ moderate Pre-Gain-Stufe
+
+→ mildes asymmetrisches Soft Clipping
+
+→ sanftes Post-Filtering
+
+→ Tone
+
+→ Level
+
+Bevorzugt nicht vollkommen symmetrisch clippen.
+
+Positive und negative Halbwellen dürfen unterschiedlich verarbeitet werden, um zusätzliche gerade Harmonische zu erzeugen.
+
+Parameter:
+
+- Drive
+- Tone
+- Level
+- Mix
+
+Drive soll hauptsächlich die Stärke des Breakups beeinflussen, nicht einfach nur die Ausgangslautstärke.
+
+--------------------------------------------------
+5. Modus: WARM OVERDRIVE
+--------------------------------------------------
+
+Klangziel:
+
+- warmer bluesiger Overdrive
+- weich
+- dynamisch
+- runde Höhen
+- leicht betonte Mitten
+- Bass bleibt kontrolliert
+- gutes Verhalten bei Single-Coils und Humbuckern
+- geeignet für Blues, Bluesrock und Classic Rock
+
+DSP-Struktur:
+
+High Pass / Bass Reduction
+→ Mid Shaping
+→ Pre Gain
+→ weiches asymmetrisches Clipping
+→ Post EQ
+→ Tone Low Pass / Tilt
+→ Level
+
+Vor dem Clipping Bass reduzieren, damit tiefe Frequenzen die Verzerrung nicht matschig machen.
+
+Mittenbereich leicht betonen.
+
+Der Klang darf sich grob an klassischen analogen Overdrive-Konzepten orientieren, soll aber keine exakte Emulation eines konkreten Pedals sein.
+
+Parameter:
+
+- Drive
+- Tone
+- Warmth
+- Level
+- Mix
+
+Warmth darf intern mehrere Dinge gleichzeitig beeinflussen, z.B.:
+
+- Clipping-Asymmetrie
+- Mid-EQ
+- High-Frequency Roll-Off
+
+--------------------------------------------------
+6. Modus: SINGING LEAD DISTORTION
+--------------------------------------------------
+
+Dieser Modus ist besonders wichtig.
+
+Klangziel:
+
+- kräftige, singende Lead-Gitarre
+- viel Sustain
+- weiche, musikalische Verzerrung
+- gute Definition bei schnellen Läufen
+- keine harschen digitalen Höhen
+- keine undefinierte Basswand
+- starke, aber kontrollierte Mitten
+- geeignet für Rock-, Hardrock- und Shred-Leads
+
+Nicht einfach Hard-Clipping verwenden.
+
+Verwende bevorzugt eine mehrstufige Struktur:
+
+High Pass ca. 70–100 Hz
+
+→ Pre-EQ
+→ Mid Emphasis
+
+→ Soft Clipping Stage 1
+
+→ Interstage Filter
+
+→ Soft Clipping Stage 2
+
+→ Post EQ
+
+→ Low Pass ca. 6–10 kHz
+
+→ Presence/Tone
+
+→ Level
+
+Die zwei Clipping-Stufen sollen zusammen viel Gain ermöglichen, ohne das Signal unnötig zu einer Rechteckwelle zu machen.
+
+Besonders auf den Gitarren-Mittenbereich achten.
+
+Bereich grob:
+
+700 Hz – 2 kHz
+
+darf für den singenden Leadcharakter gezielt geformt werden.
+
+Tiefer Bass soll vor starker Verzerrung reduziert werden, damit schnelle Noten definiert bleiben.
+
+Parameter:
+
+- Gain
+- Tone
+- Presence
+- Sustain
+- Level
+- Mix
+
+Sustain soll NICHT einfach nur ein zusätzlicher Lautstärkeregler sein.
+
+Sustain darf intern beispielsweise beeinflussen:
+
+- Gain-Verteilung zwischen Stage 1 und Stage 2
+- Soft-Clipping-Kennlinie
+- leichte dynamische Kompression/Sättigung
+
+Der Modus soll auch bei langen einzelnen Noten musikalisch ausklingen.
+
+--------------------------------------------------
+7. Modus: FUZZ
+--------------------------------------------------
+
+Klangziel:
+
+- deutlich aggressiver und eigenständiger als die anderen Modi
+- stark obertonreich
+- komprimiert
+- rau
+- optional leicht kaputter Vintage-Charakter
+- trotzdem kontrollierbares Ausgangssignal
+
+DSP-Struktur etwa:
+
+Pre Gain
+→ Bias
+→ stark asymmetrische Nonlinearität
+→ Hard/Soft-Clipping-Kombination
+→ Tone Filtering
+→ Level
+
+Parameter:
+
+- Fuzz
+- Bias
+- Tone
+- Level
+- Mix
+
+Bias soll tatsächlich die Arbeitspunkt-/Asymmetrie-Charakteristik verändern und nicht nur als kosmetischer Parameter existieren.
+
+Beispielsweise kann eine verschobene Waveshaper-Kennlinie verwendet werden.
+
+Bei höheren Bias-Werten darf der Klang bewusst gated/spitty werden.
+
+--------------------------------------------------
+8. Parameter Smoothing
+--------------------------------------------------
+
+Alle relevanten kontinuierlichen Parameter müssen geglättet werden.
+
+Beispielsweise:
+
+juce::SmoothedValue<float>
+
+Insbesondere:
+
+- Drive/Gain
+- Tone
+- Presence
+- Bias
+- Mix
+- Level
+
+Änderungen während des Spielens dürfen keine Klicks verursachen.
+
+--------------------------------------------------
+9. Lautstärkeverhalten
+--------------------------------------------------
+
+Bei Wechsel zwischen Drive-Typen soll die Lautstärke nicht völlig explodieren.
+
+Implementiere sinnvolle interne Gain-Kompensation.
+
+Nicht versuchen, sämtliche Modi exakt gleich laut zu normalisieren, aber grobe Pegelsprünge vermeiden.
+
+Output Level bleibt für den Benutzer manuell einstellbar.
+
+--------------------------------------------------
+10. Dry/Wet Mix
+--------------------------------------------------
+
+Jeder Drive-Typ besitzt einen Mix-Parameter:
+
+0 % = trocken
+100 % = vollständig bearbeitet
+
+Mix muss sauber und klickfrei funktionieren.
+
+--------------------------------------------------
+11. Bypass
+--------------------------------------------------
+
+Die gesamte Drive-Sektion benötigt einen Bypass.
+
+Beim Umschalten möglichst kurzen Crossfade oder entsprechendes Parameter-Ramping verwenden.
+
+Keine hörbaren Klicks.
+
+--------------------------------------------------
+12. GUI
+--------------------------------------------------
+
+Drive soll als zusätzliche Effect Card in die bestehende Effektkarten-Liste integriert werden.
+
+Da Drive vor dem NAM sitzt, darf die GUI optional deutlich machen, dass es sich um einen Pre-Amp-Effekt handelt.
+
+Kompakter Zustand:
+
+[ DRIVE          ON   ▼ ]
+[ Singing Lead · Gain 65% ]
+
+Aufgeklappt:
+
+DRIVE TYPE
+[ Singing Lead ▼ ]
+
+GAIN
+[ Knob ]
+
+TONE
+[ Knob ]
+
+PRESENCE
+[ Knob ]
+
+SUSTAIN
+[ Knob ]
+
+LEVEL
+[ Knob ]
+
+MIX
+[ Knob ]
+
+Je nach Drive-Typ sollen nur relevante Parameter angezeigt werden.
+
+Beispiele:
+
+Crunch:
+- Drive
+- Tone
+- Level
+- Mix
+
+Warm Overdrive:
+- Drive
+- Tone
+- Warmth
+- Level
+- Mix
+
+Singing Lead:
+- Gain
+- Tone
+- Presence
+- Sustain
+- Level
+- Mix
+
+Fuzz:
+- Fuzz
+- Bias
+- Tone
+- Level
+- Mix
+
+Beim Wechsel des Typs soll sich die Card entsprechend aktualisieren.
+
+--------------------------------------------------
+13. Presets und A/B
+--------------------------------------------------
+
+Die komplette Drive-Konfiguration muss in Presets und A/B gespeichert werden.
+
+Speichern:
+
+- Bypass
+- DriveType
+- sämtliche Parameter
+- Mix
+- Level
+
+Beim Laden alter Presets ohne Drive-Daten soll Drive standardmäßig deaktiviert sein.
+
+--------------------------------------------------
+14. Echtzeitanforderungen
+--------------------------------------------------
+
+Im Audio-Callback verboten:
+
+- Speicherallokationen
+- Locks
+- Dateizugriffe
+- GUI-Aufrufe
+- Logging auf Festplatte
+- Neuinitialisieren des Oversamplers
+
+Alle Buffer und DSP-Objekte in prepare() vorbereiten.
+
+processBlock() muss real-time-safe bleiben.
+
+--------------------------------------------------
+15. DSP-Qualität
+--------------------------------------------------
+
+Orientiere dich bei der Implementierung konzeptionell an hochwertigen JUCE-Gitarren-Distortion-Ansätzen:
+
+- Waveshaping
+- Pre-/Post-Filtering
+- asymmetrischem Clipping
+- mehrstufiger Verzerrung
+- Oversampling
+
+Nicht versuchen, die vier Modi ausschließlich über verschiedene mathematische Waveshaper-Funktionen zu unterscheiden.
+
+Ein großer Teil des Klangcharakters muss durch:
+
+Pre-EQ
+→ Nonlinearity
+→ Interstage Filtering
+→ Post-EQ
+
+entstehen.
+
+--------------------------------------------------
+16. Tests
+--------------------------------------------------
+
+Teste alle vier Modi mindestens mit:
+
+1. Clean Blues-Gitarren-DI
+2. offenen Akkorden
+3. Palm-Mute-Riff
+4. schnellen Single-Note-Läufen
+5. lang gehaltenen Lead-Noten
+6. starkem und schwachem Anschlag
+
+Besonders prüfen:
+
+Crunch:
+Anschlagdynamik
+
+Warm Overdrive:
+Wärme und Akkorddefinition
+
+Singing Lead:
+Sustain, Mitten, schnelle Läufe, keine harschen Höhen
+
+Fuzz:
+Bias-Verhalten und starke Verzerrung
+
+--------------------------------------------------
+17. Technische Tests
+--------------------------------------------------
+
+Zusätzlich prüfen:
+
+- kein NaN/Inf bei Extremwerten
+- keine Instabilität bei Feedback-/Filterzuständen
+- keine Klicks bei Parameteränderungen
+- keine Klicks bei Bypass
+- keine extremen Pegelspitzen
+- keine Audio-Thread-Allokationen
+- stabile Funktion bei 44.1 / 48 / 88.2 / 96 kHz
+- stabile Funktion bei Buffergrößen 32–512 Samples
+
+
+Das wichtigste Ziel ist nicht maximale Verzerrung, sondern vier musikalisch klar unterschiedliche Gitarren-Drive-Charaktere.
+
+Besonders hohe Priorität hat der Modus:
+
+SINGING LEAD DISTORTION
+
+Dieser soll einen weichen, sustainreichen, mittenstarken Lead-Sound erzeugen, der bei schnellen Läufen definiert bleibt und keine unangenehm digitalen Höhen produziert.

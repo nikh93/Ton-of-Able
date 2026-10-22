@@ -1,0 +1,288 @@
+Aufgabe: Haupt-GUI überarbeiten und UX verbessern
+
+Überarbeite die bestehende Benutzeroberfläche der NAM-Anwendung, ohne die funktionierende Audio-/DSP-Architektur unnötig zu verändern.
+
+Ziel ist eine moderne, hochwertige, übersichtliche Gitarren-Audio-Anwendung. Die aktuelle warme Holz-/Bernsteinoptik soll erhalten bleiben, aber Layout, Hierarchie, Abstände und Bedienbarkeit müssen deutlich verbessert werden.
+
+1. Audioeinstellungen aus der Hauptansicht entfernen
+
+Die vollständige Audio-Gerätekonfiguration darf nicht mehr mitten in der Hauptoberfläche aufgeklappt werden.
+
+Audio konfigurieren soll stattdessen ein separates Settings-/Dialogfenster öffnen.
+
+Dort befinden sich:
+
+Audio Device Type
+Input Device
+Output Device
+Input Channel
+Output Channel
+Sample Rate
+Buffer Size
+
+In der Hauptansicht nur eine kompakte Statuszeile anzeigen, etwa:
+
+ASIO · Focusrite USB · 48 kHz · 64 Samples · 4.2 ms
+
+plus einen kleinen Settings-Button.
+
+2. Visuelle Hierarchie verbessern
+
+Die Hauptansicht soll klar priorisieren:
+
+Amp
+Configuration
+Hauptregler
+Effekte
+Presets / A-B
+WAV-Test / Recording
+technische Statusinformationen
+
+Audio-Konfiguration und Diagnose dürfen die Oberfläche nicht dominieren.
+
+3. Amp-Auswahl
+
+Die zweistufige Auswahl bleibt zentral:
+
+AMP → CONFIGURATION
+
+Beispiel:
+
+Fender Twin Reverb → Normal Bright
+
+Beide Dropdowns sollen prominent und sauber ausgerichtet sein.
+
+Der aktuell geladene Amp und die Konfiguration sollen zusätzlich dezent unter dem Programmnamen oder im Amp-Bereich angezeigt werden.
+
+4. NAM-/IR-Buttons verständlicher machen
+
+Da bereits eine Amp-/Configuration-Library existiert:
+
+NAM auswählen
+
+umbenennen in:
+
+NAM importieren
+
+Entsprechend:
+
+IR auswählen
+
+in:
+
+IR importieren
+
+Diese Buttons dienen nur zum Hinzufügen eigener Dateien.
+
+5. Hauptregler
+
+Die fünf Hauptregler:
+
+Input Gain
+Bass
+Mid
+Treble
+Output Gain
+
+kompakt und horizontal anordnen.
+
+Rotary-Knobs sollen ungefähr 90–130 px groß sein.
+
+Sie dürfen beim Vergrößern des Fensters nicht absurd mitskalieren.
+
+Beschriftung und aktueller Wert müssen klar lesbar sein.
+
+6. Effektsektion als Kartenliste
+
+Auto-Wah, Chorus, Delay und Reverb nicht mehr als chaotische Parameterfläche darstellen.
+
+Stattdessen eine vertikale Liste von Effect Cards verwenden.
+
+Reihenfolge:
+
+Auto-Wah → Chorus → Delay → Reverb
+
+Jede Card hat im eingeklappten Zustand:
+
+Effektname
+On/Off
+Expand/Collapse
+kurze Zusammenfassung wichtiger Werte
+
+Beispiel:
+
+[ Auto-Wah   ON    ▼ ]
+[ Chorus     OFF   ▼ ]
+[ Delay      ON    ▼ ]
+[ Reverb     ON    ▼ ]
+
+Aufgeklappt zeigt die Card alle Parameter des Effekts.
+
+Die Effektliste soll scrollbar sein.
+
+Verwende nach Möglichkeit eine gemeinsame wiederverwendbare EffectCard-Komponente.
+
+Aktive Effekte deutlich hervorheben, inaktive leicht abdunkeln.
+
+7. Presets und A/B
+
+Presets als klar abgegrenzten Bereich darstellen:
+
+Preset Dropdown
+Save
+Rename
+Delete
+A/B
+
+A/B soll visuell eindeutig zeigen, welcher Zustand aktuell aktiv ist.
+
+8. WAV-Testmodus
+
+LIVE/WAV klar gruppieren.
+
+Bei aktivem WAV-Modus anzeigen:
+
+Open
+Play
+Pause
+Stop
+Loop
+Timeline
+
+WAV öffnen muss korrekt dargestellt werden.
+
+9. Encoding-/Font-Fehler beheben
+
+Aktuell werden Sonderzeichen teilweise falsch dargestellt, z. B.:
+
+WAV Ã¶ffnen
+
+und kaputte Zeichen/Pfeile im Signalweg.
+
+Sämtliche UI-Texte auf korrektes UTF-8 bzw. funktionierende JUCE-String-/Font-Darstellung prüfen.
+
+Verwende nur Glyphen, die zuverlässig dargestellt werden.
+
+Wenn nötig für den Signalweg einfache Pfeile oder ASCII-Zeichen verwenden.
+
+10. Signalweg
+
+Den Signalweg nicht mehr als winzige, überfüllte Textzeile darstellen.
+
+Wenn er angezeigt wird, dann dezent und gut lesbar:
+
+INPUT → NAM → IR → EQ → AUTO-WAH → CHORUS → DELAY → REVERB → OUTPUT
+
+Er darf niemals andere Controls überlappen.
+
+11. Input-/Output-Meter
+
+Input- und Output-Meter größer und besser lesbar machen.
+
+Sie sollen enthalten:
+
+aktuellen Pegel
+Peak
+Clipping
+
+Die Meter sollen Teil des Klangbereichs sein und nicht wie zwei schmale zufällige Balken am rechten Fensterrand wirken.
+
+12. Statusinformationen
+
+Technische Informationen dezent anzeigen:
+
+Samplerate
+Buffer
+Gesamtlatenz
+Realtime Load
+Dropouts
+
+Kein großer Diagnosebereich in der Hauptansicht.
+
+Ein optionales Diagnostics-/Logfenster darf separat geöffnet werden.
+
+13. Layoutvorschlag
+
+Bevorzugte Struktur:
+
+┌──────────────────────────────────────────────────────────┐
+│ TON OF ABLE                      48k · 64 · 4.2 ms   ⚙ │
+│ Fender Twin Reverb · Normal Bright                     │
+├──────────────────────────────────────────────────────────┤
+│ AMP                        CONFIGURATION                 │
+│ Fender Twin Reverb ▼       Normal Bright ▼              │
+│                                                         │
+│ INPUT      BASS      MID      TREBLE      OUTPUT        │
+│  ◉          ◉        ◉         ◉           ◉            │
+│                                                         │
+│ Input Meter                          Output Meter        │
+├──────────────────────────────┬───────────────────────────┤
+│ Presets / A-B                │ EFFECTS                   │
+│                              │ [Auto-Wah ON ▼]           │
+│ LIVE / WAV / Recording       │ [Chorus OFF ▼]            │
+│                              │ [Delay ON ▼]              │
+│                              │ [Reverb ON ▼]             │
+└──────────────────────────────┴───────────────────────────┘
+
+Das genaue Layout darf verbessert werden, aber diese visuelle Hierarchie soll erhalten bleiben.
+
+14. Responsive Layout
+
+Die GUI bei folgenden Windows-Skalierungen prüfen:
+
+100 %
+125 %
+150 %
+
+Ebenso unterschiedliche Fenstergrößen testen.
+
+Keine Komponenten dürfen:
+
+überlappen
+abgeschnitten werden
+unkontrolliert riesig werden
+extrem klein werden
+
+Verwende sinnvolle Min-/Max-Größen.
+
+15. Design
+
+Beibehalten:
+
+dunkles warmes Braun
+Holz-/Bernsteinfarben
+dezente goldene Highlights
+moderne Typografie
+
+Verbessern:
+
+mehr Abstand
+sauberere Ausrichtung
+deutlichere Gruppen
+bessere Kontraste
+weniger visuelles Durcheinander
+
+Keine kitschige Vintage-Amp-Imitation.
+
+Ziel ist:
+
+modernes Audio-Plugin + hochwertiges Gitarren-Equipment + warme Holz/Amber-Ästhetik
+
+16. Technische Einschränkung
+
+Für diese Aufgabe hauptsächlich GUI/UX verändern.
+
+Bestehende DSP-, Audio- und NAM-Logik nicht unnötig umbauen.
+
+Nach der Änderung Anwendung starten und gezielt prüfen:
+
+maximiertes Fenster
+kleines Fenster
+Audio-Settings öffnen/schließen
+Effektkarten ein-/ausklappen
+Amp wechseln
+Preset wechseln
+LIVE/WAV wechseln
+100/125/150 % DPI-Skalierung
+
+Ziel ist eine ruhige, moderne und klar gegliederte Oberfläche, bei der der Amp und der Sound im Mittelpunkt stehen und technische Infrastruktur in den Hintergrund rückt.

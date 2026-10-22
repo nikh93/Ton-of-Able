@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<NamPedalChecks model="D:\Amp Modeler\resources\lead-models\SLAMMIN_DUMBLE_FORD_OD_SMOOTH_S.nam"
+                passes="19" errors="0" pass="1">
+  <audio blockSize="128" blocks="4" finalBlockSamples="7" finite="1" peak="0.1199983581900597"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="empty pedal is dry" pass="1" detail=""/>
+  <check name="async model ready" pass="1" detail=""/>
+  <check name="name belongs to requested model" pass="1" detail=""/>
+  <check name="ready has no error" pass="1" detail=""/>
+  <audio blockSize="128" blocks="50" finalBlockSamples="7" finite="1"
+         peak="0.166382372379303" expectDry="0" maximumDryError="0.1207507625222206"/>
+  <check name="wet finite including short block" pass="1" detail=""/>
+  <check name="same-path control update does not reload" pass="1" detail=""/>
+  <audio blockSize="128" blocks="8" finalBlockSamples="7" finite="1" peak="0.119999997317791"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="settled bypass excludes trims and equals dry" pass="1"
+         detail=""/>
+  <check name="smaller format asynchronously prepared" pass="1" detail="Loading NAM pedal..."/>
+  <audio blockSize="32" blocks="80" finalBlockSamples="7" finite="1" peak="0.2290093898773193"
+         expectDry="0" maximumDryError="0.1826224364340305"/>
+  <check name="new format and partial blocks finite" pass="1" detail=""/>
+  <check name="larger format asynchronously prepared" pass="1" detail="Loading NAM pedal..."/>
+  <audio blockSize="512" blocks="12" finalBlockSamples="7" finite="1"
+         peak="0.2286417931318283" expectDry="0" maximumDryError="0.1818938292562962"/>
+  <check name="larger blocks finite" pass="1" detail=""/>
+  <audio blockSize="128" blocks="4" finalBlockSamples="7" finite="1" peak="0.1199983581900597"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="missing request immediately disables old model" pass="1"
+         detail=""/>
+  <check name="missing request fails with an error" pass="1" detail="Loading NAM pedal..."/>
+  <audio blockSize="128" blocks="4" finalBlockSamples="7" finite="1" peak="0.1199983581900597"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="unbypass after failure cannot revive old model" pass="1"
+         detail=""/>
+  <audio blockSize="128" blocks="4" finalBlockSamples="7" finite="1" peak="0.1199983581900597"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="latest request wins over stale valid load" pass="1" detail="Loading NAM pedal..."/>
+  <check name="valid reselection recovers" pass="1" detail="Loading NAM pedal..."/>
+  <audio blockSize="128" blocks="4" finalBlockSamples="7" finite="1" peak="0.1199983581900597"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="48k fixture rejects wrong device rate and remains dry"
+         pass="1" detail=""/>
+  <check name="matching device rate recovers" pass="1" detail="Loading NAM pedal..."/>
+  <audio blockSize="128" blocks="4" finalBlockSamples="7" finite="1" peak="0.1199983581900597"
+         expectDry="1" maximumDryError="0.0"/>
+  <check name="clear immediately dry without old name or error" pass="1"
+         detail=""/>
+</NamPedalChecks>

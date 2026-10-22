@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<plugins>
+  <PLUGIN name="BYOD" format="VST3" category="Fx|Distortion" manufacturer="chowdsp"
+          version="1.3.0" file="D:\Amp Modeler\plugins\BYOD.vst3\Contents\x86_64-win\BYOD.vst3"
+          uniqueId="bc7f0623" isInstrument="0" fileTime="18e3e5b59f0" infoUpdateTime="1a0a4342292"
+          numInputs="2" numOutputs="2" isShell="0" hasARAExtension="0"
+          uid="4ea3fe7f"/>
+</plugins>

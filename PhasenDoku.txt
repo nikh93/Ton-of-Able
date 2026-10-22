@@ -1,0 +1,27 @@
+Phase 1 abgeschlossen – C++20-/CMake-Projekt mit JUCE, NeuralAmpModelerCore, Windows-Build und modularer Architektur eingerichtet.
+
+Phase 2 abgeschlossen – ASIO wird bevorzugt, WASAPI bleibt als Fallback verfügbar; Geräte, Kanäle, Samplerate und Buffergröße sind über JUCE auswählbar. Mono wird bei Stereo-Ausgabe auf L/R dupliziert.
+
+Phase 3 abgeschlossen – NAM-Modelle werden außerhalb des Audiothreads geladen, vorbereitet und über lockfreie Übergaben in die Echtzeitkette übernommen. NAM-Bypass, Gain-Ramping und A/B-State-Unterstützung sind enthalten.
+
+Phase 4 abgeschlossen – WAV-IR-Laden über JUCE-Convolution, IR-Bypass und 3-Band-EQ mit geglätteten Parametern umgesetzt.
+
+Phase 5 abgeschlossen – Auto-Wah, Chorus, Delay und Reverb als getrennte Echtzeitprozessoren mit musikalischen Parametern, Bypass-Ramping und GUI-Reglern umgesetzt.
+
+Phase 6 abgeschlossen – NAM- und IR-Libraries mit verlinkten Dateipfaden, Tags, Umbenennen, Löschen, Relink und Missing-Status persistent umgesetzt.
+
+Phase 7 abgeschlossen – vollständige Presets mit Save, Save As, Laden, Umbenennen, Löschen, Persistenz sowie A/B-Umschaltung für komplette Klangzustände umgesetzt.
+
+Phase 8 abgeschlossen – LIVE/WAV-Modus, Mono-WAV-Laden, Play/Pause/Stop/Loop und eine bedienbare Timeline mit Offline-Resampling in die gemeinsame DSP-Kette integriert.
+
+Phase 9 abgeschlossen – verarbeitete Ausgangssignale werden über einen Threaded Writer als WAV aufgenommen; Zielpfad, Start und Stop sind in der GUI verfügbar.
+
+Phase 10 abgeschlossen – Input-/Output-Meter mit Clip-Anzeige, Latenzschätzung, Realtime-Load, Average-/Peak-Verarbeitungszeit, XRuns und asynchrones Logging umgesetzt.
+
+Phase 11 abgeschlossen – warme Amber-GUI mit separaten Preset-, Effekt-, Library- und Diagnosekomponenten sowie persistentem Fensterzustand und eigenständigem Installationsziel umgesetzt.
+
+Phase 12 abgeschlossen – 33 kuratierte GPL-3.0-lizenzierte NAM-Konfigurationen aus 16 Amp-Familien und drei frei redistribuierbare 48-kHz-Cabinet-IRs mit Quellen-/Lizenzhinweisen unter `resources/defaults` gebündelt und beim ersten Start automatisch in NAM-/IR-Libraries verlinkt.
+
+Phase 13 abgeschlossen – Haupt-GUI hierarchisch neu gegliedert: kompakte Audio-Statuszeile mit separatem Audio-Settings-Fenster, prominente AMP-/CONFIGURATION-Auswahl, feste horizontale Hauptregler, größere Input-/Output-Meter, klare LIVE-/WAV-Transportgruppe, verständliche NAM-/IR-Importbuttons, responsive Mindest-/Maximalgrößen, ASCII-Signalweg ohne Glyphenfehler und scrollbar organisierte Effektkarten mit Expand/Collapse für Auto-Wah, Chorus, Delay und Reverb.
+
+Phase 14 abgeschlossen – Zeichensatzfehler in der GUI behoben: deutsche und grafische Beschriftungen werden über explizite JUCE-UTF-8-Konvertierung gesetzt; problematische Plain-Narrow-Literals wie `WAV öffnen` können dadurch nicht mehr als `WAV Ã¶ffnen` erscheinen.

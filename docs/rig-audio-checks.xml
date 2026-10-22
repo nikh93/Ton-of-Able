@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<RigAudioChecks catalog="D:\Amp Modeler\resources\rig-models\catalog.json" sampleRate="48000.0"
+                maximumBlock="128" inputReferencePeak="0.12" ratePolicy="Known NAM rates must match 48000; unknown legacy rates are run at 48000. No invented dBu calibration."
+                scope="Actual pedal NAM -&gt; amp NAM -&gt; cabinet, as mapped; all additional effects absent. Technical checks only; no listening assessment."
+                rigCount="2" passes="18" errors="0" pass="1">
+  <check name="catalog loads" pass="1" detail=""/>
+  <check name="catalog contains rigs" pass="1" detail=""/>
+  <rig id="gilmour-muff-hiwatt" name="Gilmour-inspiriert / Big Muff + Hiwatt"
+       routing="pedal-amp-cab" ampFile="D:\Amp Modeler\resources\rig-models\HIWATT DR103 IMG 1228 500EP.nam"
+       pedalFile="D:\Amp Modeler\resources\pedal-models\big muff.nam"
+       cabFile="D:\Amp Modeler\resources\defaults\Jester Emerald - Nacho Guacamole 48k.wav"
+       ampExpectedRate="-1.0" cabinetSamples="9521" pedalStages="1"
+       ampStages="1" cabinetStages="1">
+    <check name="exact mapped stages / no double cabinet" pass="1" detail=""/>
+    <check name="no added host effects" pass="1" detail=""/>
+    <pedalOutput samples="288007" nonfinite="0" peak="0.4440428912639618" rms="0.1777066421924315"
+                 acRms="0.1777061335273175"/>
+    <ampOutput samples="288007" nonfinite="0" peak="0.7837953567504883" rms="0.3683906984145524"
+               acRms="0.3683902573014688"/>
+    <steadySine samples="48000" nonfinite="0" peak="0.3610097467899323" rms="0.1171079246151336"
+                acRms="0.1171078751561316"/>
+    <check name="steadySine finite" pass="1" detail=""/>
+    <fourSecondDecay samples="192000" nonfinite="0" peak="0.2859997153282166" rms="0.09853940598012398"
+                     acRms="0.09853940467791361"/>
+    <check name="fourSecondDecay finite" pass="1" detail=""/>
+    <silenceTail samples="48007" nonfinite="0" peak="0.151735708117485" rms="0.005138795011820042"
+                 acRms="0.005138602043341239"/>
+    <check name="silenceTail finite" pass="1" detail=""/>
+    <check name="steady sine has nonzero AC output" pass="1" detail=""/>
+    <check name="decaying note has nonzero AC output" pass="1" detail=""/>
+    <check name="pedal remains current without fault" pass="1" detail=""/>
+  </rig>
+  <rig id="gilmour-tube-hiwatt" name="Gilmour-inspiriert / Tube Driver + Hiwatt"
+       routing="pedal-amp-cab" ampFile="D:\Amp Modeler\resources\rig-models\HIWATT DR103 IMG 1228 500EP.nam"
+       pedalFile="D:\Amp Modeler\resources\pedal-models\TUBE DRIVER BUTLER BOOST.nam"
+       cabFile="D:\Amp Modeler\resources\defaults\Jester Emerald - Nacho Guacamole 48k.wav"
+       ampExpectedRate="-1.0" cabinetSamples="9521" pedalStages="1"
+       ampStages="1" cabinetStages="1">
+    <check name="exact mapped stages / no double cabinet" pass="1" detail=""/>
+    <check name="no added host effects" pass="1" detail=""/>
+    <pedalOutput samples="288007" nonfinite="0" peak="0.2354881167411804" rms="0.08387505404348496"
+                 acRms="0.08387501102291949"/>
+    <ampOutput samples="288007" nonfinite="0" peak="0.5065948963165283" rms="0.1776064424194271"
+               acRms="0.1776051109887829"/>
+    <steadySine samples="48000" nonfinite="0" peak="0.1542704403400421" rms="0.08080140070792319"
+                acRms="0.08080139230943439"/>
+    <check name="steadySine finite" pass="1" detail=""/>
+    <fourSecondDecay samples="192000" nonfinite="0" peak="0.1154853105545044" rms="0.03838438365350123"
+                     acRms="0.03838438270618815"/>
+    <check name="fourSecondDecay finite" pass="1" detail=""/>
+    <silenceTail samples="48007" nonfinite="0" peak="0.005387475714087486" rms="0.0002278347183343725"
+                 acRms="0.0002278295881611606"/>
+    <check name="silenceTail finite" pass="1" detail=""/>
+    <check name="steady sine has nonzero AC output" pass="1" detail=""/>
+    <check name="decaying note has nonzero AC output" pass="1" detail=""/>
+    <check name="pedal remains current without fault" pass="1" detail=""/>
+  </rig>
+</RigAudioChecks>

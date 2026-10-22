@@ -1,0 +1,3 @@
+# Playback
+
+`FilePlayer` decodes mono and stereo WAV sources off the audio thread and atomically publishes immutable mono buffers. Stereo is averaged as `(L + R) / 2` before sample-rate conversion, with no normalisation. Identical channels retain their level; opposite-phase content cancels as in a standard mono fold-down. Sources with more than two channels are rejected. Stereo effects after the NAM chain remain stereo. `Recorder` pushes processed buffers into JUCE's bounded `ThreadedWriter` FIFO; its disk thread performs all file access. Call `finaliseStoppedRecordings()` from a non-realtime timer after stopping to close and finalize WAV files.

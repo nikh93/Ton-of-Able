@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "rigs": [
+    {
+      "id": "gilmour-muff-hiwatt",
+      "name": "Gilmour-inspiriert / Big Muff + Hiwatt",
+      "description": "Big Muff und Hiwatt DR103 aus pinkflors GILMOUR TONE-Paket. Cabinet-Anteil im Hiwatt nicht dokumentiert; separate IR lokal ergaenzt und abschaltbar. Keine albumgetreue Originalkette behauptet. Zusatz-Effekte beim Laden aus.",
+      "provenance": "Curated from original package; cabinet added locally",
+      "routing": "pedal-amp-cab",
+      "pedalFile": "pedal-models/big muff.nam",
+      "ampFile": "rig-models/HIWATT DR103 IMG 1228 500EP.nam",
+      "cabFile": "defaults/Jester Emerald - Nacho Guacamole 48k.wav",
+      "embeddedEffects": [],
+      "source": "https://www.tone3000.com/tones/gilmour-tone-5933"
+    },
+    {
+      "id": "gilmour-tube-hiwatt",
+      "name": "Gilmour-inspiriert / Tube Driver + Hiwatt",
+      "description": "Butler Tube Driver Boost und Hiwatt DR103 aus pinkflors GILMOUR TONE-Paket. Cabinet-Anteil im Hiwatt nicht dokumentiert; separate IR lokal ergaenzt und abschaltbar. Keine albumgetreue Originalkette behauptet. Zusatz-Effekte beim Laden aus.",
+      "provenance": "Curated from original package; cabinet added locally",
+      "routing": "pedal-amp-cab",
+      "pedalFile": "pedal-models/TUBE DRIVER BUTLER BOOST.nam",
+      "ampFile": "rig-models/HIWATT DR103 IMG 1228 500EP.nam",
+      "cabFile": "defaults/Jester Emerald - Nacho Guacamole 48k.wav",
+      "embeddedEffects": [],
+      "source": "https://www.tone3000.com/tones/gilmour-tone-5933"
+    }
+  ]
+}

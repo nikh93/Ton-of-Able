@@ -1,0 +1,166 @@
+cmake_minimum_required(VERSION 3.24)
+
+project(NamTestProgram VERSION 0.1.0 LANGUAGES C CXX)
+
+# Keep the standalone application portable: embed the MSVC runtime instead of
+# requiring the Visual C++ Redistributable on the target machine. Third-party
+# VST3 binaries remain external and may still have their own dependencies.
+if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "Use static MSVC runtime" FORCE)
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if (NOT WIN32)
+    message(FATAL_ERROR "NamTestProgram currently targets Windows 10 and Windows 11 only.")
+endif()
+
+add_subdirectory(third_party/JUCE)
+
+# NeuralAmpModelerCore currently exposes source files and tools, rather than a
+# consumer library target. Keep this integration local and explicit so its API
+# can be updated independently of the app's DSP architecture.
+file(GLOB NAM_CORE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore/NAM/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore/NAM/*/*.cpp")
+
+juce_add_gui_app(NamTestProgram
+    PRODUCT_NAME "Ton of Able"
+    COMPANY_NAME "Ton of Able"
+    BUNDLE_ID "com.tonofable.standalone"
+)
+set_target_properties(NamTestProgram PROPERTIES OUTPUT_NAME "Ton of Able")
+
+target_sources(NamTestProgram PRIVATE
+    src/Main.cpp
+    src/audio/AudioEngine.cpp
+    src/audio/AudioEngine.h
+    src/audio/NamProcessor.cpp
+    src/audio/NamProcessor.h
+    src/audio/IRProcessor.cpp
+    src/audio/IRProcessor.h
+    src/audio/plugins/Vst3Slot.cpp
+    src/ui/plugins/PluginRackPanel.cpp
+    src/ui/plugins/NamPedalPanel.cpp
+    src/audio/NamPedalProcessor.cpp
+    src/audio/effects/DriveProcessor.cpp
+    src/audio/effects/DriveProcessor.h
+    src/library/LibraryManager.cpp
+    src/library/LibraryManager.h
+    src/library/NamLibrary.h
+    src/library/IRLibrary.h
+    src/library/CuratedAmpLibrary.cpp
+    src/library/RigLibrary.cpp
+    src/library/CuratedAmpLibrary.h
+    src/presets/PresetManager.cpp
+    src/presets/PresetManager.h
+    src/playback/FilePlayer.cpp
+    src/playback/FilePlayer.h
+    src/playback/Recorder.cpp
+    src/playback/Recorder.h
+    src/diagnostics/PerformanceMonitor.cpp
+    src/diagnostics/PerformanceMonitor.h
+    src/diagnostics/Logger.cpp
+    src/diagnostics/Logger.h
+    src/config/AppSettings.cpp
+    src/config/AppSettings.h
+    src/ui/MainComponent.cpp
+    src/ui/MainComponent.h
+    src/ui/presets/PresetManagementComponent.cpp
+    src/ui/presets/PresetManagementComponent.h
+    src/ui/components/AmberTheme.cpp
+    src/ui/components/AmberTheme.h
+    src/ui/components/RotaryParameterControl.cpp
+    src/ui/components/RotaryParameterControl.h
+    src/ui/components/AudioMeter.cpp
+    src/ui/components/AudioMeter.h
+    src/ui/diagnostics/DiagnosticsPanel.cpp
+    src/ui/diagnostics/DiagnosticsPanel.h
+    src/ui/library/LibraryBrowser.cpp
+    src/ui/library/LibraryBrowser.h
+    src/ui/effects/EffectParameterPanel.cpp
+    src/ui/effects/EffectParameterPanel.h
+    src/ui/playback/WavFileBrowser.cpp
+    src/ui/playback/WavFileBrowser.h
+    ${NAM_CORE_SOURCES}
+)
+
+target_include_directories(NamTestProgram PRIVATE
+    src
+    third_party/NeuralAmpModelerCore
+    third_party/NeuralAmpModelerCore/Dependencies/eigen
+    third_party/NeuralAmpModelerCore/Dependencies/nlohmann
+)
+
+target_compile_definitions(NamTestProgram PRIVATE
+    JUCE_ASIO=1
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_WASAPI=1
+    JUCE_DIRECTSOUND=0
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_MODAL_LOOPS_PERMITTED=1
+    NAM_ENABLE_A2_FAST
+    NAM_SAMPLE_FLOAT
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+)
+
+target_link_libraries(NamTestProgram PRIVATE
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+)
+
+if (MSVC)
+    target_compile_options(NamTestProgram PRIVATE /W4 /permissive- /utf-8)
+endif()
+
+option(NAM_TEST_PROGRAM_BUILD_TESTS "Build NAM Test Program unit tests" ON)
+if (NAM_TEST_PROGRAM_BUILD_TESTS)
+    enable_testing()
+    juce_add_console_app(NamTestProgramTests)
+    target_sources(NamTestProgramTests PRIVATE
+        tests/TestMain.cpp
+        tests/NamTestProgramTests.cpp
+        tests/DriveVoicingTests.cpp
+        src/library/LibraryManager.cpp
+        src/library/CuratedAmpLibrary.cpp
+        src/presets/PresetManager.cpp
+        src/playback/FilePlayer.cpp
+        src/diagnostics/PerformanceMonitor.cpp
+        src/audio/effects/DriveProcessor.cpp
+    )
+    target_include_directories(NamTestProgramTests PRIVATE src)
+    target_compile_definitions(NamTestProgramTests PRIVATE JUCE_USE_CURL=0)
+    target_link_libraries(NamTestProgramTests PRIVATE
+        juce::juce_audio_formats
+        juce::juce_data_structures
+        juce::juce_dsp
+        juce::juce_events
+    )
+    add_test(NAME NamTestProgramTests COMMAND NamTestProgramTests)
+endif()
+
+include(GNUInstallDirs)
+juce_add_console_app(DriveAudition)
+set_target_properties(DriveAudition PROPERTIES EXCLUDE_FROM_ALL TRUE)
+target_sources(DriveAudition PRIVATE tests/DriveAudition.cpp src/audio/effects/DriveProcessor.cpp ${NAM_CORE_SOURCES})
+target_include_directories(DriveAudition PRIVATE src third_party/NeuralAmpModelerCore
+    third_party/NeuralAmpModelerCore/Dependencies/eigen third_party/NeuralAmpModelerCore/Dependencies/nlohmann)
+target_compile_definitions(DriveAudition PRIVATE NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST JUCE_USE_CURL=0 NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(DriveAudition PRIVATE juce::juce_audio_formats juce::juce_dsp)
+if (MSVC)
+    target_compile_options(DriveAudition PRIVATE /utf-8)
+endif()
+install(TARGETS NamTestProgram
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(DIRECTORY resources/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/NamTestProgram/resources
+)

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<RigChecks catalog="D:\Amp Modeler\resources\rig-models\catalog.json" rigCount="2"
+           passes="37" errors="0" pass="1">
+  <check name="catalog validates" pass="1" detail=""/>
+  <check name="gilmour-muff-hiwatt: find returns entry" pass="1" detail=""/>
+  <check name="gilmour-muff-hiwatt: amp exists" pass="1" detail=""/>
+  <check name="gilmour-muff-hiwatt: gains retained and amp EQ neutral"
+         pass="1" detail=""/>
+  <check name="gilmour-muff-hiwatt: routing avoids double cabinet" pass="1"
+         detail=""/>
+  <check name="gilmour-muff-hiwatt: extras disabled" pass="1" detail=""/>
+  <check name="gilmour-muff-hiwatt: opaque plugin data preserved" pass="1"
+         detail=""/>
+  <check name="gilmour-muff-hiwatt: current plugin trees are not shared"
+         pass="1" detail=""/>
+  <check name="gilmour-muff-hiwatt: rig identity and deferred asset mapping"
+         pass="1" detail=""/>
+  <check name="gilmour-tube-hiwatt: find returns entry" pass="1" detail=""/>
+  <check name="gilmour-tube-hiwatt: amp exists" pass="1" detail=""/>
+  <check name="gilmour-tube-hiwatt: gains retained and amp EQ neutral"
+         pass="1" detail=""/>
+  <check name="gilmour-tube-hiwatt: routing avoids double cabinet" pass="1"
+         detail=""/>
+  <check name="gilmour-tube-hiwatt: extras disabled" pass="1" detail=""/>
+  <check name="gilmour-tube-hiwatt: opaque plugin data preserved" pass="1"
+         detail=""/>
+  <check name="gilmour-tube-hiwatt: current plugin trees are not shared"
+         pass="1" detail=""/>
+  <check name="gilmour-tube-hiwatt: rig identity and deferred asset mapping"
+         pass="1" detail=""/>
+  <check name="mapping-full-rig: gains retained and amp EQ neutral" pass="1"
+         detail=""/>
+  <check name="mapping-full-rig: routing avoids double cabinet" pass="1"
+         detail=""/>
+  <check name="mapping-full-rig: extras disabled" pass="1" detail=""/>
+  <check name="mapping-full-rig: opaque plugin data preserved" pass="1"
+         detail=""/>
+  <check name="mapping-full-rig: current plugin trees are not shared"
+         pass="1" detail=""/>
+  <check name="mapping-full-rig: rig identity and deferred asset mapping"
+         pass="1" detail=""/>
+  <check name="mapping-amp-cab: gains retained and amp EQ neutral" pass="1"
+         detail=""/>
+  <check name="mapping-amp-cab: routing avoids double cabinet" pass="1"
+         detail=""/>
+  <check name="mapping-amp-cab: extras disabled" pass="1" detail=""/>
+  <check name="mapping-amp-cab: opaque plugin data preserved" pass="1"
+         detail=""/>
+  <check name="mapping-amp-cab: current plugin trees are not shared" pass="1"
+         detail=""/>
+  <check name="mapping-amp-cab: rig identity and deferred asset mapping"
+         pass="1" detail=""/>
+  <check name="mapping-pedal-amp-cab: gains retained and amp EQ neutral"
+         pass="1" detail=""/>
+  <check name="mapping-pedal-amp-cab: routing avoids double cabinet" pass="1"
+         detail=""/>
+  <check name="mapping-pedal-amp-cab: extras disabled" pass="1" detail=""/>
+  <check name="mapping-pedal-amp-cab: opaque plugin data preserved" pass="1"
+         detail=""/>
+  <check name="mapping-pedal-amp-cab: current plugin trees are not shared"
+         pass="1" detail=""/>
+  <check name="mapping-pedal-amp-cab: rig identity and deferred asset mapping"
+         pass="1" detail=""/>
+  <check name="catalog forbids full-rig external cabinet" pass="1" detail="Rig entry 0: full-rig forbids external pedal/cab (prevents double processing)"/>
+  <check name="failed catalog load is transactional" pass="1" detail=""/>
+</RigChecks>

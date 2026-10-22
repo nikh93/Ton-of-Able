@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PluginHostChecks pluginPath="D:\Amp Modeler\plugins\ValhallaSupermassive.vst3"
+                  timeUTC="2026-09-15T10:54:28.676+02:00" typeCount="1" passes="71"
+                  errors="0" skips="19" pass="1" scope="Host smoke checks including continuous delayed bypass and non-dry selected-program output. Not a sound-quality, allocation, threading, or crash-safety certification. No listening performed.">
+  <check name="scan finds audio effects" pass="1" detail=""/>
+  <plugin encodedStateCharacters="1389">
+    <PLUGIN name="ValhallaSupermassive" format="VST3" category="Fx" manufacturer="Valhalla DSP, LLC"
+            version="5.0.0" file="D:\Amp Modeler\plugins\ValhallaSupermassive.vst3"
+            uniqueId="7e8fe5d5" isInstrument="0" fileTime="19aa3d7a4d0" infoUpdateTime="1a0a446584b"
+            numInputs="2" numOutputs="2" isShell="0" hasARAExtension="0"
+            uid="77982743"/>
+    <check name="load" pass="1" detail=""/>
+    <check name="instance present" pass="1" detail=""/>
+    <programs count="0" current="0">
+      <skip name="useful factory program selection" reason="No matching named program exposed; use plugin preset browser then save slot state. Default may be an empty chain."/>
+    </programs>
+    <presetRoute runtimeSelected="0" guidance="Prefer an exposed named program; otherwise select a preset in the native editor and persist Vst3Slot::saveState. Host parameters alone may not construct the processor graph."/>
+    <audio rate="44100.0" block="32" channels="1">
+      <sine frames="359" shortBlocks="1" nonfinite="0" peak="0.08485227078199387"
+            rms="0.06057465726241754" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="359" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4416"
+              measuredFrames="4423" shortBlocks="1" nonfinite="0" outputPeak="0.1101788282394409"
+              outputRms="0.05082730250991333" delayedDryRms="0.05082730250991333"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005082730250991333"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="44100.0" block="32" channels="2">
+      <sine frames="359" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06021049044657224" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="359" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4416"
+              measuredFrames="4423" shortBlocks="1" nonfinite="0" outputPeak="0.1101788282394409"
+              outputRms="0.05074551890125129" delayedDryRms="0.05074551890125129"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005074551890125129"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="44100.0" block="128" channels="1">
+      <sine frames="1415" shortBlocks="1" nonfinite="0" peak="0.08485279232263565"
+            rms="0.05976858770025113" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="1415" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4480"
+              measuredFrames="4487" shortBlocks="1" nonfinite="0" outputPeak="0.1101788282394409"
+              outputRms="0.05008275414079087" delayedDryRms="0.05008275414079087"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005008275414079087"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="44100.0" block="128" channels="2">
+      <sine frames="1415" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.05995400026334361" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="1415" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4480"
+              measuredFrames="4487" shortBlocks="1" nonfinite="0" outputPeak="0.1101788282394409"
+              outputRms="0.05001197636622536" delayedDryRms="0.05001197636622536"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005001197636622536"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="44100.0" block="512" channels="1">
+      <sine frames="5639" shortBlocks="1" nonfinite="0" peak="0.08485279232263565"
+            rms="0.05991248228152086" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="5639" shortBlocks="1" nonfinite="0" peak="4.541318442309464e-16"
+               rms="4.489998437428242e-17" maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4608"
+              measuredFrames="4615" shortBlocks="1" nonfinite="0" outputPeak="0.1090989857912064"
+              outputRms="0.04899215447995707" delayedDryRms="0.04899215447995707"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00004899215447995707"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="44100.0" block="512" channels="2">
+      <sine frames="5639" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.05993015483076451" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="5639" shortBlocks="1" nonfinite="0" peak="1.147762254298046e-15"
+               rms="7.25654191974936e-17" maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4608"
+              measuredFrames="4615" shortBlocks="1" nonfinite="0" outputPeak="0.1090989857912064"
+              outputRms="0.04920489785611597" delayedDryRms="0.04920489785611597"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00004920489785611597"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="48000.0" block="32" channels="1">
+      <sine frames="359" shortBlocks="1" nonfinite="0" peak="0.08485019952058792"
+            rms="0.05852650599780947" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="359" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4800"
+              measuredFrames="4839" shortBlocks="1" nonfinite="0" outputPeak="0.1101821660995483"
+              outputRms="0.05077526260989524" delayedDryRms="0.05077526260989524"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005077526260989524"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="48000.0" block="32" channels="2">
+      <sine frames="359" shortBlocks="1" nonfinite="0" peak="0.0848526656627655"
+            rms="0.05914506258585035" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="359" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4800"
+              measuredFrames="4839" shortBlocks="1" nonfinite="0" outputPeak="0.1101821660995483"
+              outputRms="0.05073785848069744" delayedDryRms="0.05073785848069744"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005073785848069744"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="48000.0" block="128" channels="1">
+      <sine frames="1415" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06006684782327749" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="1415" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4864"
+              measuredFrames="4871" shortBlocks="1" nonfinite="0" outputPeak="0.1101821660995483"
+              outputRms="0.05032889303103531" delayedDryRms="0.05032889303103531"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005032889303103531"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="48000.0" block="128" channels="2">
+      <sine frames="1415" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06011969269365799" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="1415" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="4864"
+              measuredFrames="4871" shortBlocks="1" nonfinite="0" outputPeak="0.1101821660995483"
+              outputRms="0.05028582891891647" delayedDryRms="0.05028582891891647"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005028582891891647"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="48000.0" block="512" channels="1">
+      <sine frames="5639" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06008235212996335" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="5639" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="5120"
+              measuredFrames="5127" shortBlocks="1" nonfinite="0" outputPeak="0.1091057062149048"
+              outputRms="0.04865282011860211" delayedDryRms="0.04865282011860211"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00004865282011860211"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="48000.0" block="512" channels="2">
+      <sine frames="5639" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06001309161277572" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="5639" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="5120"
+              measuredFrames="5127" shortBlocks="1" nonfinite="0" outputPeak="0.1091057062149048"
+              outputRms="0.04852382470254264" delayedDryRms="0.04852382470254264"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00004852382470254264"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="96000.0" block="32" channels="1">
+      <sine frames="359" shortBlocks="1" nonfinite="0" peak="0.08485274016857147"
+            rms="0.06219007448555155" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="359" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="9600"
+              measuredFrames="9639" shortBlocks="1" nonfinite="0" outputPeak="0.1101934760808945"
+              outputRms="0.05079887370107836" delayedDryRms="0.05079887370107836"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005079887370107836"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="96000.0" block="32" channels="2">
+      <sine frames="359" shortBlocks="1" nonfinite="0" peak="0.08485274016857147"
+            rms="0.06118326512882873" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="359" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="9600"
+              measuredFrames="9639" shortBlocks="1" nonfinite="0" outputPeak="0.1101934760808945"
+              outputRms="0.05077963191789182" delayedDryRms="0.05077963191789182"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005077963191789182"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="96000.0" block="128" channels="1">
+      <sine frames="1415" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.05991141667129728" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="1415" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="9600"
+              measuredFrames="9735" shortBlocks="1" nonfinite="0" outputPeak="0.1101934760808945"
+              outputRms="0.05072216622233908" delayedDryRms="0.05072216622233908"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005072216622233908"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="96000.0" block="128" channels="2">
+      <sine frames="1415" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06005141867061286" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="1415" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="9600"
+              measuredFrames="9735" shortBlocks="1" nonfinite="0" outputPeak="0.1101934760808945"
+              outputRms="0.05075817761328466" delayedDryRms="0.05075817761328466"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005075817761328466"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="96000.0" block="512" channels="1">
+      <sine frames="5639" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06015116036216792" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="5639" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="9728"
+              measuredFrames="9735" shortBlocks="1" nonfinite="0" outputPeak="0.1101934760808945"
+              outputRms="0.05034038087367394" delayedDryRms="0.05034038087367394"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005034038087367394"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <audio rate="96000.0" block="512" channels="2">
+      <sine frames="5639" shortBlocks="1" nonfinite="0" peak="0.08485280722379684"
+            rms="0.06010558961721473" maximumDryError="0.0" latencySamples="0"/>
+      <check name="sine finite" pass="1" detail=""/>
+      <silence frames="5639" shortBlocks="1" nonfinite="0" peak="0.0" rms="0.0"
+               maximumDryError="0.0" latencySamples="0"/>
+      <check name="silence/tail finite" pass="1" detail=""/>
+      <skip name="non-dry processing" reason="No useful named program selected; default may intentionally pass through"/>
+      <bypass latencySamples="0" directPlugin="0" stableLatency="1" primingFrames="9728"
+              measuredFrames="9735" shortBlocks="1" nonfinite="0" outputPeak="0.1101934760808945"
+              outputRms="0.05029450829982973" delayedDryRms="0.05029450829982973"
+              delayedDryDifferenceRms="0.0" immediateDryDifferenceRms="0.0"
+              maximumDelayedDryError="0.0" nonDryThresholdRms="0.00005029450829982973"
+              bypassTolerance="1.0e-6"/>
+      <check name="bypass equals latency-delayed continuous dry after fade"
+             pass="1" detail=""/>
+    </audio>
+    <supermassiveImpulseTail rate="48000" block="128" seconds="4" impulseLeft="0.1" impulseRight="0.1"
+                             lateWindowSeconds="1.0 through 4.0" parameters="fresh plugin defaults, unchanged"
+                             nonfinite="0" peak="0.0707106813788414" lateRms="0.00004591776703959111"
+                             lateStereoDifferenceRms="0.00006519322594503762" minimumRms="1.0e-8"
+                             latencySamples="0">
+      <check name="fresh 48k load" pass="1" detail=""/>
+      <check name="four-second impulse response finite" pass="1" detail=""/>
+      <check name="nonzero late tail (1-4 seconds)" pass="1" detail=""/>
+      <check name="stereo difference in late tail" pass="1" detail=""/>
+    </supermassiveImpulseTail>
+    <parameters>
+      <parameter index="0" name="Mix" value="0.5" automatable="1"/>
+      <parameter index="1" name="DelaySync" value="0.25" automatable="1"/>
+      <parameter index="2" name="DelayNote" value="0.2857142984867096" automatable="1"/>
+      <parameter index="3" name="Delay_Ms" value="0.5" automatable="1"/>
+      <parameter index="4" name="DelayWarp" value="0.0" automatable="1"/>
+      <parameter index="5" name="Clear" value="1.0" automatable="1"/>
+      <parameter index="6" name="Feedback" value="0.5" automatable="1"/>
+      <parameter index="7" name="Density" value="0.0" automatable="1"/>
+      <parameter index="8" name="Width" value="1.0" automatable="1"/>
+      <parameter index="9" name="LowCut" value="0.0" automatable="1"/>
+      <parameter index="10" name="HighCut" value="1.0" automatable="1"/>
+      <parameter index="11" name="ModRate" value="0.2738341093063354" automatable="1"/>
+      <parameter index="12" name="ModDepth" value="0.5" automatable="1"/>
+      <parameter index="13" name="Mode" value="0.0416666679084301" automatable="1"/>
+      <parameter index="14" name="Reserved1" value="0.0" automatable="1"/>
+      <parameter index="15" name="Reserved2" value="0.0" automatable="1"/>
+      <parameter index="16" name="Reserved3" value="0.0" automatable="1"/>
+      <parameter index="17" name="Reserved4" value="0.0" automatable="1"/>
+      <parameter index="18" name="Bypass" value="0.0" automatable="1"/>
+      <check name="parameter tweak takes effect" pass="1" detail="Mix"/>
+      <check name="parameter restored" pass="1" detail="Mix"/>
+    </parameters>
+    <check name="save valid state" pass="1" detail=""/>
+    <check name="restore state" pass="1" detail=""/>
+    <check name="restored plugin present and bypass restored" pass="1" detail=""/>
+    <check name="clear removes instance" pass="1" detail=""/>
+    <check name="restore into empty slot" pass="1" detail=""/>
+    <check name="missing plugin retains old instance" pass="1" detail="VST3 missing: D:\Amp Modeler\plugins\__missing_plugin_host_check.vst3"/>
+    <check name="native editor creation (not shown)" pass="1" detail=""/>
+    <check name="editor destroyed" pass="1" detail=""/>
+  </plugin>
+</PluginHostChecks>

@@ -1,0 +1,48 @@
+Die App bekommt eine fest integrierte, kuratierte NAM-Amp-Library.
+Die Auswahl erfolgt zweistufig:
+Amp auswählen
+Konfiguration/Sound dieses Amps auswählen
+Beispiel:
+Marshall JCM800 2203 → Crunch / Hot Crunch / Lead / Boosted High Gain
+Vorgesehene Amp-Familien:
+Fender Twin Reverb
+Fender Deluxe Reverb
+Vox AC15
+Marshall JCM800 2203
+Mesa/Boogie Dual Rectifier
+EVH 5150 III Stealth
+Dumble ODS
+Roland JC-120
+Orange Rockerverb MKIII
+Peavey 6505+
+Ziel sind etwa 30–35 sinnvoll ausgewählte NAMs, keine riesige unsortierte Sammlung.
+Die NAM-Dateien werden lokal ins Projekt integriert und nach Amp-Familie strukturiert.
+Jedes NAM erhält Metadaten wie:
+Hersteller
+Amp-Name
+Konfiguration
+Capture-Typ
+Kategorie
+Gain-Level
+Dateipfad
+empfohlene IR
+kurze Beschreibung
+Capture-Typen mindestens:
+AmpHead
+FullRig
+Unknown
+Bei AmpHead wird standardmäßig eine passende IR aktiviert.
+Bei FullRig wird die IR standardmäßig deaktiviert.
+Diese automatische IR-Entscheidung bleibt manuell überschreibbar.
+Die GUI zeigt zwei Dropdowns:
+AMP
+CONFIGURATION
+Beim Amp-Wechsel wird die Konfigurationsliste automatisch passend aktualisiert.
+Technische NAM-Dateinamen sollen in der Haupt-GUI möglichst unsichtbar bleiben.
+Zusätzlich werden Kategorien wie American Clean, British Rock, Boutique, Modern High Gain, Metal usw. intern gespeichert.
+Eigene importierte NAMs bleiben weiterhin nutzbar und erscheinen zunächst unter User Models.
+Modellwechsel erfolgt weiterhin außerhalb des Audio-Threads: laden, vorbereiten, dann sauber aktivieren.
+Presets und A/B-Vergleich speichern künftig auch Amp-ID und Konfiguration.
+UX-Ziel: Die App soll sich wie eine virtuelle Sammlung echter Verstärker anfühlen, nicht wie ein Dateibrowser für .nam-Dateien.
+
+Kurz gesagt: Der Nutzer wählt einen Verstärker und danach dessen Klangzustand. Die eigentliche NAM-Datei bleibt technische Unterwäsche und verschwindet möglichst aus dem Sichtfeld.

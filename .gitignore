@@ -1,0 +1,21 @@
+/build/
+/.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+*.wav
+
+# Local artefacts, third-party binaries and media
+/install/
+/downloads/
+/release/
+/plugins/
+/TestAudio/
+/Neuer Ordner/
+*.rar
+*.mp4
+*.zip
+
+# Bundled IRs are needed at runtime
+!/resources/**/*.wav

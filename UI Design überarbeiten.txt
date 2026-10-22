@@ -1,0 +1,9 @@
+Die UI sieht aktuell aus wie ein mislungener Entwickler prototyp.
+Überabeite das Design. 
+Es soll modern und richtig stylish aussehen.
+Holzoptik in verschiedenen holztönen.
+Stellenweise auch Glass look.
+DIe panels sollen volumen bekommen.
+eleminiere redundanzen der UI
+du hast komplette freiheit die UI nach eigenem ermessen umzubauen und zu redesignen solange Alle FUnktionen am Ende über die UI erreichbar sind.
+teste am ende mit screenshots und bessere bei bedarf nach
