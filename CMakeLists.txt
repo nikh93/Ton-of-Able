@@ -43,6 +43,8 @@ set(DAW_SOURCES
     src/daw/AudioCodecs.h
     src/daw/AudioData.cpp
     src/daw/AudioData.h
+    src/audio/effects/LivePitchShifter.cpp
+    src/audio/effects/LivePitchShifter.h
     src/daw/DawText.h
     src/daw/TimeStretcher.cpp
     src/daw/TimeStretcher.h
@@ -117,6 +119,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/arrangement/TrackFxComponent.h
     src/ui/effects/GraphicEqComponent.cpp
     src/ui/effects/GraphicEqComponent.h
+    src/ui/effects/PitchShiftComponent.cpp
+    src/ui/effects/PitchShiftComponent.h
     src/ui/arrangement/TimelineComponent.cpp
     src/ui/arrangement/TimelineComponent.h
     src/ui/arrangement/TrackHeaderComponent.cpp

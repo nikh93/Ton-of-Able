@@ -19,6 +19,7 @@
 #include "ui/plugins/PluginRackPanel.h"
 #include "ui/arrangement/ArrangementView.h"
 #include "ui/arrangement/TrackFxComponent.h"
+#include "ui/effects/PitchShiftComponent.h"
 #include "daw/ArrangementController.h"
 
 class MainComponent final : public juce::Component, private juce::Timer
@@ -63,6 +64,7 @@ private:
     void setArrangementVisible(bool visible);
     void showGraphicEq();
     void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
+    void showPitchShifter();
     [[nodiscard]] nam::ui::TrackFxComponent::Sources trackFxSources();
     void applyTrackSound(RigChain& chain, const SoundState& sound);
     [[nodiscard]] std::vector<juce::Component*> rigComponents();
@@ -73,6 +75,7 @@ private:
     nam::ui::ArrangementView arrangementView { arrangementController };
     juce::TextButton viewToggle { "ARRANGEMENT" };
     juce::TextButton graphicEqButton { "GRAPHIC EQ" };
+    juce::TextButton pitchButton { "PITCH" };
     bool arrangementVisible = false;
     PluginRackPanel pluginRack { audioEngine };
     std::unique_ptr<juce::DocumentWindow> pluginWindow;

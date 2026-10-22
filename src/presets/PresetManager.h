@@ -33,6 +33,10 @@ struct SoundState
     // Ten-band graphic EQ after the amp EQ: 31.5 Hz ... 16 kHz, +/-12 dB.
     bool graphicEqBypassed = true;
     std::array<float, 10> graphicEqDb {};
+    // Live pitch shifter (Rubber Band) in front of the rig, e.g. an octave down.
+    bool pitchBypassed = true;
+    float pitchSemitones = -12.0f, pitchMix = 1.0f;
+    bool pitchFormantPreserved = false, pitchHighQuality = false;
 
     juce::ValueTree toValueTree() const;
     static std::optional<SoundState> fromValueTree(const juce::ValueTree&, juce::String* error = nullptr);
@@ -49,6 +53,8 @@ struct SoundState
         namPedalPath = live.namPedalPath; namPedalBypassed = live.namPedalBypassed;
         namPedalInputDb = live.namPedalInputDb; namPedalOutputDb = live.namPedalOutputDb;
         graphicEqBypassed = live.graphicEqBypassed; graphicEqDb = live.graphicEqDb;
+        pitchBypassed = live.pitchBypassed; pitchSemitones = live.pitchSemitones; pitchMix = live.pitchMix;
+        pitchFormantPreserved = live.pitchFormantPreserved; pitchHighQuality = live.pitchHighQuality;
     }
 };
 

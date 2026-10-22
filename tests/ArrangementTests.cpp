@@ -8,6 +8,7 @@
 #include "../src/daw/AudioCodecs.h"
 #include "../src/daw/TimeStretcher.h"
 #include "../src/audio/effects/GraphicEQProcessor.h"
+#include "../src/audio/effects/LivePitchShifter.h"
 #include "../src/presets/PresetManager.h"
 
 namespace
@@ -443,6 +444,88 @@ public:
     }
 };
 
+class LivePitchTests final : public juce::UnitTest
+{
+public:
+    LivePitchTests() : UnitTest("Rubber Band live pitch shifting", "DAW") {}
+
+    void runTest() override
+    {
+        using nam::effects::LivePitchShifter;
+        constexpr double rate = 48000.0;
+        for (const auto mode : { LivePitchShifter::Mode::lowLatency, LivePitchShifter::Mode::highQuality })
+            for (const auto block : { 32, 64, 128, 256, 441, 512, 1024 })
+            {
+                const auto name = juce::String(mode == LivePitchShifter::Mode::lowLatency ? "low latency" : "high quality") + ", block " + juce::String(block);
+
+                beginTest("Reported latency matches the signal, " + name);
+                {
+                    // Unshifted noise: the output must be the input delayed by latencySamples().
+                    LivePitchShifter shifter;
+                    shifter.setMode(mode);
+                    shifter.setSemitones(0.0f);
+                    shifter.setBypassed(false);
+                    shifter.prepare(rate, block);
+                    juce::Random random(42);
+                    const int total = 48000;
+                    std::vector<float> input(static_cast<size_t>(total)), output(static_cast<size_t>(total));
+                    for (auto& value : input)
+                        value = random.nextFloat() - 0.5f;
+                    output = input;
+                    for (int position = 0; position < total; position += block)
+                        shifter.process(output.data() + position, std::min(block, total - position));
+                    const auto reported = shifter.latencySamples();
+                    int bestLag = 0;
+                    double best = -1.0;
+                    for (int lag = 0; lag < 8000; ++lag)
+                    {
+                        double sum = 0.0;
+                        for (int sample = 20000; sample < 30000; ++sample)
+                            sum += static_cast<double>(input[static_cast<size_t>(sample)]) * output[static_cast<size_t>(sample + lag)];
+                        if (sum > best) { best = sum; bestLag = lag; }
+                    }
+                    logMessage("latency reported " + juce::String(reported / 48.0, 1) + " ms, measured " + juce::String(bestLag / 48.0, 1) + " ms");
+                    expectWithinAbsoluteError(bestLag, reported, 48);
+                    expectEquals(shifter.underrunCount(), 0);
+                }
+
+                for (const auto semitones : { -12.0f, -7.0f, -5.0f, 5.0f, 12.0f, -24.0f, 24.0f })
+                {
+                    beginTest(juce::String(semitones, 0) + " semitones, " + name);
+                    LivePitchShifter shifter;
+                    shifter.setMode(mode);
+                    shifter.setSemitones(semitones);
+                    shifter.setBypassed(false);
+                    shifter.prepare(rate, block);
+                    const int total = 48000 * 2, onset = 9600;
+                    juce::AudioBuffer<float> signal(1, total);
+                    for (int sample = 0; sample < total; ++sample)
+                        signal.setSample(0, sample, sample < onset ? 0.0f : 0.5f * std::sin(2.0f * juce::MathConstants<float>::pi * 440.0f * static_cast<float>(sample - onset) / 48000.0f));
+                    for (int position = 0; position < total; position += block)
+                        shifter.process(signal.getWritePointer(0) + position, std::min(block, total - position));
+                    expectEquals(shifter.underrunCount(), 0);
+                    logMessage("latency " + juce::String(shifter.latencySamples() / 48.0, 1) + " ms");
+                    const auto from = onset + shifter.latencySamples() + 9600;
+                    const auto crossings = zeroCrossings(signal, from, from + 24000);
+                    const auto expected = 440.0 * std::pow(2.0, semitones / 12.0); // crossings in 0.5 s = 2 * f * 0.5
+                    // Two octaves exceed what the short R2 window resolves cleanly.
+                    const auto tolerance = std::abs(semitones) > 12.0f && mode == LivePitchShifter::Mode::lowLatency ? 0.15 : 0.05;
+                    expectWithinAbsoluteError(static_cast<double>(crossings), expected, expected * tolerance);
+                }
+            }
+
+        beginTest("Bypassed shifter is transparent and adds no latency");
+        LivePitchShifter shifter;
+        shifter.prepare(rate, 256);
+        expectEquals(shifter.latencySamples(), 0);
+        juce::AudioBuffer<float> buffer(1, 256);
+        for (int sample = 0; sample < 256; ++sample)
+            buffer.setSample(0, sample, static_cast<float>(sample) / 256.0f);
+        shifter.process(buffer.getWritePointer(0), 256);
+        expectWithinAbsoluteError(buffer.getSample(0, 100), 100.0f / 256.0f, 1.0e-6f);
+    }
+};
+
 class RubberBandTests final : public juce::UnitTest
 {
 public:
@@ -537,6 +620,7 @@ ArrangementEditTests arrangementEditTests;
 ArrangementEngineTests arrangementEngineTests;
 TrackFxTests trackFxTests;
 GraphicEqTests graphicEqTests;
+LivePitchTests livePitchTests;
 RubberBandTests rubberBandTests;
 CodecTests codecTests;
 } // namespace

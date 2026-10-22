@@ -7,6 +7,7 @@
 #include "ui/components/RotaryParameterControl.h"
 #include "ui/effects/EffectParameterPanel.h"
 #include "ui/effects/GraphicEqComponent.h"
+#include "ui/effects/PitchShiftComponent.h"
 
 namespace nam::ui
 {
@@ -55,6 +56,7 @@ private:
     juce::ToggleButton namOn { "NAM" }, irOn { "IR" };
     juce::Label vstInfo, modeInfo;
     RotaryParameterControl inputGain { "INPUT" }, bass { "BASS" }, mid { "MID" }, treble { "TREBLE" }, outputGain { "OUTPUT" };
+    PitchShiftComponent pitch;
     GraphicEqComponent graphicEq;
     EffectParameterPanel effects;
 };

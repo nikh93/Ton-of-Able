@@ -91,6 +91,17 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
     setupKnob(treble, &SoundState::trebleDb);
     setupKnob(outputGain, &SoundState::outputGainDb);
 
+    pitch.onChange = [this](const PitchShiftComponent::Settings& settings)
+    {
+        sound.pitchBypassed = settings.bypassed;
+        sound.pitchSemitones = settings.semitones;
+        sound.pitchMix = settings.mix;
+        sound.pitchFormantPreserved = settings.formantPreserved;
+        sound.pitchHighQuality = settings.highQuality;
+        if (! settings.bypassed)
+            enabled = true;
+        publish();
+    };
     graphicEq.onChange = [this](bool bypassed, const GraphicEqComponent::Bands& bands)
     {
         sound.graphicEqBypassed = bypassed;
@@ -110,11 +121,11 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
 
     for (auto* component : std::initializer_list<juce::Component*> { &title, &active, &insertMode, &printMode, &fromLiveRig, &clearVst, &amp, &ir, &pedal,
                                                                       &namOn, &irOn, &vstInfo, &modeInfo, &inputGain, &bass, &mid, &treble, &outputGain,
-                                                                      &graphicEq, &effects })
+                                                                      &pitch, &graphicEq, &effects })
         addAndMakeVisible(*component);
 
     loadFromTrack();
-    setSize(980, 700);
+    setSize(980, 860);
 }
 
 void TrackFxComponent::fill(juce::ComboBox& box, const std::vector<Choice>& choices, const juce::String& none)
@@ -170,6 +181,7 @@ void TrackFxComponent::showState()
     treble.setValue(sound.trebleDb, juce::dontSendNotification);
     outputGain.setValue(sound.outputGainDb, juce::dontSendNotification);
     graphicEq.setValues(sound.graphicEqBypassed, sound.graphicEqDb);
+    pitch.setSettings({ sound.pitchBypassed, sound.pitchSemitones, sound.pitchMix, sound.pitchFormantPreserved, sound.pitchHighQuality });
     effects.setState(sound);
     const auto vst = (sound.preVst3State.isValid() ? 1 : 0) + (sound.postVst3State.isValid() ? 1 : 0);
     vstInfo.setText(vst > 0 ? juce::String(vst) + text(" VST3-Slot(s) vom Live-Rig übernommen") : text("Keine VST3-Plugins (über \"Live-Rig übernehmen\" kopierbar)"), juce::dontSendNotification);
@@ -228,7 +240,10 @@ void TrackFxComponent::resized()
     for (auto* knob : { &inputGain, &bass, &mid, &treble, &outputGain })
         knob->setBounds(knobs.removeFromLeft(cell).reduced(4));
     area.removeFromTop(8);
-    graphicEq.setBounds(area.removeFromLeft(area.getWidth() / 2).withTrimmedRight(8));
+    auto left = area.removeFromLeft(area.getWidth() / 2).withTrimmedRight(8);
+    pitch.setBounds(left.removeFromTop(200));
+    left.removeFromTop(8);
+    graphicEq.setBounds(left);
     effects.setBounds(area.withTrimmedLeft(8));
 }
 } // namespace nam::ui

@@ -10,11 +10,12 @@
 #include "plugins/Vst3Slot.h"
 #include "audio/effects/Effects.h"
 #include "audio/effects/GraphicEQProcessor.h"
+#include "audio/effects/LivePitchShifter.h"
 #include "daw/Arrangement.h"
 
 struct SoundState;
 
-/** The complete guitar chain: input gain, drive, pre-VST3, NAM pedal, NAM amp,
+/** The complete guitar chain: input gain, live pitch shifter, drive, pre-VST3, NAM pedal, NAM amp,
     cabinet IR, 3-band EQ, graphic EQ, Auto-Wah, Chorus, Delay, Reverb,
     post-VST3 (stereo) and output gain.
 
@@ -62,6 +63,15 @@ public:
     void setReverbBypassed(bool value) noexcept { reverbProcessor.setBypassed(value); }
     void setGraphicEqBypassed(bool value) noexcept { graphicEq.setBypassed(value); }
     void setGraphicEqBandDb(int band, float db) noexcept { graphicEq.setBandGainDb(band, db); }
+    void setPitch(bool bypassed, float semitones, float mix, bool formantPreserved, bool highQuality) noexcept
+    {
+        pitchShifter.setSemitones(semitones);
+        pitchShifter.setMix(mix);
+        pitchShifter.setFormantPreserved(formantPreserved);
+        pitchShifter.setMode(highQuality ? nam::effects::LivePitchShifter::Mode::highQuality : nam::effects::LivePitchShifter::Mode::lowLatency);
+        pitchShifter.setBypassed(bypassed);
+    }
+    [[nodiscard]] int pitchLatencySamples() const noexcept { return pitchShifter.latencySamples(); }
 
     Vst3Slot& prePlugin() noexcept { return preVst3; }
     Vst3Slot& postPlugin() noexcept { return postVst3; }
@@ -74,6 +84,7 @@ private:
     juce::AudioBuffer<float> namDryBuffer;
     nam::effects::EQProcessor eqProcessor;
     nam::effects::GraphicEQProcessor graphicEq;
+    nam::effects::LivePitchShifter pitchShifter;
     nam::effects::DriveProcessor driveProcessor;
     nam::effects::AutoWahProcessor autoWahProcessor;
     nam::effects::ChorusProcessor chorusProcessor;

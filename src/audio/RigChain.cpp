@@ -18,6 +18,7 @@ void RigChain::prepare(double sampleRate, int maximumBlockSize)
     const juce::dsp::ProcessSpec spec { sampleRate, static_cast<juce::uint32>(maximumBlock), 1 };
     eqProcessor.prepare(spec);
     graphicEq.prepare(spec);
+    pitchShifter.prepare(sampleRate, maximumBlock);
     driveProcessor.prepare(spec);
     namBypassRamp.prepare(spec.sampleRate, false);
     namInputTrim.prepare(spec.sampleRate, .030, 0.f);
@@ -34,7 +35,8 @@ void RigChain::prepare(double sampleRate, int maximumBlockSize)
 
 int RigChain::latencySamples() const
 {
-    return irProcessor.latencySamples() + driveProcessor.latencySamples() + preVst3.latencySamples() + postVst3.latencySamples();
+    return pitchShifter.latencySamples() + irProcessor.latencySamples() + driveProcessor.latencySamples()
+         + preVst3.latencySamples() + postVst3.latencySamples();
 }
 
 void RigChain::applyEffectState(const SoundState& state)
@@ -53,6 +55,7 @@ void RigChain::applyEffectState(const SoundState& state)
     setGraphicEqBypassed(state.graphicEqBypassed);
     for (int band = 0; band < static_cast<int>(state.graphicEqDb.size()); ++band)
         setGraphicEqBandDb(band, state.graphicEqDb[static_cast<size_t>(band)]);
+    setPitch(state.pitchBypassed, state.pitchSemitones, state.pitchMix, state.pitchFormantPreserved, state.pitchHighQuality);
 }
 
 float RigChain::processWithInputPeak(float* mono, float* left, float* right, int numSamples) noexcept
@@ -74,6 +77,8 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
         inPeak = std::max(inPeak, std::abs(mono[sample]));
     }
 
+    // Like a pitch pedal in front of the amp: shift first, then drive and NAM.
+    pitchShifter.process(mono, numSamples);
     // Stack-backed channel view: process exactly the current callback length.
     juce::AudioBuffer<float> activeBuffer(&mono, 1, numSamples);
     driveProcessor.process(activeBuffer);

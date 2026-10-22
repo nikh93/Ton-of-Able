@@ -43,6 +43,11 @@ juce::ValueTree SoundState::toValueTree() const
     juce::StringArray bands;
     for (const auto band : graphicEqDb) bands.add(juce::String(band, 2));
     tree.setProperty("graphicEqDb", bands.joinIntoString(","), nullptr);
+    tree.setProperty("pitchBypassed", pitchBypassed, nullptr);
+    tree.setProperty("pitchSemitones", pitchSemitones, nullptr);
+    tree.setProperty("pitchMix", pitchMix, nullptr);
+    tree.setProperty("pitchFormantPreserved", pitchFormantPreserved, nullptr);
+    tree.setProperty("pitchHighQuality", pitchHighQuality, nullptr);
     tree.setProperty("driveBypassed", driveBypassed, nullptr); tree.setProperty("driveType", driveType, nullptr);
     tree.setProperty("driveAmount", driveAmount, nullptr); tree.setProperty("driveTone", driveTone, nullptr); tree.setProperty("driveWarmth", driveWarmth, nullptr); tree.setProperty("drivePresence", drivePresence, nullptr); tree.setProperty("driveSustain", driveSustain, nullptr); tree.setProperty("driveBias", driveBias, nullptr); tree.setProperty("driveLevel", driveLevel, nullptr); tree.setProperty("driveMix", driveMix, nullptr);
     return tree;
@@ -72,6 +77,11 @@ std::optional<SoundState> SoundState::fromValueTree(const juce::ValueTree& tree,
         const auto value = bands[band].getFloatValue();
         result.graphicEqDb[static_cast<size_t>(band)] = std::isfinite(value) ? juce::jlimit(-12.0f, 12.0f, value) : 0.0f;
     }
+    result.pitchBypassed = static_cast<bool>(tree.getProperty("pitchBypassed", true));
+    result.pitchSemitones = juce::jlimit(-24.0f, 24.0f, static_cast<float>(tree.getProperty("pitchSemitones", -12.0f)));
+    result.pitchMix = juce::jlimit(0.0f, 1.0f, static_cast<float>(tree.getProperty("pitchMix", 1.0f)));
+    result.pitchFormantPreserved = static_cast<bool>(tree.getProperty("pitchFormantPreserved", false));
+    result.pitchHighQuality = static_cast<bool>(tree.getProperty("pitchHighQuality", false));
     result.preVst3State = tree.getChildWithName("preVst3").getChild(0).createCopy();
     result.postVst3State = tree.getChildWithName("postVst3").getChild(0).createCopy();
     result.driveAmount = static_cast<float>(tree.getProperty("driveAmount", .35f)); result.driveTone = static_cast<float>(tree.getProperty("driveTone", .5f)); result.driveWarmth = static_cast<float>(tree.getProperty("driveWarmth", .5f)); result.drivePresence = static_cast<float>(tree.getProperty("drivePresence", .5f)); result.driveSustain = static_cast<float>(tree.getProperty("driveSustain", .5f)); result.driveBias = static_cast<float>(tree.getProperty("driveBias", .35f)); result.driveLevel = static_cast<float>(tree.getProperty("driveLevel", .8f)); result.driveMix = static_cast<float>(tree.getProperty("driveMix", 1.f));

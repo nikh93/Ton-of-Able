@@ -376,6 +376,8 @@ void MainComponent::timerCallback()
     wavMode.setToggleState(wav, juce::dontSendNotification);
     wavBrowser.setVisible(wav && ! arrangementVisible);
     graphicEqButton.setToggleState(! currentSound.graphicEqBypassed, juce::dontSendNotification);
+    pitchButton.setToggleState(! currentSound.pitchBypassed, juce::dontSendNotification);
+    pitchButton.setButtonText(currentSound.pitchBypassed ? juce::String("PITCH") : "PITCH " + juce::String(currentSound.pitchSemitones > 0 ? "+" : "") + juce::String(currentSound.pitchSemitones, 0));
     playWav.setEnabled(wav); pauseWav.setEnabled(wav); stopWav.setEnabled(wav);
     loopWav.setEnabled(wav); wavTimeline.setEnabled(wav);
     const auto latencyMs = audioEngine.estimatedLatencyMilliseconds();
@@ -795,7 +797,7 @@ std::vector<juce::Component*> MainComponent::rigComponents()
 {
     return { &rigSelector, &loadRigButton, &rigDetailsButton, &rigInfo, &ampSelector, &configurationSelector,
              &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &namEnabled, &irEnabled,
-             &graphicEqButton, &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
+             &graphicEqButton, &pitchButton, &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
              &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline, &record };
 }
 
@@ -808,6 +810,9 @@ void MainComponent::configureArrangement()
     addAndMakeVisible(graphicEqButton);
     graphicEqButton.setTooltip(uiText("10-Band Graphic EQ des Live-Rigs"));
     graphicEqButton.onClick = [this] { showGraphicEq(); };
+    addAndMakeVisible(pitchButton);
+    pitchButton.setTooltip(uiText("Live-Transponieren mit Rubber Band, z. B. eine Oktave tiefer"));
+    pitchButton.onClick = [this] { showPitchShifter(); };
 
     arrangementView.onStatus = [this](const juce::String& text) { status.setText(text, juce::dontSendNotification); };
     arrangementView.createTrackFxEditor = [this](const juce::Uuid& trackId) -> std::unique_ptr<juce::Component>
@@ -882,6 +887,35 @@ void MainComponent::showGraphicEq()
     };
     editor->setSize(560, 330);
     juce::CallOutBox::launchAsynchronously(std::move(editor), graphicEqButton.getScreenBounds(), nullptr);
+}
+
+void MainComponent::showPitchShifter()
+{
+    auto editor = std::make_unique<nam::ui::PitchShiftComponent>();
+    editor->setSettings({ currentSound.pitchBypassed, currentSound.pitchSemitones, currentSound.pitchMix,
+                          currentSound.pitchFormantPreserved, currentSound.pitchHighQuality });
+    const juce::Component::SafePointer<MainComponent> self(this);
+    editor->onChange = [self](const nam::ui::PitchShiftComponent::Settings& settings)
+    {
+        if (self == nullptr)
+            return;
+        auto& sound = self->currentSound;
+        sound.pitchBypassed = settings.bypassed;
+        sound.pitchSemitones = settings.semitones;
+        sound.pitchMix = settings.mix;
+        sound.pitchFormantPreserved = settings.formantPreserved;
+        sound.pitchHighQuality = settings.highQuality;
+        self->audioEngine.setPitch(settings.bypassed, settings.semitones, settings.mix, settings.formantPreserved, settings.highQuality);
+    };
+    editor->latencyMs = [self]
+    {
+        if (self == nullptr)
+            return 0.0;
+        auto* device = self->audioEngine.deviceManager().getCurrentAudioDevice();
+        return device != nullptr && device->getCurrentSampleRate() > 0.0
+            ? self->audioEngine.pitchLatencySamples() * 1000.0 / device->getCurrentSampleRate() : 0.0;
+    };
+    juce::CallOutBox::launchAsynchronously(std::move(editor), pitchButton.getScreenBounds(), nullptr);
 }
 
 nam::ui::TrackFxComponent::Sources MainComponent::trackFxSources()
@@ -1110,6 +1144,8 @@ void MainComponent::resized()
     namEnabled.setBounds(sound.removeFromLeft(66).withHeight(28));
     irEnabled.setBounds(sound.removeFromLeft(54).withHeight(28));
     graphicEqButton.setBounds(sound.removeFromLeft(118).withHeight(28));
+    sound.removeFromLeft(6);
+    pitchButton.setBounds(sound.removeFromLeft(70).withHeight(28));
     selectIr.setBounds(sound.removeFromRight(110).withHeight(28)); sound.removeFromRight(6);
     selectNam.setBounds(sound.removeFromRight(126).withHeight(28));
     area.removeFromTop(14);
