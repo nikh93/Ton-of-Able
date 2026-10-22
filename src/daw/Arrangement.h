@@ -9,6 +9,7 @@
 #include <juce_graphics/juce_graphics.h>
 
 #include "AudioData.h"
+#include "Drums.h"
 
 namespace daw
 {
@@ -51,6 +52,13 @@ struct TrackFx
     juce::ValueTree settings; // SoundState tree, message thread only
 };
 
+/** The sound source of a drum track; shared by all undo states of a track. */
+struct InstrumentSlot
+{
+    std::shared_ptr<TrackInstrument> instrument;
+    juce::ValueTree settings = builtInInstrumentSettings(); // message thread only
+};
+
 /** One region of a source file placed on the timeline.
 
     Timeline values (start, length, fades) are in project samples. offset is
@@ -75,7 +83,10 @@ struct Clip
     float gainDb = 0.0f;
     juce::int64 fadeIn = 0;
     juce::int64 fadeOut = 0;
+    int pattern = -1;                // >= 0: drum pattern clip (no audio source)
 
+    static constexpr juce::int64 patternSourceSamples = juce::int64(1) << 40;
+    [[nodiscard]] bool isPattern() const noexcept { return pattern >= 0; }
     [[nodiscard]] juce::int64 end() const noexcept { return start + length; }
     [[nodiscard]] bool needsStretch() const noexcept;
     [[nodiscard]] bool hasCurrentRender() const noexcept;
@@ -96,6 +107,9 @@ struct Track
     bool monitorInput = true;
     int inputChannel = -1;           // -1 = processed NAM rig (stereo), >= 0 = dry device input
     std::vector<Clip> clips;         // sorted by start, never overlapping
+    bool drums = false;              // drum track: pattern clips played by its instrument
+    std::vector<DrumPattern> patterns;
+    std::shared_ptr<InstrumentSlot> instrument = std::make_shared<InstrumentSlot>();
 };
 
 struct ArrangementState
@@ -140,6 +154,10 @@ namespace edit
 Track makeTrack(const ArrangementState& state, const juce::String& name);
 /** Creates a clip covering the whole source, placed at start. */
 Clip makeClip(const juce::File& file, AudioDataPtr source, juce::int64 start);
+/** Creates a drum track with the default patterns and the built-in kit. */
+Track makeDrumTrack(const ArrangementState& state, const juce::String& name);
+/** A clip repeating pattern patternIndex for length samples. */
+Clip makePatternClip(int patternIndex, const juce::String& name, juce::int64 start, juce::int64 length);
 
 /** Splits at timeline position; returns the id of the right part. */
 std::optional<juce::Uuid> split(ArrangementState&, const juce::Uuid& clipId, juce::int64 at);

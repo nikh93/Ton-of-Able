@@ -31,3 +31,7 @@ Phase 15 abgeschlossen – Mehrspur-Arrangement nach Ableton-Vorbild: echte Mehr
 Phase 16 abgeschlossen – Time-Stretch und Transponieren mit der Rubber Band Library (R3-Engine, Offline-Rendering im Hintergrund, Varispeed-Vorschau); Import von WAV/AIFF/FLAC/Ogg/MP3 direkt sowie AAC/Opus/ALAC/… und Audio aus Videodateien über FFmpeg; Export von Mix, Loop-Bereich, Stems und Einzelspuren als WAV/AIFF/FLAC/Ogg bzw. MP3/AAC/Opus über FFmpeg.
 
 Phase 17 abgeschlossen – Effektkette pro Spur (NAM-Pedal, NAM-Amp, IR, EQ, Graphic EQ, Drive, Wah, Chorus, Delay, Reverb, VST3 vom Live-Rig) wahlweise als Insert (nachträglich, nicht-destruktiv) oder Print (bei der Aufnahme eingerechnet); Rig-Kette als wiederverwendbare RigChain aus der AudioEngine herausgelöst; 10-Band-Graphic-EQ (ISO-Oktaven, ±12 dB) im Live-Rig und pro Spur.
+
+Phase 18 abgeschlossen – Live-Transponieren mit Rubber Band vor der Rig-Kette (PITCH): R2-Echtzeit-Engine mit kurzem Fenster (eine Oktave tiefer gemessen ca. 28–46 ms je nach Interface-Puffer) und R3-Live-Shifter (ca. 87 ms, höhere Qualität); exakt gemessene Latenz für zeitgleiches Dry/Wet und Aufnahme-Ausgleich; im Live-Rig, in Presets und pro Spur.
+
+Phase 19 abgeschlossen – Drumcomputer: Drum-Spuren mit Step-Sequencer (8 Patterns, 12 General-MIDI-Instrumente, 8–64 Schritte, Swing, Akzente), Pattern-Clips im Arrangement, Vorhören, internes Synth-Kit sowie VST3-Instrumente (getestet mit JDrummer, GPL-3) mit sample-genauer MIDI-Ansteuerung, Plugin-Editor, Zustand im Projekt und Export über unabhängige Instrument-Kopien.

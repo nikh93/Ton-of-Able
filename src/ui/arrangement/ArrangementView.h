@@ -30,6 +30,9 @@ public:
     /** Supplies the editor for a track's effect chain (needs the app's libraries). */
     std::function<std::unique_ptr<juce::Component>(const juce::Uuid& trackId)> createTrackFxEditor;
     void openTrackFx(const juce::Uuid& trackId);
+    /** Supplies the drum machine editor (needs the app's plugin hosting). */
+    std::function<std::unique_ptr<juce::Component>(const juce::Uuid& trackId, int pattern)> createDrumEditor;
+    void openDrumMachine(const juce::Uuid& trackId, int pattern);
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -76,6 +79,6 @@ private:
     juce::File lastExportDirectory;
     std::shared_ptr<juce::FileChooser> chooser;
     bool followEnabled = true;
-    std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows;
+    std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows, drumWindows;
 };
 } // namespace nam::ui

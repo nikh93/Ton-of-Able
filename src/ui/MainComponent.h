@@ -20,6 +20,8 @@
 #include "ui/arrangement/ArrangementView.h"
 #include "ui/arrangement/TrackFxComponent.h"
 #include "ui/effects/PitchShiftComponent.h"
+#include "ui/arrangement/DrumMachineComponent.h"
+#include "audio/plugins/PluginInstrument.h"
 #include "daw/ArrangementController.h"
 
 class MainComponent final : public juce::Component, private juce::Timer
@@ -65,6 +67,9 @@ private:
     void showGraphicEq();
     void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
     void showPitchShifter();
+    void scanDrumInstruments(std::function<void()> done);
+    void openInstrumentEditor(const juce::Uuid& trackId);
+    juce::Result setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description);
     [[nodiscard]] nam::ui::TrackFxComponent::Sources trackFxSources();
     void applyTrackSound(RigChain& chain, const SoundState& sound);
     [[nodiscard]] std::vector<juce::Component*> rigComponents();
@@ -76,6 +81,10 @@ private:
     juce::TextButton viewToggle { "ARRANGEMENT" };
     juce::TextButton graphicEqButton { "GRAPHIC EQ" };
     juce::TextButton pitchButton { "PITCH" };
+    juce::Array<juce::PluginDescription> drumInstruments;
+    juce::ThreadPool instrumentScanPool { juce::ThreadPoolOptions {}.withThreadName("Instrument scan").withNumberOfThreads(1) };
+    bool scanningInstruments = false;
+    std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> instrumentEditors;
     bool arrangementVisible = false;
     PluginRackPanel pluginRack { audioEngine };
     std::unique_ptr<juce::DocumentWindow> pluginWindow;

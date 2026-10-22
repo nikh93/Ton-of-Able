@@ -1,4 +1,5 @@
 #include "ArrangementView.h"
+#include "DrumMachineComponent.h"
 
 #include "daw/DawText.h"
 #include "ui/components/AmberTheme.h"
@@ -145,6 +146,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     {
         juce::PopupMenu menu;
         menu.addItem("Spur mit NAM-Rig (bearbeitet)", [this] { controller.addTrack({}, -1); });
+        menu.addItem("Drum-Spur (Drumcomputer)", [this] { openDrumMachine(controller.addDrumTrack(), 0); });
         for (const auto& input : controller.availableInputs())
             if (input.channel >= 0)
                 menu.addItem("Spur mit " + input.name, [this, channel = input.channel] { controller.addTrack({}, channel); });
@@ -213,6 +215,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     addAndMakeVisible(projectName);
 
     timeline.onViewChanged = [this] { layoutHeaders(); updateScrollBars(); };
+    timeline.onOpenDrums = [this](const juce::Uuid& id, int pattern) { openDrumMachine(id, pattern); };
     timeline.onSelectionChanged = [this] { for (auto& header : headers) header->repaint(); stateChanged(); };
 
     controller.onChanged = [this] { stateChanged(); };
@@ -250,10 +253,31 @@ void ArrangementView::openTrackFx(const juce::Uuid& trackId)
     fxWindows[trackId]->toFront(true);
 }
 
+void ArrangementView::openDrumMachine(const juce::Uuid& trackId, int pattern)
+{
+    if (! createDrumEditor || controller.state().findTrack(trackId) == nullptr)
+        return;
+    if (auto existing = drumWindows.find(trackId); existing != drumWindows.end())
+        if (auto* machine = dynamic_cast<DrumMachineComponent*>(existing->second->getContentComponent()))
+        {
+            machine->selectPattern(pattern);
+            existing->second->setVisible(true);
+            existing->second->toFront(true);
+            return;
+        }
+    auto window = std::make_unique<FxWindow>(createDrumEditor(trackId, pattern));
+    window->setName(daw::text("Drumcomputer"));
+    window->setResizeLimits(900, 480, 1800, 1200);
+    window->setVisible(true);
+    window->toFront(true);
+    drumWindows[trackId] = std::move(window);
+}
+
 ArrangementView::~ArrangementView()
 {
     stopTimer();
     fxWindows.clear();
+    drumWindows.clear();
     controller.onChanged = nullptr;
     controller.onMessage = nullptr;
 }
@@ -343,13 +367,15 @@ void ArrangementView::rebuildHeaders()
                 header->onSelect = [this](const juce::Uuid& id) { timeline.selectTrack(controller.state().trackIndex(id)); };
                 header->onExportTrack = [this](const juce::Uuid& id) { exportTo(false, false, id); };
                 header->onOpenFx = [this](const juce::Uuid& id) { openTrackFx(id); };
+                header->onOpenDrums = [this](const juce::Uuid& id) { openDrumMachine(id, 0); };
                 headerColumn->addAndMakeVisible(*header);
                 next.push_back(std::move(header));
             }
         }
         headers = std::move(next); // headers of removed tracks are destroyed here
-        for (auto it = fxWindows.begin(); it != fxWindows.end();)
-            it = controller.state().findTrack(it->first) == nullptr ? fxWindows.erase(it) : std::next(it);
+        for (auto* windows : { &fxWindows, &drumWindows })
+            for (auto it = windows->begin(); it != windows->end();)
+                it = controller.state().findTrack(it->first) == nullptr ? windows->erase(it) : std::next(it);
     }
     const auto inputs = controller.availableInputs();
     for (size_t index = 0; index < tracks.size(); ++index)

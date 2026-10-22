@@ -1,10 +1,12 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 
 #include "ui/MainComponent.h"
+#include "audio/plugins/PluginInstrument.h"
 #include "../tests/PluginHostChecks.h"
 #include "../tests/NamPedalChecks.h"
 #include "../tests/RigChecks.h"
 #include "../tests/RigAudioChecks.h"
+#include "../tests/DrumInstrumentChecks.h"
 
 class NamTestProgramApplication final : public juce::JUCEApplication
 {
@@ -36,6 +38,19 @@ public:
         if (args.size()==3 && args[0]=="--vst3-test")
         {
             setApplicationReturnValue(runPluginHostChecks(juce::File(args[1]),juce::File(args[2])));
+            quit(); return;
+        }
+        if (args.size()==3 && args[0]=="--drum-instrument-test")
+        {
+            setApplicationReturnValue(runDrumInstrumentChecks(juce::File(args[1]),juce::File(args[2])));
+            quit(); return;
+        }
+        if (args.size()==3 && args[0]=="--scan-vst3-instruments")
+        {
+            juce::XmlElement report("plugins");
+            for (const auto& description : PluginInstrument::scanFile(juce::File(args[1])))
+                report.addChildElement(description.createXml().release());
+            report.writeTo(juce::File(args[2]));
             quit(); return;
         }
         if (args.size()==3 && args[0]=="--scan-vst3")

@@ -20,6 +20,7 @@ public:
     std::function<void(const juce::Uuid&)> onSelect;
     std::function<void(const juce::Uuid&)> onExportTrack;
     std::function<void(const juce::Uuid&)> onOpenFx;
+    std::function<void(const juce::Uuid&)> onOpenDrums;
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -36,10 +37,11 @@ private:
     float meterLevel = 0.0f;
     std::shared_ptr<daw::TrackMixer> mixer;
     juce::Label name;
-    juce::TextButton arm { juce::String(juce::CharPointer_UTF8("\xe2\x97\x8f")) }, mute { "M" }, solo { "S" }, monitor { "IN" }, fx { "FX" };
+    juce::TextButton arm { juce::String(juce::CharPointer_UTF8("\xe2\x97\x8f")) }, mute { "M" }, solo { "S" }, monitor { "IN" }, fx { "FX" }, drums { "DRUMCOMPUTER" };
     juce::ComboBox input;
     juce::Slider volume { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
     juce::Slider pan { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox };
     std::vector<int> inputChannels;
+    bool isDrumTrack = false;
 };
 } // namespace nam::ui

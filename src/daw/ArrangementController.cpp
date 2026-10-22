@@ -142,6 +142,7 @@ void ArrangementController::afterChange(bool structural)
 {
     dirty = true;
     syncEngine();
+    ensureInstruments();
     publish();
     if (structural)
     {
@@ -369,6 +370,93 @@ void ArrangementController::setTrackFx(const juce::Uuid& trackId, const juce::Va
         onChanged();
 }
 
+void ArrangementController::setInstrumentFactory(InstrumentFactory factory)
+{
+    instrumentFactory = std::move(factory);
+    ensureInstruments();
+    publish();
+}
+
+std::shared_ptr<TrackInstrument> ArrangementController::createInstrument(const juce::ValueTree& settings, int blockSize)
+{
+    std::shared_ptr<TrackInstrument> instrument;
+    if (instrumentFactory)
+        instrument = instrumentFactory(settings);
+    if (instrument == nullptr)
+        instrument = std::make_shared<DrumSynth>();
+    const auto rate = audio.preparedSampleRate() > 0.0 ? audio.preparedSampleRate() : current.sampleRate;
+    instrument->prepare(rate, blockSize); // not yet visible to the audio thread
+    return instrument;
+}
+
+void ArrangementController::ensureInstruments()
+{
+    for (auto& track : current.tracks)
+        if (track.drums && track.instrument->instrument == nullptr)
+            track.instrument->instrument = createInstrument(track.instrument->settings, audio.maximumBlockSize());
+}
+
+juce::Uuid ArrangementController::addDrumTrack(const juce::String& name)
+{
+    juce::Uuid id;
+    perform("Drum-Spur erstellen", [&](ArrangementState& state)
+    {
+        auto track = edit::makeDrumTrack(state, name.isNotEmpty() ? name : "Drums " + juce::String(state.tracks.size() + 1));
+        id = track.id;
+        state.tracks.push_back(std::move(track));
+    });
+    return id;
+}
+
+juce::Result ArrangementController::setDrumInstrument(const juce::Uuid& trackId, const juce::ValueTree& settings)
+{
+    auto* track = current.findTrack(trackId);
+    if (track == nullptr || ! track->drums)
+        return juce::Result::fail("Keine Drum-Spur.");
+    auto instrument = instrumentFactory ? instrumentFactory(settings) : nullptr;
+    if (instrument == nullptr && settings.getProperty("type").toString() != "builtin")
+        return juce::Result::fail("Instrument konnte nicht geladen werden.");
+    if (instrument == nullptr)
+        instrument = std::make_shared<DrumSynth>();
+    const auto rate = audio.preparedSampleRate() > 0.0 ? audio.preparedSampleRate() : current.sampleRate;
+    instrument->prepare(rate, audio.maximumBlockSize());
+    // The old instrument stays alive in retired snapshots until the audio thread let go.
+    track->instrument->instrument = std::move(instrument);
+    track->instrument->settings = settings.createCopy();
+    dirty = true;
+    publish();
+    if (onChanged)
+        onChanged();
+    return juce::Result::ok();
+}
+
+juce::Uuid ArrangementController::insertPatternClip(const juce::Uuid& trackId, int patternIndex, juce::int64 start, int bars)
+{
+    juce::Uuid id;
+    perform(text("Pattern einfügen"), [&](ArrangementState& state)
+    {
+        const auto index = state.trackIndex(trackId);
+        if (index < 0 || ! state.tracks[static_cast<size_t>(index)].drums)
+            return;
+        const auto& patterns = state.tracks[static_cast<size_t>(index)].patterns;
+        const auto name = juce::isPositiveAndBelow(patternIndex, static_cast<int>(patterns.size())) ? patterns[static_cast<size_t>(patternIndex)].name : juce::String("Pattern");
+        const auto length = static_cast<juce::int64>(std::llround(TimeGrid::of(state).samplesPerBar() * std::max(1, bars)));
+        id = edit::insert(state, edit::makePatternClip(patternIndex, name, start, length), index);
+    });
+    return id;
+}
+
+void ArrangementController::previewDrum(const juce::Uuid& trackId, int note, int velocity)
+{
+    if (const auto* track = current.findTrack(trackId); track != nullptr && track->instrument->instrument != nullptr)
+        track->instrument->instrument->preview(note, velocity);
+}
+
+void ArrangementController::setPatternAudition(const juce::Uuid& trackId, int patternIndex)
+{
+    audio.setPatternAudition(trackId.isNull() ? -1 : current.trackIndex(trackId), patternIndex);
+}
+
 std::vector<ArrangementController::InputChoice> ArrangementController::availableInputs() const
 {
     std::vector<InputChoice> inputs { { -1, "NAM-Rig (bearbeitet, Stereo)" } };
@@ -501,11 +589,17 @@ void ArrangementController::toggleRecord(int fallbackTrack)
         return;
     }
 
-    if (std::none_of(current.tracks.begin(), current.tracks.end(), [](const Track& t) { return t.armed; }))
+    if (std::none_of(current.tracks.begin(), current.tracks.end(), [](const Track& t) { return t.armed && ! t.drums; }))
     {
-        if (current.tracks.empty())
-            addTrack("Gitarre", -1);
-        const auto index = juce::jlimit(0, static_cast<int>(current.tracks.size()) - 1, fallbackTrack);
+        // Drum tracks are programmed, not recorded: fall back to an audio track.
+        auto index = juce::jlimit(0, std::max(0, static_cast<int>(current.tracks.size()) - 1), fallbackTrack);
+        if (current.tracks.empty() || current.tracks[static_cast<size_t>(index)].drums)
+        {
+            const auto audioTrack = std::find_if(current.tracks.begin(), current.tracks.end(), [](const Track& t) { return ! t.drums; });
+            if (audioTrack == current.tracks.end())
+                addTrack("Gitarre", -1);
+            index = static_cast<int>(std::find_if(current.tracks.begin(), current.tracks.end(), [](const Track& t) { return ! t.drums; }) - current.tracks.begin());
+        }
         modify([index](ArrangementState& state) { state.tracks[static_cast<size_t>(index)].armed = true; });
     }
 
@@ -516,7 +610,7 @@ void ArrangementController::toggleRecord(int fallbackTrack)
     const auto manual = static_cast<int>(std::lround(manualLatency() * current.sampleRate / 1000.0));
     const auto stamp = juce::Time::getCurrentTime().formatted("%H-%M-%S");
     for (const auto& track : current.tracks)
-        if (track.armed && targets.size() < static_cast<size_t>(ArrangementEngine::maximumRecordTracks))
+        if (track.armed && ! track.drums && targets.size() < static_cast<size_t>(ArrangementEngine::maximumRecordTracks))
         {
             const auto print = track.inputChannel >= 0 && track.fx->enabled && track.fx->printWhileRecording && track.fx->processor != nullptr;
             targets.push_back({ track.id, track.inputChannel, uniqueFile(audioDirectory(), track.name + " " + stamp, ".wav"),
@@ -642,6 +736,7 @@ juce::Result ArrangementController::openProject(const juce::File& file)
     for (auto& track : current.tracks)
         if (track.fx->settings.isValid())
             track.fx->processor = createProcessor(track.fx->settings);
+    ensureInstruments();
     afterChange(true);
     dirty = false;
     return juce::Result::ok();
@@ -649,6 +744,11 @@ juce::Result ArrangementController::openProject(const juce::File& file)
 
 juce::Result ArrangementController::save()
 {
+    // Plugin instruments may have been edited in their own GUI.
+    for (auto& track : current.tracks)
+        if (track.drums && track.instrument->instrument != nullptr)
+            if (const auto settings = track.instrument->instrument->currentSettings(); settings.isValid())
+                track.instrument->settings = settings;
     auto tree = toValueTree(current, project.getParentDirectory());
     tree.setProperty("masterDb", audio.masterGainDb(), nullptr);
     tree.setProperty("metronome", audio.isMetronomeOn(), nullptr);
@@ -703,7 +803,7 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
 {
     for (const auto& track : current.tracks)
         for (const auto& clip : track.clips)
-            if (clip.source == nullptr || isRendering(clip))
+            if (! clip.isPattern() && (clip.source == nullptr || isRendering(clip)))
             {
                 done(juce::Result::fail(text("Export noch nicht möglich: Audio wird noch geladen oder per Rubber Band berechnet.")));
                 return;
@@ -742,22 +842,42 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
 
     const auto snapshot = audio.currentSnapshot();
     const auto rate = current.sampleRate;
+    // Drum tracks render through independent instrument copies (created here,
+    // on the message thread), so the live instruments keep playing.
+    constexpr int exportBlock = 8192;
+    auto offline = std::make_shared<std::vector<std::shared_ptr<TrackInstrument>>>();
+    for (const auto& track : current.tracks)
+    {
+        std::shared_ptr<TrackInstrument> copy;
+        if (track.drums && track.instrument->instrument != nullptr)
+            if ((copy = track.instrument->instrument->createOfflineCopy()) != nullptr)
+                copy->prepare(rate, exportBlock);
+        offline->push_back(std::move(copy));
+    }
     const auto master = juce::Decibels::decibelsToGain(audio.masterGainDb(), -60.0f);
     ++loadsInFlight;
     std::weak_ptr<bool> weakAlive = alive;
-    juce::Thread::launch([this, snapshot, jobs, rate, master, from, to, format, done, weakAlive]
+    juce::Thread::launch([this, snapshot, jobs, rate, master, from, to, format, done, weakAlive, offline]
     {
         auto result = juce::Result::ok();
-        juce::AudioBuffer<float> block(2, 8192), scratch;
+        juce::AudioBuffer<float> block(2, exportBlock), scratch;
         for (const auto& job : jobs)
         {
+            // Fresh instrument state for every file: re-prepare the copies.
+            std::vector<TrackInstrument*> instruments;
+            for (const auto& copy : *offline)
+            {
+                if (copy != nullptr)
+                    copy->prepare(rate, exportBlock);
+                instruments.push_back(copy.get());
+            }
             codecs::ExportWriter writer(job.file, format, rate, 2);
             if (result = writer.openResult(); result.failed())
                 break;
             for (auto position = from; position < to && result.wasOk(); position += block.getNumSamples())
             {
                 const auto count = static_cast<int>(std::min<juce::int64>(block.getNumSamples(), to - position));
-                ArrangementEngine::renderOffline(*snapshot, position, count, block.getWritePointer(0), block.getWritePointer(1), scratch, job.track);
+                ArrangementEngine::renderOffline(*snapshot, position, count, block.getWritePointer(0), block.getWritePointer(1), scratch, job.track, &instruments);
                 block.applyGain(0, count, job.track < 0 ? master : 1.0f);
                 if (! writer.write(block.getArrayOfReadPointers(), count))
                     result = juce::Result::fail("Schreibfehler beim Export: " + job.file.getFullPathName());

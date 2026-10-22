@@ -60,6 +60,18 @@ public:
     void setTrackFxHandlers(FxFactory factory, FxConfigurator configurator);
     void setTrackFx(const juce::Uuid& trackId, const juce::ValueTree& settings, bool enabled, bool print);
 
+    // Drum machine. Without a factory every drum track uses the built-in DrumSynth.
+    using InstrumentFactory = std::function<std::shared_ptr<TrackInstrument>(const juce::ValueTree& settings)>;
+    void setInstrumentFactory(InstrumentFactory factory);
+    juce::Uuid addDrumTrack(const juce::String& name = {});
+    /** Replaces the sound source of a drum track (built-in kit or VST3 settings). */
+    juce::Result setDrumInstrument(const juce::Uuid& trackId, const juce::ValueTree& settings);
+    /** Inserts a clip playing patternIndex for the given number of bars. */
+    juce::Uuid insertPatternClip(const juce::Uuid& trackId, int patternIndex, juce::int64 start, int bars);
+    void previewDrum(const juce::Uuid& trackId, int note, int velocity);
+    /** Loops a pattern while the transport is stopped; null id stops it. */
+    void setPatternAudition(const juce::Uuid& trackId, int patternIndex);
+
     /** Decodes files in the background (FFmpeg for other codecs and video)
         and inserts them as clips: one file onto trackIndex, several files or
         an invalid index onto new tracks. */
@@ -115,6 +127,8 @@ private:
     [[nodiscard]] static juce::File defaultProjectFile();
     void syncEngine();
     void instantiateFx();
+    void ensureInstruments();
+    std::shared_ptr<TrackInstrument> createInstrument(const juce::ValueTree& settings, int blockSize);
     std::shared_ptr<TrackProcessor> createProcessor(const juce::ValueTree& settings);
 
     ArrangementEngine& audio;
@@ -131,6 +145,7 @@ private:
     std::map<juce::Uuid, juce::int64> takeLatency;
     FxFactory fxFactory;
     FxConfigurator fxConfigurator;
+    InstrumentFactory instrumentFactory;
 
     StretchService stretcher;
     juce::ThreadPool loader { juce::ThreadPoolOptions {}.withThreadName("Audio loader").withNumberOfThreads(2) };

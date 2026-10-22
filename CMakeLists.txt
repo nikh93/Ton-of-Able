@@ -46,6 +46,8 @@ set(DAW_SOURCES
     src/audio/effects/LivePitchShifter.cpp
     src/audio/effects/LivePitchShifter.h
     src/daw/DawText.h
+    src/daw/Drums.cpp
+    src/daw/Drums.h
     src/daw/TimeStretcher.cpp
     src/daw/TimeStretcher.h
 )
@@ -68,6 +70,8 @@ target_sources(NamTestProgram PRIVATE
     src/audio/RigChain.cpp
     src/audio/RigChain.h
     src/audio/effects/GraphicEQProcessor.h
+    src/audio/plugins/PluginInstrument.cpp
+    src/audio/plugins/PluginInstrument.h
     src/audio/plugins/Vst3Slot.cpp
     src/ui/plugins/PluginRackPanel.cpp
     src/ui/plugins/NamPedalPanel.cpp
@@ -115,6 +119,8 @@ target_sources(NamTestProgram PRIVATE
     src/daw/ArrangementController.h
     src/ui/arrangement/ArrangementView.cpp
     src/ui/arrangement/ArrangementView.h
+    src/ui/arrangement/DrumMachineComponent.cpp
+    src/ui/arrangement/DrumMachineComponent.h
     src/ui/arrangement/TrackFxComponent.cpp
     src/ui/arrangement/TrackFxComponent.h
     src/ui/effects/GraphicEqComponent.cpp

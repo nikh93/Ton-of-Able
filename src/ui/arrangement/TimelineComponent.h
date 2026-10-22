@@ -51,6 +51,7 @@ public:
 
     std::function<void()> onViewChanged;
     std::function<void()> onSelectionChanged;
+    std::function<void(const juce::Uuid& trackId, int pattern)> onOpenDrums;
 
     void paint(juce::Graphics&) override;
     void mouseMove(const juce::MouseEvent&) override;
@@ -98,6 +99,7 @@ private:
     void paintRuler(juce::Graphics&);
     void paintGrid(juce::Graphics&, juce::Rectangle<int> lanes);
     void paintClip(juce::Graphics&, const daw::Clip&, int track, const daw::Track&);
+    void paintPattern(juce::Graphics&, const daw::Clip&, const daw::Track&, juce::Rectangle<float> area);
     void showClipMenu(const daw::Clip&, juce::int64 at);
     void showLaneMenu(int track, juce::int64 at);
     void showClipProperties(const juce::Uuid& id);

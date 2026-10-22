@@ -28,6 +28,7 @@ public:
         const AudioData* original = nullptr;
         const AudioData* stretched = nullptr; // preferred when present
         float gain = 1.0f;
+        int pattern = -1;                     // drum pattern clip
     };
 
     struct TrackRender
@@ -40,6 +41,9 @@ public:
         bool armed = false;
         bool monitorInput = false;
         int inputChannel = -1;
+        bool drums = false;
+        TrackInstrument* instrument = nullptr;
+        const std::vector<DrumPattern>* patterns = nullptr;
     };
 
     struct Snapshot
@@ -49,6 +53,9 @@ public:
         std::vector<std::shared_ptr<TrackMixer>> retainedMixers;
         std::vector<std::shared_ptr<TrackFx>> retainedFx;
         std::vector<std::shared_ptr<TrackProcessor>> retainedProcessors;
+        std::vector<std::shared_ptr<TrackInstrument>> retainedInstruments;
+        std::vector<std::shared_ptr<const std::vector<DrumPattern>>> retainedPatterns;
+        double samplesPerStep = 6000.0;       // one sixteenth note
     };
 
     struct RecordTarget
@@ -99,6 +106,12 @@ public:
     void setMasterGainDb(float value) noexcept { masterDb.store(juce::jlimit(-60.0f, 12.0f, value)); }
     [[nodiscard]] float masterGainDb() const noexcept { return masterDb.load(); }
     [[nodiscard]] float takeMasterMeter() noexcept { return masterMeter.exchange(0.0f); }
+    /** Loops one pattern of a drum track while the transport is stopped
+        (trackIndex < 0 stops it). */
+    void setPatternAudition(int trackIndex, int patternIndex) noexcept;
+    [[nodiscard]] int auditionTrack() const noexcept { return auditionTrackIndex.load(); }
+    /** Current step of the audition loop, -1 if none is running. */
+    [[nodiscard]] int auditionStep() const noexcept { return auditionStepNow.load(); }
 
     // Device lifecycle and audio thread.
     void prepare(double sampleRate, int maximumBlockSize);
@@ -114,7 +127,8 @@ public:
     /** Offline mixdown of [start, start + numSamples) into left/right (overwritten).
         onlyTrack >= 0 renders just that track (volume and pan, ignoring mute/solo). */
     static void renderOffline(const Snapshot&, juce::int64 start, int numSamples, float* left, float* right,
-                              juce::AudioBuffer<float>& scratch, int onlyTrack = -1);
+                              juce::AudioBuffer<float>& scratch, int onlyTrack = -1,
+                              const std::vector<TrackInstrument*>* instruments = nullptr);
 
 private:
     struct RecordSlot
@@ -153,7 +167,13 @@ private:
 
     float currentMaster = 1.0f;
     int maximumBlock = 0;
-    juce::AudioBuffer<float> trackBuffer, mixBuffer, monoBuffer;
+    juce::AudioBuffer<float> trackBuffer, mixBuffer, monoBuffer, instrumentBuffer;
+    static constexpr int maximumEvents = 512;
+    std::array<DrumEvent, maximumEvents> events;
+    std::atomic<int> auditionTrackIndex { -1 }, auditionPatternIndex { 0 }, auditionStepNow { -1 };
+    std::atomic<int> auditionGeneration { 0 };
+    int auditionSeenGeneration = -1;
+    juce::int64 auditionPosition = 0;
     std::vector<float> silence;
 
     juce::TimeSliceThread diskThread { "Arrangement recorder" };

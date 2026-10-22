@@ -56,6 +56,9 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     };
     fx.setTooltip(text("Eigene Effektkette dieser Spur: NAM, IR, EQ, Graphic EQ, Effekte – Insert oder Print"));
     fx.onClick = [this] { if (onOpenFx) onOpenFx(id); };
+    drums.setTooltip(text("Step-Sequencer und Klangquelle dieser Drum-Spur öffnen"));
+    drums.onClick = [this] { if (onOpenDrums) onOpenDrums(id); };
+    addChildComponent(drums);
     for (auto* button : { &arm, &mute, &solo, &monitor, &fx })
         addAndMakeVisible(*button);
 
@@ -98,6 +101,11 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
 {
     mixer = track.mixer;
     colour = track.colour;
+    if (isDrumTrack != track.drums)
+    {
+        isDrumTrack = track.drums;
+        resized();
+    }
     isSelected = selected;
     if (! name.isBeingEdited())
         name.setText(track.name, juce::dontSendNotification);
@@ -177,9 +185,11 @@ void TrackHeaderComponent::resized()
     name.setBounds(top);
 
     const auto roomy = area.getHeight() >= 46;
-    input.setVisible(roomy);
+    arm.setVisible(! isDrumTrack);
+    drums.setVisible(roomy && isDrumTrack);
+    input.setVisible(roomy && ! isDrumTrack);
     fx.setVisible(roomy);
-    monitor.setVisible(roomy);
+    monitor.setVisible(roomy && ! isDrumTrack);
     volume.setVisible(roomy);
     pan.setVisible(roomy);
     if (! roomy)
@@ -191,6 +201,8 @@ void TrackHeaderComponent::resized()
     fx.setBounds(second.removeFromRight(36));
     second.removeFromRight(4);
     input.setBounds(second);
+    if (isDrumTrack)
+        drums.setBounds(input.getBounds().getUnion(monitor.getBounds()).withRight(fx.getX() - 4));
     area.removeFromTop(2);
     auto third = area.removeFromTop(22);
     pan.setBounds(third.removeFromRight(26));

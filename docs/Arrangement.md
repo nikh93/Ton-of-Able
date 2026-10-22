@@ -96,6 +96,43 @@ Ein Export ist erst möglich, wenn alle Rubber-Band-Berechnungen fertig sind.
 - `Ton of Able.exe Pfad\zum\Projekt.tonproj` öffnet ein Projekt direkt, z. B. per Dateizuordnung.
 - Ändert sich die Samplerate des Audiogeräts, bleiben die musikalischen Positionen erhalten und das Audio wird neu geladen.
 
+## Drumcomputer
+
+**+ Spur → Drum-Spur (Drumcomputer)** legt eine Drum-Spur an und öffnet den Step-Sequencer (später über den Button **DRUMCOMPUTER** im Spurkopf oder per Doppelklick auf einen Pattern-Clip).
+
+- **8 Patterns (A–H)** mit Startvorlagen: Rock, Rock-Fill, Half-Time, Four on the Floor, Metal (Double Bass), Shuffle, Funk, leer.
+- **12 Instrumente** in General-MIDI-Belegung: Kick 36, Snare 38, Rimshot 37, Clap 39, HiHat zu/Pedal/offen 42/44/46, Toms 45/47/50, Crash 49, Ride 51.
+- **8 bis 64 Schritte** (Sechzehntel) und **Swing**.
+- **Bedienung im Raster:** Klick schaltet einen Schritt an/aus, Ziehen malt, Shift setzt einen Akzent, Rechtsklick wechselt die Anschlagstärke (ghost/normal/Akzent/aus). Ein Klick auf den Instrumentnamen hört den Klang vor.
+- **▶ Vorhören** spielt das Pattern bei gestopptem Transport in Schleife.
+- **In Arrangement einfügen** legt einen Pattern-Clip über 1–32 Takte an der Abspielposition an. Pattern-Clips lassen sich verschieben, kopieren, kürzen, teilen und duplizieren wie Audio-Clips. Rechtsklick → **Pattern wechseln**. Sie folgen dem Projekttempo und werden deshalb nicht gestretcht.
+- Mix, Stems und Einzelspur-Export rendern Drum-Spuren mit, auch mit VST3-Instrumenten. Dafür wird eine unabhängige Kopie des Instruments benutzt.
+
+**Klangquelle** (Auswahl oben rechts im Drumcomputer):
+
+- **Internes Synth-Kit:** synthetisierte 808/909-artige Sounds. Funktioniert sofort, ohne Samples oder Plugins.
+- **VST3-Instrument:** z. B. das freie Open-Source-Drum-Plugin [JDrummer](https://github.com/jmantra/jdrummer) (GPL-3, 28 Soundfont-Kits). Den Ordner `jdrummer.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren, dann im Drumcomputer **VST3-Instrumente suchen …** und das Plugin auswählen. Das Kit wählst du im **Plugin-Editor**. Gesendet wird General MIDI auf Kanal 10, deshalb passen auch andere GM-Drum-Plugins.
+
+Ton of Able teilt jeden Audio-Block an den Schlag-Positionen auf. Dadurch sitzen die Schläge sample-genau, auch bei Plugins, die MIDI nur am Blockanfang auswerten (JDrummer tut das). Mit JDrummer geprüft: Alle 12 Instrumente erklingen exakt an ihrer Position, auch bei 8192-Sample-Exportblöcken.
+
+Für JDrummer oder jedes andere VST3-Drum-Instrument gibt es einen eigenen Test, der als separater Prozess läuft:
+
+```powershell
+& "Ton of Able.exe" --drum-instrument-test "C:\Program Files\Common Files\VST3\jdrummer.vst3" report.xml
+```
+
+## Live-Transponieren (PITCH, Rubber Band)
+
+**PITCH** im Live-Rig (neben GRAPHIC EQ) und der Pitch-Bereich im Spur-Effektfenster transponieren das Live-Signal mit der Rubber Band Library, z. B. **eine Oktave tiefer** (Schnellwahl −24, −12, −7, −5, +5, +7, +12).
+
+- Die Stufe sitzt am Anfang der Kette, vor Drive und NAM-Amp, wie ein Pitch-Pedal vor dem Verstärker.
+- Einstellbar sind **Mix** (Original ↔ transponiert), **Formanten erhalten** und der Modus.
+- **Niedrige Latenz** (R2-Echtzeit-Engine, kurzes Fenster): gemessen eine Oktave tiefer bei 48 kHz etwa **28 ms** mit Interface-Puffern von 32/64 Samples, **37 ms** bei 128 und **43–46 ms** bei 256–1024 Samples.
+- **Hohe Qualität** (R3 `RubberBandLiveShifter`): sauberer, aber etwa **87 ms**.
+- Originalsignal und transponiertes Signal laufen zeitgleich, es gibt also kein Doppeln oder Flammen im Mix. Aufnahmen werden um die Verzögerung ausgeglichen.
+- Die Verzögerung ist dennoch hörbar. Für knackiges Live-Spielen eher kleine Interface-Puffer verwenden, gut geeignet ist es z. B. für Bass-Oktaven zum Schichten.
+- Zwei Oktaven (±24) klingen im Niedrig-Latenz-Modus hörbar ungenauer.
+
 ## Graphic EQ
 
 10 Bänder nach ISO-Oktaven (31,5 Hz … 16 kHz, ±12 dB) mit Frequenzgang-Anzeige und Presets.

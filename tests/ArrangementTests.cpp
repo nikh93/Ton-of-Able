@@ -526,6 +526,131 @@ public:
     }
 };
 
+class DrumMachineTests final : public juce::UnitTest
+{
+public:
+    DrumMachineTests() : UnitTest("Drum machine", "DAW") {}
+
+    void runTest() override
+    {
+        constexpr double step = 6000.0; // 120 BPM at 48 kHz
+        DrumPattern pattern;
+        pattern.velocity[0][0] = 100;   // kick on 1
+        pattern.velocity[1][4] = 110;   // snare on 2
+        pattern.velocity[4][1] = 80;    // hat on the second sixteenth
+
+        // Note-ons only (note-offs follow one bar later).
+        const auto noteOns = [](std::array<DrumEvent, 64>& events, int count)
+        {
+            sortEvents(events.data(), count);
+            int ons = 0;
+            for (int index = 0; index < count; ++index)
+                if (events[static_cast<size_t>(index)].velocity > 0)
+                    events[static_cast<size_t>(ons++)] = events[static_cast<size_t>(index)];
+            return ons;
+        };
+
+        beginTest("Pattern events land on the sixteenth grid and repeat");
+        {
+            std::array<DrumEvent, 64> events {};
+            // Clip at 1000 with the pattern starting at its beginning; block covers the first bar.
+            const auto ons = noteOns(events, collectPatternEvents(pattern, step, 1000, 1000 + 192000, 0.0, 0, 96000, events.data(), 64));
+            expectEquals(ons, 3);
+            expectEquals(events[0].offset, 1000);
+            expectEquals(static_cast<int>(events[0].note), 36);
+            expectEquals(events[1].offset, 1000 + 6000);
+            expectEquals(events[2].offset, 1000 + 24000);
+            // Second bar starts at 1000 + 96000: block [96000, 98000) contains the next kick.
+            const auto second = noteOns(events, collectPatternEvents(pattern, step, 1000, 1000 + 192000, 0.0, 96000, 2000, events.data(), 64));
+            expectEquals(second, 1);
+            expectEquals(events[0].offset, 1000);
+        }
+
+        beginTest("Swing delays every second sixteenth");
+        {
+            auto swung = pattern;
+            swung.swing = 0.5f;
+            std::array<DrumEvent, 64> events {};
+            noteOns(events, collectPatternEvents(swung, step, 0, 96000, 0.0, 0, 96000, events.data(), 64));
+            expectEquals(events[1].offset, 6000 + 3000);
+        }
+
+        beginTest("Trimmed pattern clips start mid-pattern");
+        {
+            std::array<DrumEvent, 64> events {};
+            // Pattern offset of 4 steps: the snare is the first hit, right at the clip start.
+            const auto count = noteOns(events, collectPatternEvents(pattern, step, 50000, 146000, 24000.0, 50000, 1000, events.data(), 64));
+            expectEquals(count, 1);
+            expectEquals(static_cast<int>(events[0].note), 38);
+            expectEquals(events[0].offset, 0);
+        }
+
+        beginTest("The built-in kit sounds on every lane and is silent otherwise");
+        {
+            DrumSynth synth;
+            synth.prepare(48000.0, 512);
+            juce::AudioBuffer<float> out(2, 512);
+            for (const auto& lane : drumLanes())
+            {
+                DrumEvent hit { 0, static_cast<juce::uint8>(lane.note), 110 };
+                synth.render(&hit, 1, out.getWritePointer(0), out.getWritePointer(1), 512);
+                expect(out.getMagnitude(0, 512) > 0.01f, lane.name);
+                expect(out.getMagnitude(0, 512) < 2.0f, lane.name);
+                for (int flush = 0; flush < 1000; ++flush)
+                    synth.render(nullptr, 0, out.getWritePointer(0), out.getWritePointer(1), 512);
+            }
+            synth.render(nullptr, 0, out.getWritePointer(0), out.getWritePointer(1), 512);
+            expectEquals(out.getMagnitude(0, 512), 0.0f);
+            synth.preview(38, 100);
+            synth.render(nullptr, 0, out.getWritePointer(0), out.getWritePointer(1), 512);
+            expect(out.getMagnitude(0, 512) > 0.01f);
+        }
+
+        beginTest("Drum tracks play pattern clips in the engine and offline");
+        {
+            ArrangementState state;
+            state.tracks.push_back(edit::makeDrumTrack(state, "Drums"));
+            auto& track = state.tracks[0];
+            track.instrument->instrument = std::make_shared<DrumSynth>();
+            track.instrument->instrument->prepare(48000.0, 256);
+            edit::insert(state, edit::makePatternClip(0, "A", 0, 96000), 0);
+            ArrangementEngine engine;
+            engine.prepare(48000.0, 256);
+            engine.publish(ArrangementEngine::buildSnapshot(state));
+            engine.play();
+            juce::AudioBuffer<float> out(2, 256);
+            out.clear();
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 256);
+            expect(out.getMagnitude(0, 256) > 0.01f); // the rock pattern starts with a kick
+
+            auto copy = state.tracks[0].instrument->instrument->createOfflineCopy();
+            copy->prepare(48000.0, 4096);
+            std::vector<TrackInstrument*> instruments { copy.get() };
+            juce::AudioBuffer<float> mix(2, 4096), scratch;
+            ArrangementEngine::renderOffline(*engine.currentSnapshot(), 0, 4096, mix.getWritePointer(0), mix.getWritePointer(1), scratch, -1, &instruments);
+            expect(mix.getMagnitude(0, 4096) > 0.01f);
+        }
+
+        beginTest("Patterns and drum tracks survive the project file");
+        {
+            ArrangementState state;
+            state.tracks.push_back(edit::makeDrumTrack(state, "Drums"));
+            state.tracks[0].patterns[7].velocity[3][9] = 77;
+            state.tracks[0].patterns[7].steps = 32;
+            state.tracks[0].instrument->settings.setProperty("type", "vst3", nullptr);
+            edit::insert(state, edit::makePatternClip(2, "C", 4800, 96000), 0);
+            const auto loaded = fromValueTree(toValueTree(state, {}), {});
+            expect(loaded.tracks[0].drums);
+            expectEquals(static_cast<int>(loaded.tracks[0].patterns.size()), 8);
+            expectEquals(static_cast<int>(loaded.tracks[0].patterns[7].velocity[3][9]), 77);
+            expectEquals(loaded.tracks[0].patterns[7].steps, 32);
+            expectEquals(loaded.tracks[0].instrument->settings.getProperty("type").toString(), juce::String("vst3"));
+            expectEquals(loaded.tracks[0].clips[0].pattern, 2);
+            expect(! edit::setStretchRatio(const_cast<ArrangementState&>(loaded), loaded.tracks[0].clips[0].id, 2.0));
+        }
+    }
+};
+
 class RubberBandTests final : public juce::UnitTest
 {
 public:
@@ -621,6 +746,7 @@ ArrangementEngineTests arrangementEngineTests;
 TrackFxTests trackFxTests;
 GraphicEqTests graphicEqTests;
 LivePitchTests livePitchTests;
+DrumMachineTests drumMachineTests;
 RubberBandTests rubberBandTests;
 CodecTests codecTests;
 } // namespace

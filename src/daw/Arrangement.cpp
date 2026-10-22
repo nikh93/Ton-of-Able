@@ -132,6 +132,25 @@ Track makeTrack(const ArrangementState& state, const juce::String& name)
     return track;
 }
 
+Track makeDrumTrack(const ArrangementState& state, const juce::String& name)
+{
+    auto track = makeTrack(state, name);
+    track.drums = true;
+    track.patterns = defaultDrumPatterns();
+    return track;
+}
+
+Clip makePatternClip(int patternIndex, const juce::String& name, juce::int64 start, juce::int64 length)
+{
+    Clip clip;
+    clip.name = name;
+    clip.pattern = std::max(0, patternIndex);
+    clip.sourceSamples = Clip::patternSourceSamples;
+    clip.start = std::max<juce::int64>(0, start);
+    clip.length = std::max<juce::int64>(1, length);
+    return clip;
+}
+
 Clip makeClip(const juce::File& file, AudioDataPtr source, juce::int64 start)
 {
     Clip clip;
@@ -263,8 +282,8 @@ bool applyStretch(ArrangementState& state, const juce::Uuid& clipId, juce::int64
 {
     Clip* clip = nullptr;
     auto* track = trackOf(state, clipId, clip);
-    if (track == nullptr || clip->length <= 0)
-        return false;
+    if (track == nullptr || clip->length <= 0 || clip->isPattern())
+        return false; // patterns follow the tempo instead of being stretched
     const auto oldLength = clip->length;
     const auto oldEnd = clip->end();
     const auto ratio = clampRatio(clip->stretchRatio * static_cast<double>(std::max(minimumLength, requestedLength)) / static_cast<double>(oldLength));
@@ -305,7 +324,7 @@ bool setStretchRatio(ArrangementState& state, const juce::Uuid& clipId, double r
 bool setPitch(ArrangementState& state, const juce::Uuid& clipId, double semitones)
 {
     auto* clip = state.findClip(clipId);
-    if (clip == nullptr)
+    if (clip == nullptr || clip->isPattern())
         return false;
     clip->pitchSemitones = juce::jlimit(-24.0, 24.0, semitones);
     return true;
@@ -402,6 +421,15 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
         node.setProperty("armed", track.armed, nullptr);
         node.setProperty("monitorInput", track.monitorInput, nullptr);
         node.setProperty("inputChannel", track.inputChannel, nullptr);
+        if (track.drums)
+        {
+            node.setProperty("drums", true, nullptr);
+            juce::ValueTree patterns("Patterns");
+            for (const auto& pattern : track.patterns)
+                patterns.addChild(pattern.toValueTree(), -1, nullptr);
+            node.addChild(patterns, -1, nullptr);
+            node.addChild(track.instrument->settings.createCopy(), -1, nullptr);
+        }
         if (track.fx->settings.isValid())
         {
             juce::ValueTree fx("Fx");
@@ -427,6 +455,8 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
             c.setProperty("gainDb", clip.gainDb, nullptr);
             c.setProperty("fadeIn", clip.fadeIn, nullptr);
             c.setProperty("fadeOut", clip.fadeOut, nullptr);
+            if (clip.isPattern())
+                c.setProperty("pattern", clip.pattern, nullptr);
             node.addChild(c, -1, nullptr);
         }
         root.addChild(node, -1, nullptr);
@@ -462,6 +492,16 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
         track.armed = node.getProperty("armed", false);
         track.monitorInput = node.getProperty("monitorInput", true);
         track.inputChannel = node.getProperty("inputChannel", -1);
+        track.drums = static_cast<bool>(node.getProperty("drums", false));
+        if (track.drums)
+        {
+            for (const auto& pattern : node.getChildWithName("Patterns"))
+                track.patterns.push_back(DrumPattern::fromValueTree(pattern));
+            if (track.patterns.empty())
+                track.patterns = defaultDrumPatterns();
+            if (const auto instrument = node.getChildWithName("Instrument"); instrument.isValid())
+                track.instrument->settings = instrument.createCopy();
+        }
         if (const auto fx = node.getChildWithName("Fx"); fx.isValid() && fx.getNumChildren() > 0)
         {
             track.fx->enabled = static_cast<bool>(fx.getProperty("enabled", false));
@@ -487,6 +527,13 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
             clip.gainDb = static_cast<float>(c.getProperty("gainDb", 0.0f));
             clip.fadeIn = static_cast<juce::int64>(c.getProperty("fadeIn", 0));
             clip.fadeOut = static_cast<juce::int64>(c.getProperty("fadeOut", 0));
+            clip.pattern = c.getProperty("pattern", -1);
+            if (clip.isPattern())
+            {
+                clip.sourceSamples = Clip::patternSourceSamples;
+                clip.stretchRatio = 1.0;
+                clip.file = juce::File();
+            }
             if (clip.length > 0)
                 track.clips.push_back(std::move(clip));
         }
@@ -509,7 +556,8 @@ void changeSampleRate(ArrangementState& state, double newRate)
             clip.length = scale(clip.length);
             clip.fadeIn = scale(clip.fadeIn);
             clip.fadeOut = scale(clip.fadeOut);
-            clip.sourceSamples = scale(clip.sourceSamples);
+            if (! clip.isPattern())
+                clip.sourceSamples = scale(clip.sourceSamples);
             clip.offset *= factor;
             clip.source.reset();
             clip.stretched.reset();

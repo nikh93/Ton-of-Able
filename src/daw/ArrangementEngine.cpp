@@ -83,6 +83,20 @@ std::pair<float, float> balanceGains(const TrackMixer& mixer) noexcept
     return { gain * std::min(1.0f, 1.0f - pan), gain * std::min(1.0f, 1.0f + pan) };
 }
 
+int collectTrackEvents(const ArrangementEngine::TrackRender& track, double samplesPerStep, juce::int64 position, int length,
+                       DrumEvent* out, int maxEvents) noexcept
+{
+    if (track.patterns == nullptr)
+        return 0;
+    int count = 0;
+    for (const auto& clip : track.clips)
+        if (clip.pattern >= 0 && clip.pattern < static_cast<int>(track.patterns->size())
+            && clip.start < position + length && clip.start + clip.length > position)
+            count += collectPatternEvents((*track.patterns)[static_cast<size_t>(clip.pattern)], samplesPerStep, clip.start, clip.start + clip.length,
+                                          clip.offset, position, length, out + count, maxEvents - count);
+    return count;
+}
+
 bool anySolo(const ArrangementEngine::Snapshot& snapshot) noexcept
 {
     for (const auto& track : snapshot.tracks)
@@ -117,12 +131,34 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         snapshot->retainedFx.push_back(track.fx);
         if (track.fx->processor != nullptr)
             snapshot->retainedProcessors.push_back(track.fx->processor);
+        if (track.drums)
+        {
+            render.drums = true;
+            auto patterns = std::make_shared<const std::vector<DrumPattern>>(track.patterns);
+            render.patterns = patterns.get();
+            snapshot->retainedPatterns.push_back(std::move(patterns));
+            if (track.instrument->instrument != nullptr)
+            {
+                render.instrument = track.instrument->instrument.get();
+                snapshot->retainedInstruments.push_back(track.instrument->instrument);
+            }
+        }
         render.armed = track.armed;
         render.monitorInput = track.monitorInput;
         render.inputChannel = track.inputChannel;
         snapshot->retainedMixers.push_back(track.mixer);
         for (const auto& clip : track.clips)
         {
+            if (clip.isPattern() && clip.length > 0)
+            {
+                ClipRender c;
+                c.start = clip.start;
+                c.length = clip.length;
+                c.offset = clip.offset;
+                c.pattern = clip.pattern;
+                render.clips.push_back(c);
+                continue;
+            }
             if (clip.source == nullptr || clip.length <= 0)
                 continue;
             ClipRender c;
@@ -142,6 +178,7 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         }
         snapshot->tracks.push_back(std::move(render));
     }
+    snapshot->samplesPerStep = state.sampleRate * 60.0 / state.bpm / 4.0;
     return snapshot;
 }
 
@@ -173,6 +210,15 @@ void ArrangementEngine::setLoop(bool enabled, juce::int64 start, juce::int64 end
     loopStart.store(start);
     loopEnd.store(end);
     loopEnabled.store(enabled && end > start);
+}
+
+void ArrangementEngine::setPatternAudition(int trackIndex, int patternIndex) noexcept
+{
+    auditionPatternIndex.store(std::max(0, patternIndex));
+    auditionTrackIndex.store(trackIndex);
+    auditionGeneration.fetch_add(1);
+    if (trackIndex < 0)
+        auditionStepNow.store(-1);
 }
 
 void ArrangementEngine::setTempo(double newBpm, int newBeatsPerBar, int newBeatUnit) noexcept
@@ -248,11 +294,16 @@ void ArrangementEngine::prepare(double rate, int maximumBlockSize)
     trackBuffer.setSize(2, maximumBlock, false, true, false);
     mixBuffer.setSize(2, maximumBlock, false, true, false);
     monoBuffer.setSize(1, maximumBlock, false, true, false);
+    instrumentBuffer.setSize(2, maximumBlock, false, true, false);
     silence.assign(static_cast<size_t>(maximumBlock), 0.0f);
     // The device is stopped here, so the published chains can be re-prepared.
     if (owned != nullptr)
+    {
         for (const auto& processor : owned->retainedProcessors)
             processor->prepare(rate, maximumBlock);
+        for (const auto& instrument : owned->retainedInstruments)
+            instrument->prepare(rate, maximumBlock);
+    }
     currentMaster = juce::Decibels::decibelsToGain(masterDb.load(), -60.0f);
     sampleRate.store(rate);
 }
@@ -335,8 +386,15 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
     auto* left = trackBuffer.getWritePointer(0);
     auto* right = trackBuffer.getWritePointer(1);
     auto* mono = monoBuffer.getWritePointer(0);
-    for (const auto& track : snapshot.tracks)
+    const auto audition = auditionTrackIndex.load();
+    if (const auto generation = auditionGeneration.load(); generation != auditionSeenGeneration)
     {
+        auditionSeenGeneration = generation;
+        auditionPosition = 0;
+    }
+    for (size_t trackIndex = 0; trackIndex < snapshot.tracks.size(); ++trackIndex)
+    {
+        const auto& track = snapshot.tracks[trackIndex];
         auto& mixer = *track.mixer;
         const auto fxOn = track.processor != nullptr && track.fx->enabled.load(std::memory_order_relaxed);
         const auto print = fxOn && track.fx->printWhileRecording.load(std::memory_order_relaxed);
@@ -380,6 +438,29 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
             }
             else
                 audible = false;
+            if (track.drums && track.instrument != nullptr)
+            {
+                // The instrument always runs, so hits ring out and previews sound.
+                int count = 0;
+                if (playingNow && ! (recordingNow && track.armed))
+                    count = collectTrackEvents(track, snapshot.samplesPerStep, position, length, events.data(), maximumEvents);
+                else if (! playingNow && audition == static_cast<int>(trackIndex) && track.patterns != nullptr && ! track.patterns->empty())
+                {
+                    const auto& pattern = (*track.patterns)[static_cast<size_t>(std::min(auditionPatternIndex.load(), static_cast<int>(track.patterns->size()) - 1))];
+                    count = collectPatternEvents(pattern, snapshot.samplesPerStep, 0, std::numeric_limits<juce::int64>::max() / 2, 0.0,
+                                                 auditionPosition, length, events.data(), maximumEvents);
+                    auditionPosition += length;
+                    const auto step = static_cast<int>(static_cast<double>(auditionPosition) / snapshot.samplesPerStep) % std::max(1, pattern.steps);
+                    auditionStepNow.store(step);
+                }
+                sortEvents(events.data(), count);
+                auto* instrumentLeft = instrumentBuffer.getWritePointer(0);
+                auto* instrumentRight = instrumentBuffer.getWritePointer(1);
+                track.instrument->render(events.data(), count, instrumentLeft, instrumentRight, length);
+                juce::FloatVectorOperations::add(left, instrumentLeft, length);
+                juce::FloatVectorOperations::add(right, instrumentRight, length);
+                audible = true;
+            }
             if (recordingNow && track.armed && track.inputChannel < 0)
                 recordTrack(track.id, rigLeft != nullptr ? rigLeft + inputOffset : silence.data(),
                             rigRight != nullptr ? rigRight + inputOffset : silence.data(), position, length);
@@ -455,11 +536,13 @@ void ArrangementEngine::renderClick(juce::int64 position, float* outLeft, float*
 }
 
 void ArrangementEngine::renderOffline(const Snapshot& snapshot, juce::int64 start, int numSamples, float* left, float* right,
-                                      juce::AudioBuffer<float>& scratch, int onlyTrack)
+                                      juce::AudioBuffer<float>& scratch, int onlyTrack,
+                                      const std::vector<TrackInstrument*>* instruments)
 {
     juce::FloatVectorOperations::clear(left, numSamples);
     juce::FloatVectorOperations::clear(right, numSamples);
-    scratch.setSize(2, numSamples, false, false, true);
+    scratch.setSize(4, numSamples, false, false, true);
+    std::vector<DrumEvent> offlineEvents(static_cast<size_t>(maximumEvents) * 4);
     const auto solo = anySolo(snapshot);
     for (size_t index = 0; index < snapshot.tracks.size(); ++index)
     {
@@ -480,6 +563,15 @@ void ArrangementEngine::renderOffline(const Snapshot& snapshot, juce::int64 star
             continue;
         scratch.clear();
         renderTrackClips(track, start, numSamples, scratch.getWritePointer(0), scratch.getWritePointer(1));
+        if (auto* instrument = instruments != nullptr && index < instruments->size() ? (*instruments)[index] : nullptr; instrument != nullptr && track.drums)
+        {
+            // Offline copies are rendered strictly in order, block after block.
+            const auto count = collectTrackEvents(track, snapshot.samplesPerStep, start, numSamples, offlineEvents.data(), static_cast<int>(offlineEvents.size()));
+            sortEvents(offlineEvents.data(), count);
+            instrument->render(offlineEvents.data(), count, scratch.getWritePointer(2), scratch.getWritePointer(3), numSamples);
+            juce::FloatVectorOperations::add(scratch.getWritePointer(0), scratch.getReadPointer(2), numSamples);
+            juce::FloatVectorOperations::add(scratch.getWritePointer(1), scratch.getReadPointer(3), numSamples);
+        }
         juce::FloatVectorOperations::addWithMultiply(left, scratch.getReadPointer(0), gainLeft, numSamples);
         juce::FloatVectorOperations::addWithMultiply(right, scratch.getReadPointer(1), gainRight, numSamples);
     }

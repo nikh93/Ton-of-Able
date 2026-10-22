@@ -16,7 +16,10 @@ undo/redo, snap, Ctrl+mouse-wheel zoom), time-stretching and pitch-shifting with
 the [Rubber Band Library](https://breakfastquay.com/rubberband/), per-track
 effect chains (NAM, IR, EQ, graphic EQ, effects, VST3) as insert or printed
 while recording, a 10-band graphic EQ, audio/video import and mix/stem export
-in common formats (FFmpeg for AAC, Opus, video, ...). See
+in common formats (FFmpeg for AAC, Opus, video, ...), a step-sequencer drum
+machine (built-in kit or any General MIDI VST3 drum instrument such as
+[JDrummer](https://github.com/jmantra/jdrummer)) and live pitch shifting with
+Rubber Band (e.g. an octave down) in front of the rig. See
 [Arrangement](docs/Arrangement.md).
 
 The complete realtime core and the primary user workflow are implemented:

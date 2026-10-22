@@ -43,6 +43,26 @@ struct TrackRig final : RigChain
     juce::String namId, irId, preVst, postVst;
 };
 
+// Shows a drum track's VST3 instrument GUI. Keeps the instrument alive until
+// the editor is gone, because plugins must outlive their editors.
+class InstrumentEditorWindow final : public juce::DocumentWindow
+{
+public:
+    InstrumentEditorWindow(std::shared_ptr<PluginInstrument> owner, juce::AudioProcessorEditor* editor)
+        : DocumentWindow(owner->name(), Theme::surface(), closeButton), instrument(std::move(owner))
+    {
+        setUsingNativeTitleBar(true);
+        setContentOwned(editor, true);
+        setResizable(editor->isResizable(), false);
+        centreWithSize(getWidth(), getHeight());
+    }
+    ~InstrumentEditorWindow() override { clearContentComponent(); }
+    void closeButtonPressed() override { setVisible(false); }
+
+private:
+    std::shared_ptr<PluginInstrument> instrument;
+};
+
 class RackWindow final : public juce::DocumentWindow
 {
 public:
@@ -236,6 +256,8 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    instrumentEditors.clear();
+    instrumentScanPool.removeAllJobs(true, 5000);
     pluginWindow.reset();
     pluginRack.closeEditors();
     auto& settings = audioEngine.appSettings();
@@ -828,6 +850,33 @@ void MainComponent::configureArrangement()
                     applyTrackSound(*chain, *sound);
         });
 
+    for (const auto& item : audioEngine.appSettings().loadUiState().getChildWithName("drumInstruments"))
+        if (const auto xml = item.createXml())
+        {
+            juce::PluginDescription description;
+            if (description.loadFromXml(*xml))
+                drumInstruments.add(description);
+        }
+    arrangementController.setInstrumentFactory([this](const juce::ValueTree& settings) -> std::shared_ptr<daw::TrackInstrument>
+    {
+        if (settings.getProperty("type").toString() != "vst3")
+            return std::make_shared<daw::DrumSynth>();
+        juce::String error;
+        if (auto instrument = PluginInstrument::fromSettings(settings, error))
+            return instrument;
+        status.setText(uiText("Drum-Instrument nicht verfügbar (") + error + uiText("), internes Kit wird verwendet."), juce::dontSendNotification);
+        return std::make_shared<daw::DrumSynth>();
+    });
+    arrangementView.createDrumEditor = [this](const juce::Uuid& trackId, int pattern) -> std::unique_ptr<juce::Component>
+    {
+        nam::ui::DrumMachineComponent::Host host;
+        host.instruments = [this] { return drumInstruments; };
+        host.rescan = [this](std::function<void()> done) { scanDrumInstruments(std::move(done)); };
+        host.setSource = [this](const juce::Uuid& id, const juce::PluginDescription* description) { return setDrumSource(id, description); };
+        host.openEditor = [this](const juce::Uuid& id) { openInstrumentEditor(id); };
+        return std::make_unique<nam::ui::DrumMachineComponent>(arrangementController, trackId, pattern, std::move(host));
+    };
+
     const auto saved = audioEngine.appSettings().loadUiState().getChildWithName("arrangementView");
     arrangementView.restoreState(saved);
     if (saved.isValid() && static_cast<bool>(saved.getProperty("visible", false)))
@@ -887,6 +936,107 @@ void MainComponent::showGraphicEq()
     };
     editor->setSize(560, 330);
     juce::CallOutBox::launchAsynchronously(std::move(editor), graphicEqButton.getScreenBounds(), nullptr);
+}
+
+juce::Result MainComponent::setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description)
+{
+    instrumentEditors.erase(trackId); // the editor belongs to the old instrument
+    const auto result = arrangementController.setDrumInstrument(trackId,
+        description != nullptr ? PluginInstrument::settingsFor(*description) : daw::builtInInstrumentSettings());
+    if (result.wasOk() && description != nullptr)
+        openInstrumentEditor(trackId);
+    return result;
+}
+
+void MainComponent::openInstrumentEditor(const juce::Uuid& trackId)
+{
+    const auto* track = arrangementController.state().findTrack(trackId);
+    if (track == nullptr)
+        return;
+    auto instrument = std::dynamic_pointer_cast<PluginInstrument>(track->instrument->instrument);
+    if (instrument == nullptr || instrument->instance() == nullptr)
+    {
+        status.setText(uiText("Die Drum-Spur nutzt das interne Kit – es hat keinen Plugin-Editor."), juce::dontSendNotification);
+        return;
+    }
+    if (const auto existing = instrumentEditors.find(trackId); existing != instrumentEditors.end())
+    {
+        existing->second->setVisible(true);
+        existing->second->toFront(true);
+        return;
+    }
+    auto* editor = instrument->instance()->createEditorIfNeeded();
+    if (editor == nullptr)
+    {
+        status.setText(instrument->name() + uiText(" hat keine eigene Oberfläche."), juce::dontSendNotification);
+        return;
+    }
+    auto window = std::make_unique<InstrumentEditorWindow>(instrument, editor);
+    window->setVisible(true);
+    instrumentEditors[trackId] = std::move(window);
+}
+
+void MainComponent::scanDrumInstruments(std::function<void()> done)
+{
+    if (scanningInstruments)
+        return;
+    scanningInstruments = true;
+    status.setText(uiText("Suche VST3-Instrumente (in separaten Prozessen) …"), juce::dontSendNotification);
+    juce::FileSearchPath paths;
+    const auto appDirectory = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+    for (const auto& directory : { appDirectory, appDirectory.getChildFile("plugins"),
+                                   juce::File("C:/Program Files/Common Files/VST3"),
+                                   juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("VST3"),
+                                   juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".vst3") })
+        if (directory.isDirectory())
+            paths.add(directory);
+    juce::StringArray files;
+   #if JUCE_PLUGINHOST_VST3
+    files = juce::VST3PluginFormat().searchPathsForPlugins(paths, true, false);
+   #endif
+    const juce::Component::SafePointer<MainComponent> self(this);
+    instrumentScanPool.addJob([self, files, done]
+    {
+        juce::Array<juce::PluginDescription> found;
+        for (const auto& file : files)
+        {
+            // A crashing plugin only takes the scanner process down.
+            const auto report = juce::File::getSpecialLocation(juce::File::tempDirectory).getNonexistentChildFile("ton-instrument-scan", ".xml");
+            juce::ChildProcess child;
+            const juce::StringArray args { juce::File::getSpecialLocation(juce::File::currentExecutableFile).getFullPathName(),
+                                           "--scan-vst3-instruments", file, report.getFullPathName() };
+            if (child.start(args) && child.waitForProcessToFinish(30000))
+                if (const auto xml = juce::XmlDocument::parse(report))
+                    for (auto* item = xml->getFirstChildElement(); item != nullptr; item = item->getNextElement())
+                    {
+                        juce::PluginDescription description;
+                        if (description.loadFromXml(*item))
+                            found.add(description);
+                    }
+            child.kill();
+            report.deleteFile();
+        }
+        juce::MessageManager::callAsync([self, found, done]
+        {
+            if (self == nullptr)
+                return;
+            self->scanningInstruments = false;
+            self->drumInstruments = found;
+            auto uiState = self->audioEngine.appSettings().loadUiState();
+            if (! uiState.isValid())
+                uiState = juce::ValueTree("uiState");
+            uiState.removeChild(uiState.getChildWithName("drumInstruments"), nullptr);
+            juce::ValueTree list("drumInstruments");
+            for (const auto& description : found)
+                if (const auto xml = description.createXml())
+                    list.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
+            uiState.addChild(list, -1, nullptr);
+            self->audioEngine.appSettings().saveUiState(uiState);
+            self->status.setText(juce::String(found.size()) + uiText(" VST3-Instrument(e) gefunden."), juce::dontSendNotification);
+            if (done)
+                done();
+        });
+    });
 }
 
 void MainComponent::showPitchShifter()
