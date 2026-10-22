@@ -25,7 +25,8 @@ Rubber Band (e.g. an octave down) in front of the rig. See
 The complete realtime core and the primary user workflow are implemented:
 ASIO-first/WASAPI audio I/O, mono DSP routing, asynchronous NAM and IR loading,
 EQ, Auto-Wah, Chorus, Delay, Reverb, WAV playback, threaded recording,
-persistent NAM/IR libraries, preset Save/Save As/load/rename/delete, A/B state
+persistent NAM/IR libraries with multi-file/folder import into a model folder
+(imported models are copied to `Documents/Ton of Able/Modelle`, see below), preset Save/Save As/load/rename/delete, A/B state
 switching, effect parameter panels, clipping meters, diagnostics and persistent
 settings. Thirty-one GPL-3.0 curated NAM configurations are bundled under
 [resources/defaults](resources/defaults) and registered in the library on first
@@ -35,6 +36,16 @@ and exposes Amp/Configuration selection while retaining technical filenames
 only in the library view. The curated IR list is documented in
 [resources/DEFAULT_ASSETS.md](resources/DEFAULT_ASSETS.md); third-party IRs are
 not redistributed where their licence forbids it.
+
+**Model folder.** *NAM importieren* / *IR importieren* accept several files at
+once or whole folders (including subfolders); `.nam` files and folders can also
+be dropped onto the rig window. Every imported file is copied into the model
+folder (default `Documents/Ton of Able/Modelle/NAM` and `.../IR`), so library
+entries keep working when the downloads are moved or deleted. Identical files
+are not copied twice, a different file with the same name gets a numbered name,
+and files put into the folder by hand are picked up at start-up (or with
+*Modellordner neu einlesen*). The import menu can also open or change the
+folder and copy previously linked external models into it.
 
 ## Build prerequisites
 

@@ -9,6 +9,8 @@
 #include "../src/audio/effects/Effects.h"
 #include "../src/diagnostics/PerformanceMonitor.h"
 #include "../src/library/LibraryManager.h"
+#include "../src/library/ModelFolder.h"
+#include "../src/library/NamLibrary.h"
 #include "../src/library/CuratedAmpLibrary.h"
 #include "../src/playback/FilePlayer.h"
 #include "../src/presets/PresetManager.h"
@@ -57,6 +59,74 @@ void expectFiniteBuffer (juce::UnitTest& test, const juce::AudioBuffer<float>& b
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
             test.expect (std::isfinite (buffer.getSample (channel, sample)));
 }
+
+class ModelFolderTests final : public juce::UnitTest
+{
+public:
+    ModelFolderTests() : UnitTest ("Model folder and multi-file import", "NAM Test Program") {}
+
+    void runTest() override
+    {
+        TemporaryDirectory temp;
+        const auto downloads = temp.getFile ("Downloads");
+        const auto nested = downloads.getChildFile ("Pack").getChildFile ("Clean");
+        expect (nested.createDirectory());
+        expect (downloads.getChildFile ("Lead.nam").replaceWithText ("lead"));
+        expect (downloads.getChildFile ("Pack").getChildFile ("Crunch.nam").replaceWithText ("crunch"));
+        expect (nested.getChildFile ("Twin.nam").replaceWithText ("twin"));
+        expect (nested.getChildFile ("readme.txt").replaceWithText ("not a model"));
+
+        beginTest ("Folders are searched recursively for the library's extension");
+        const auto found = ModelFolder::collect ({ downloads.getChildFile ("Pack"), downloads.getChildFile ("Lead.nam"), downloads.getChildFile ("Lead.nam") }, ".nam");
+        expectEquals (found.size(), 3);
+
+        beginTest ("Imports are copied into the model folder and linked there");
+        ModelFolder folder (temp.getFile ("Modelle"));
+        NamLibrary library;
+        auto result = folder.importFiles (library, { downloads });
+        expectEquals (result.imported.size(), 3);
+        expectEquals (result.copied, 3);
+        expect (result.failed.isEmpty(), result.failed.joinIntoString ("; "));
+        for (const auto& item : library.items())
+            expect (item.linkedFile.isAChildOf (folder.folderFor (library)), item.linkedFile.getFullPathName());
+        expect (downloads.getChildFile ("Lead.nam").deleteFile());
+        expect (! library.items().getFirst().isMissing());
+
+        beginTest ("Identical files are not copied twice");
+        expect (downloads.getChildFile ("Lead.nam").replaceWithText ("lead"));
+        result = folder.importFiles (library, { downloads.getChildFile ("Lead.nam") });
+        expectEquals (result.copied, 0);
+        expectEquals (result.alreadyPresent, 1);
+        expectEquals (library.items().size(), 3);
+
+        beginTest ("A different file with the same name gets a numbered name");
+        const auto other = temp.getFile ("Other");
+        expect (other.createDirectory());
+        expect (other.getChildFile ("Lead.nam").replaceWithText ("another lead"));
+        result = folder.importFiles (library, { other.getChildFile ("Lead.nam") });
+        expectEquals (result.copied, 1);
+        expectEquals (library.items().size(), 4);
+        expectEquals (folder.folderFor (library).findChildFiles (juce::File::findFiles, false, "*.nam").size(), 4);
+
+        beginTest ("Files placed into the folder by hand are picked up");
+        expect (folder.folderFor (library).getChildFile ("Manual.nam").replaceWithText ("manual"));
+        expectEquals (folder.sync (library), 1);
+        expectEquals (folder.sync (library), 0);
+        expectEquals (library.items().size(), 5);
+
+        beginTest ("Externally linked models are adopted, bundled ones stay");
+        const auto bundled = temp.getFile ("Bundled");
+        expect (bundled.createDirectory());
+        expect (bundled.getChildFile ("Default.nam").replaceWithText ("default"));
+        expect (other.getChildFile ("Linked.nam").replaceWithText ("linked"));
+        const auto bundledId = library.importLink (bundled.getChildFile ("Default.nam"));
+        const auto linkedId = library.importLink (other.getChildFile ("Linked.nam"));
+        expect (bundledId.has_value() && linkedId.has_value());
+        expectEquals (folder.adoptExternal (library, bundled), 1);
+        expect (library.find (*linkedId)->linkedFile.isAChildOf (folder.folderFor (library)));
+        expect (library.find (*bundledId)->linkedFile.isAChildOf (bundled));
+    }
+};
 
 class LibraryManagerTests final : public juce::UnitTest
 {
@@ -542,6 +612,7 @@ public:
 
 EffectRegressionTests effectRegressionTests;
 LibraryManagerTests libraryManagerTests;
+ModelFolderTests modelFolderTests;
 PresetManagerTests presetManagerTests;
 CuratedAmpLibraryTests curatedAmpLibraryTests;
 FilePlayerTests filePlayerTests;

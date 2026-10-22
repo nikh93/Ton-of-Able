@@ -100,6 +100,10 @@ MainComponent::MainComponent()
     const auto personalCatalog=defaultAssetsDirectory().getSiblingFile("lead-models").getChildFile("catalog.json");
     if (personalCatalog.existsAsFile()) curatedAmpLibrary.load(personalCatalog,&stateError,true);
     registerBundledDefaults();
+    modelFolderRoot = juce::File(audioEngine.appSettings().loadUiState().getProperty("modelFolder").toString());
+    if (! juce::File::isAbsolutePath(modelFolderRoot.getFullPathName()) || modelFolderRoot == juce::File())
+        modelFolderRoot = ModelFolder::defaultLocation();
+    syncModelFolder();
     pluginRack.addBundledPedals(defaultAssetsDirectory().getSiblingFile("pedal-models"));
     configureRigs();
     title.setText("TON OF ABLE", juce::dontSendNotification); title.setFont(juce::FontOptions(26.0f, juce::Font::bold)); title.setColour(juce::Label::textColourId, Theme::text()); addAndMakeVisible(title);
@@ -209,6 +213,8 @@ MainComponent::MainComponent()
             else audioEngine.appSettings().saveIrLibrary(irLibrary.toValueTree());
         };
         callbacks.onError = [this](const juce::String& error) { status.setText(error, juce::dontSendNotification); };
+        callbacks.onImportFiles = [this, nam](const juce::Array<juce::File>& files) { importModels(files, nam); };
+        callbacks.extendImportMenu = [this](juce::PopupMenu& menu) { addModelFolderItems(menu); };
         browser.setCallbacks(std::move(callbacks));
         browser.refresh();
     };
@@ -266,6 +272,7 @@ MainComponent::~MainComponent()
     uiState.removeChild(uiState.getChildWithName("vst3Rack"),nullptr);
     uiState.addChild(pluginRack.saveRack(),-1,nullptr);
     arrangementView.autosave();
+    uiState.setProperty("modelFolder", modelFolderRoot.getFullPathName(), nullptr);
     uiState.removeChild(uiState.getChildWithName("arrangementView"),nullptr);
     auto arrangementState = arrangementView.saveState();
     arrangementState.setProperty("visible", arrangementVisible, nullptr);
@@ -761,14 +768,164 @@ void MainComponent::registerBundledDefaults()
 
 void MainComponent::chooseNamFile()
 {
-    namChooser = std::make_shared<juce::FileChooser>(uiText("NAM-Modell auswählen"), juce::File {}, "*.nam"); const juce::Component::SafePointer<MainComponent> self(this);
-    namChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [self](const juce::FileChooser& chooser) { if (self == nullptr) return; const auto file = chooser.getResult(); if (file.existsAsFile()) { juce::String error; if (const auto id = self->namLibrary.importLink(file, {}, "{}", &error)) { self->currentSound.namId = id->toString(); self->currentSound.ampId = "user-models"; self->currentSound.configurationId = file.getFileNameWithoutExtension(); } self->audioEngine.loadNamAsync(file); self->status.setText("Lade NAM: " + file.getFileNameWithoutExtension(), juce::dontSendNotification); } self->namChooser.reset(); });
+    showModelImportMenu(true, selectNam);
 }
 
 void MainComponent::chooseIrFile()
 {
-    irChooser = std::make_shared<juce::FileChooser>(uiText("Cabinet-IR auswählen"), juce::File {}, "*.wav"); const juce::Component::SafePointer<MainComponent> self(this);
-    irChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [self](const juce::FileChooser& chooser) { if (self == nullptr) return; const auto file = chooser.getResult(); if (file.existsAsFile()) { juce::String error; if (const auto id = self->irLibrary.importLink(file, {}, "{}", &error)) self->currentSound.irId = id->toString(); const auto result = self->audioEngine.loadIr(file); self->status.setText(result.wasOk() ? "IR geladen: " + file.getFileNameWithoutExtension() : result.getErrorMessage(), juce::dontSendNotification); } self->irChooser.reset(); });
+    showModelImportMenu(false, selectIr);
+}
+
+void MainComponent::showModelImportMenu(bool nam, juce::Component& target)
+{
+    const juce::Component::SafePointer<MainComponent> self(this);
+    const auto choose = [self, nam](bool folders)
+    {
+        if (self == nullptr)
+            return;
+        self->modelChooser = std::make_shared<juce::FileChooser>(nam ? uiText("NAM-Modelle importieren") : uiText("Cabinet-IRs importieren"),
+                                                                 juce::File {}, folders ? juce::String("*") : juce::String(nam ? "*.nam" : "*.wav"));
+        const auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectMultipleItems
+                         | (folders ? juce::FileBrowserComponent::canSelectDirectories : juce::FileBrowserComponent::canSelectFiles);
+        self->modelChooser->launchAsync(flags, [self, nam](const juce::FileChooser& chooser)
+        {
+            if (self == nullptr)
+                return;
+            const auto files = chooser.getResults();
+            if (! files.isEmpty() && files.getFirst() != juce::File {})
+                self->importModels(files, nam);
+            self->modelChooser.reset();
+        });
+    };
+    juce::PopupMenu menu;
+    menu.addItem(uiText("Dateien importieren … (Mehrfachauswahl)"), [choose] { choose(false); });
+    menu.addItem(uiText("Ordner importieren … (inkl. Unterordner)"), [choose] { choose(true); });
+    menu.addSeparator();
+    addModelFolderItems(menu);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&target));
+}
+
+void MainComponent::addModelFolderItems(juce::PopupMenu& menu)
+{
+    menu.addSectionHeader(uiText("Modellordner: ") + modelFolderRoot.getFullPathName());
+    menu.addItem(uiText("Modellordner öffnen"), [this]
+    {
+        modelFolderRoot.createDirectory();
+        modelFolderRoot.startAsProcess();
+    });
+    menu.addItem(uiText("Modellordner ändern …"), [this] { chooseModelFolder(); });
+    menu.addItem(uiText("Modellordner neu einlesen"), [this] { syncModelFolder(); });
+    menu.addItem(uiText("Verknüpfte Modelle in den Modellordner kopieren"), [this]
+    {
+        // Bundled defaults stay where the installer put them.
+        const auto bundled = defaultAssetsDirectory().getParentDirectory();
+        const auto models = modelFolder().adoptExternal(namLibrary, bundled);
+        const auto irs = modelFolder().adoptExternal(irLibrary, bundled);
+        audioEngine.appSettings().saveNamLibrary(namLibrary.toValueTree());
+        audioEngine.appSettings().saveIrLibrary(irLibrary.toValueTree());
+        audioEngine.appSettings().flush();
+        namBrowser.refresh();
+        irBrowser.refresh();
+        status.setText(juce::String(models) + uiText(" NAM-Modelle und ") + juce::String(irs) + uiText(" IRs in den Modellordner kopiert."), juce::dontSendNotification);
+    });
+}
+
+void MainComponent::chooseModelFolder()
+{
+    modelChooser = std::make_shared<juce::FileChooser>(uiText("Modellordner wählen"), modelFolderRoot, "*");
+    const juce::Component::SafePointer<MainComponent> self(this);
+    modelChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [self](const juce::FileChooser& chooser)
+        {
+            if (self == nullptr)
+                return;
+            const auto folder = chooser.getResult();
+            self->modelChooser.reset();
+            if (! folder.isDirectory())
+                return;
+            self->modelFolderRoot = folder;
+            auto uiState = self->audioEngine.appSettings().loadUiState();
+            if (! uiState.isValid())
+                uiState = juce::ValueTree("uiState");
+            uiState.setProperty("modelFolder", folder.getFullPathName(), nullptr);
+            self->audioEngine.appSettings().saveUiState(uiState);
+            self->syncModelFolder();
+        });
+}
+
+void MainComponent::syncModelFolder()
+{
+    const auto models = modelFolder().sync(namLibrary);
+    const auto irs = modelFolder().sync(irLibrary);
+    if (models + irs > 0)
+    {
+        audioEngine.appSettings().saveNamLibrary(namLibrary.toValueTree());
+        audioEngine.appSettings().saveIrLibrary(irLibrary.toValueTree());
+        audioEngine.appSettings().flush();
+        namBrowser.refresh();
+        irBrowser.refresh();
+        status.setText(juce::String(models + irs) + uiText(" neue Datei(en) aus dem Modellordner übernommen."), juce::dontSendNotification);
+    }
+}
+
+void MainComponent::importModels(const juce::Array<juce::File>& selection, bool nam)
+{
+    auto& library = nam ? static_cast<LibraryManager&>(namLibrary) : static_cast<LibraryManager&>(irLibrary);
+    const auto result = modelFolder().importFiles(library, selection);
+    auto& settings = audioEngine.appSettings();
+    if (nam) settings.saveNamLibrary(namLibrary.toValueTree()); else settings.saveIrLibrary(irLibrary.toValueTree());
+    settings.flush();
+    (nam ? namBrowser : irBrowser).refresh();
+
+    // The first imported model is loaded right away, as with a single import.
+    if (! result.imported.isEmpty())
+        if (const auto* item = library.find(result.imported.getFirst()))
+        {
+            if (nam)
+            {
+                currentSound.namId = item->id.toString();
+                currentSound.ampId = "user-models";
+                currentSound.configurationId = item->displayName;
+                currentSound.namBypassed = false;
+                audioEngine.loadNamAsync(item->linkedFile);
+            }
+            else
+            {
+                currentSound.irId = item->id.toString();
+                currentSound.irBypassed = false;
+                audioEngine.loadIr(item->linkedFile);
+            }
+            (nam ? namBrowser : irBrowser).setSelectedItem(item->id);
+        }
+
+    juce::String summary = juce::String(result.imported.size()) + (nam ? uiText(" NAM-Modell(e)") : uiText(" IR(s)")) + uiText(" importiert");
+    if (result.copied > 0)
+        summary << ", " << result.copied << uiText(" in den Modellordner kopiert");
+    if (result.alreadyPresent > 0)
+        summary << ", " << result.alreadyPresent << uiText(" waren schon vorhanden");
+    if (! result.failed.isEmpty())
+        summary << uiText(" – Fehler: ") << result.failed.joinIntoString("; ");
+    if (result.imported.isEmpty() && result.failed.isEmpty())
+        summary = nam ? uiText("Keine .nam-Dateien gefunden.") : uiText("Keine .wav-Dateien gefunden.");
+    status.setText(summary, juce::dontSendNotification);
+}
+
+bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files)
+{
+    if (arrangementVisible)
+        return false; // the arrangement takes audio drops itself
+    for (const auto& path : files)
+        if (juce::File(path).isDirectory() || juce::File(path).hasFileExtension("nam"))
+            return true;
+    return false;
+}
+
+void MainComponent::filesDropped(const juce::StringArray& paths, int, int)
+{
+    juce::Array<juce::File> files;
+    for (const auto& path : paths)
+        files.add(juce::File(path));
+    importModels(files, true);
 }
 
 void MainComponent::chooseWavFile()

@@ -80,6 +80,8 @@ target_sources(NamTestProgram PRIVATE
     src/audio/effects/DriveProcessor.h
     src/library/LibraryManager.cpp
     src/library/LibraryManager.h
+    src/library/ModelFolder.cpp
+    src/library/ModelFolder.h
     src/library/NamLibrary.h
     src/library/IRLibrary.h
     src/library/CuratedAmpLibrary.cpp
@@ -180,6 +182,7 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/NamTestProgramTests.cpp
         tests/DriveVoicingTests.cpp
         src/library/LibraryManager.cpp
+        src/library/ModelFolder.cpp
         src/library/CuratedAmpLibrary.cpp
         src/presets/PresetManager.cpp
         src/playback/FilePlayer.cpp

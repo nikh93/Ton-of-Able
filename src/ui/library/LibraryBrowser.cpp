@@ -122,18 +122,54 @@ juce::String LibraryBrowser::extensionWildcard() const
 
 void LibraryBrowser::importFile()
 {
-    chooser = std::make_unique<juce::FileChooser>("Import " + manager.itemType().toUpperCase(), juce::File{}, extensionWildcard());
-    chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-                         [this](const juce::FileChooser& fc)
+    if (! callbacks.onImportFiles)
     {
-        const auto file = fc.getResult();
-        if (file == juce::File{}) return;
+        chooseImport(false);
+        return;
+    }
+    juce::PopupMenu menu;
+    menu.addItem(juce::String(juce::CharPointer_UTF8("Dateien importieren \xe2\x80\xa6 (Mehrfachauswahl)")), [this] { chooseImport(false); });
+    menu.addItem(juce::String(juce::CharPointer_UTF8("Ordner importieren \xe2\x80\xa6 (inkl. Unterordner)")), [this] { chooseImport(true); });
+    if (callbacks.extendImportMenu)
+    {
+        menu.addSeparator();
+        callbacks.extendImportMenu(menu);
+    }
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&importButton));
+}
+
+void LibraryBrowser::chooseImport(bool folders)
+{
+    chooser = std::make_unique<juce::FileChooser>("Import " + manager.itemType().toUpperCase(), juce::File{}, folders ? juce::String("*") : extensionWildcard());
+    const auto flags = juce::FileBrowserComponent::openMode
+                     | (folders ? juce::FileBrowserComponent::canSelectDirectories : juce::FileBrowserComponent::canSelectFiles)
+                     | juce::FileBrowserComponent::canSelectMultipleItems;
+    chooser->launchAsync(flags, [this](const juce::FileChooser& fc)
+    {
+        const auto files = fc.getResults();
+        if (files.isEmpty() || files.getFirst() == juce::File{})
+            return;
+        if (callbacks.onImportFiles)
+        {
+            callbacks.onImportFiles(files);
+            refresh();
+            return;
+        }
         juce::String error;
-        const auto id = manager.importLink(file, {}, "{}", &error);
-        if (!id) { reportError(error); return; }
+        std::optional<juce::Uuid> lastId;
+        for (const auto& file : files)
+        {
+            if (const auto id = manager.importLink(file, {}, "{}", &error))
+            {
+                lastId = id;
+                if (callbacks.onImport) callbacks.onImport(file);
+            }
+            else
+                reportError(error);
+        }
         refresh();
-        setSelectedItem(*id);
-        if (callbacks.onImport) callbacks.onImport(file);
+        if (lastId)
+            setSelectedItem(*lastId);
     });
 }
 

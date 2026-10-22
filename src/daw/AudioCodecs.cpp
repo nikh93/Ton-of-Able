@@ -111,7 +111,7 @@ juce::File findFfmpeg()
             return candidate;
     const auto path = juce::SystemStats::getEnvironmentVariable("PATH", {});
     for (const auto& directory : juce::StringArray::fromTokens(path, juce::String(juce::File::getSeparatorString()) == "\\" ? ";" : ":", "\""))
-        if (directory.isNotEmpty())
+        if (juce::File::isAbsolutePath(directory)) // relative PATH entries are skipped
             if (const auto candidate = juce::File(directory).getChildFile(name); candidate.existsAsFile())
                 return candidate;
     return {};

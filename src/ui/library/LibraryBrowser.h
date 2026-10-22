@@ -32,6 +32,11 @@ public:
         std::function<void(const LibraryItem&)> onMissingAction;
         std::function<void(const LibraryItem&, const juce::File&)> onRelink;
         std::function<void(const juce::String&)> onError;
+        /** If set, the browser hands selected files/folders to the app (which
+            copies them into the model folder) instead of linking them directly. */
+        std::function<void(const juce::Array<juce::File>&)> onImportFiles;
+        /** Adds app-level entries (model folder actions) to the import menu. */
+        std::function<void(juce::PopupMenu&)> extendImportMenu;
     };
 
     explicit LibraryBrowser(LibraryManager& library, juce::String title = {});
@@ -53,6 +58,7 @@ private:
 
     const LibraryItem* selectedItem() const noexcept;
     void importFile();
+    void chooseImport(bool folders);
     void relinkFile();
     void renameSelected();
     void editTags();

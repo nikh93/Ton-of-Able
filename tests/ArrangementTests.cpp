@@ -735,7 +735,7 @@ public:
         beginTest("Video and compressed formats are offered for import");
         expect(codecs::importWildcard().contains("*.mp4"));
         expect(codecs::importWildcard().contains("*.m4a"));
-        expect(codecs::isVideoFile(juce::File("clip.MOV")));
+        expect(codecs::isVideoFile(directory.getChildFile("clip.MOV")));
         expect(codecs::exportFormats().size() >= 9);
         directory.deleteRecursively();
     }

@@ -16,6 +16,7 @@
 #include "ui/playback/WavFileBrowser.h"
 #include "library/CuratedAmpLibrary.h"
 #include "library/RigLibrary.h"
+#include "library/ModelFolder.h"
 #include "ui/plugins/PluginRackPanel.h"
 #include "ui/arrangement/ArrangementView.h"
 #include "ui/arrangement/TrackFxComponent.h"
@@ -24,7 +25,7 @@
 #include "audio/plugins/PluginInstrument.h"
 #include "daw/ArrangementController.h"
 
-class MainComponent final : public juce::Component, private juce::Timer
+class MainComponent final : public juce::Component, public juce::FileDragAndDropTarget, private juce::Timer
 {
 public:
     MainComponent();
@@ -36,6 +37,8 @@ public:
     void resized() override;
     void exportDesignPreviews(const juce::File&);
     bool keyPressed(const juce::KeyPress&) override;
+    bool isInterestedInFileDrag(const juce::StringArray&) override;
+    void filesDropped(const juce::StringArray&, int, int) override;
     /** Opens a .tonproj (e.g. passed on the command line) in the arrangement view. */
     void openProject(const juce::File&);
 
@@ -67,6 +70,12 @@ private:
     void showGraphicEq();
     void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
     void showPitchShifter();
+    [[nodiscard]] ModelFolder modelFolder() const { return ModelFolder(modelFolderRoot); }
+    void importModels(const juce::Array<juce::File>& selection, bool nam);
+    void showModelImportMenu(bool nam, juce::Component& target);
+    void addModelFolderItems(juce::PopupMenu&);
+    void chooseModelFolder();
+    void syncModelFolder();
     void scanDrumInstruments(std::function<void()> done);
     void openInstrumentEditor(const juce::Uuid& trackId);
     juce::Result setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description);
@@ -81,6 +90,8 @@ private:
     juce::TextButton viewToggle { "ARRANGEMENT" };
     juce::TextButton graphicEqButton { "GRAPHIC EQ" };
     juce::TextButton pitchButton { "PITCH" };
+    juce::File modelFolderRoot;
+    std::shared_ptr<juce::FileChooser> modelChooser;
     juce::Array<juce::PluginDescription> drumInstruments;
     juce::ThreadPool instrumentScanPool { juce::ThreadPoolOptions {}.withThreadName("Instrument scan").withNumberOfThreads(1) };
     bool scanningInstruments = false;
