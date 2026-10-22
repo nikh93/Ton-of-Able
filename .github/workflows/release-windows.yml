@@ -1,10 +1,13 @@
 name: Windows release
 
 # Builds "Ton of Able" with MSVC, runs the unit tests and publishes a portable
-# ZIP as a GitHub release. Triggered by pushing a tag such as v0.2.0.
+# ZIP as a GitHub release when a tag such as v0.2.0 is pushed (or created by
+# publishing a release on GitHub). Branch pushes build, test and keep the ZIP
+# as a workflow artifact without publishing anything.
 on:
   push:
     tags: ['v*']
+    branches: ['feature/**', 'main']
   workflow_dispatch:
     inputs:
       tag:
@@ -19,7 +22,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     env:
-      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      TAG: ${{ github.event.inputs.tag || (github.ref_type == 'tag' && github.ref_name) || format('build-{0}', github.run_number) }}
       GH_TOKEN: ${{ github.token }}
       # The plugins (BYOD, Valhalla Supermassive) are carried over from this release.
       PLUGIN_SOURCE_RELEASE: v0.1.0
@@ -79,7 +82,15 @@ jobs:
           "ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
           Get-Item $zip | Format-List Name, Length
 
+      - name: Keep ZIP as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ton-of-Able-win64
+          path: ${{ env.ZIP }}
+          retention-days: 14
+
       - name: Publish release
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: |
           $notes = "packaging/release-notes-$env:TAG.md"
