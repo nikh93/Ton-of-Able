@@ -1,85 +1,95 @@
+<p align="center"><img src="packaging/icon/app-icon.png" width="128" alt="Ton of Able"></p>
+
 # Ton of Able
 
-Standalone Windows application for testing Neural Amp Modeler (`.nam`) models in real time.
+A guitar amp modeler and multitrack recorder for Windows 10/11: play live through
+[Neural Amp Modeler](https://www.neuralampmodeler.com/) captures, cabinet IRs,
+effects and VST3 plugins, and record, edit and mix whole songs in an
+Ableton-style arrangement. The interface is in German.
 
-## Current status
+## Features
 
-Personal extensions include a two-slot VST3 host and a separate asynchronous
-NAM pedal stage before the NAM amp. See [NAM pedal usage](docs/NAM-Pedals.md)
-and [VST3 rack usage](docs/VST3-Rack.md). Pedal input/output trims, bypass and
-model path are persisted independently in presets and A/B.
+**Live rig**
+- NAM amps and NAM pedals (`.nam`), cabinet IRs, 3-band amp EQ and 10-band graphic EQ
+- Drive, Auto-Wah, a **wah pedal you play with the mouse** (vertical position = pedal, key W),
+  **compressor** (pedal or studio position), Chorus, Delay, Reverb
+- Live pitch shifting with the [Rubber Band Library](https://breakfastquay.com/rubberband/);
+  exactly one octave down runs **latency-free** like an analog flip-flop octave pedal
+- Two VST3 slots (bundled: BYOD, Valhalla Supermassive), presets with A/B, complete rigs
+- ASIO first, WASAPI exclusive as fallback; meters, latency and CPU diagnostics
 
-Ton of Able also contains an Ableton-style **multitrack arrangement**: real
-multitrack recording from the NAM rig or dry interface inputs (count-in,
-metronome, latency compensation), clip editing (move, copy, trim, split, fades,
-undo/redo, snap, Ctrl+mouse-wheel zoom), time-stretching and pitch-shifting with
-the [Rubber Band Library](https://breakfastquay.com/rubberband/), per-track
-effect chains (NAM, IR, EQ, graphic EQ, effects, VST3) as insert or printed
-while recording, a 10-band graphic EQ, audio/video import and mix/stem export
-in common formats (FFmpeg for AAC, Opus, video, ...), a step-sequencer drum
-machine (built-in kit or any General MIDI VST3 drum instrument such as
-[JDrummer](https://github.com/jmantra/jdrummer)) and live pitch shifting with
-Rubber Band (e.g. an octave down) in front of the rig, send effects on up to
-four return tracks, track freezing (with "freeze and flatten"), a compressor
-and a wah pedal (playable with the vertical mouse position) in every effect
-chain, and freely assignable keyboard shortcuts (F1). See
-[Arrangement](docs/Arrangement.md).
+**Arrangement (multitrack)**
+- Record several tracks at once from the processed rig or dry interface inputs,
+  with count-in, metronome, punch-in and automatic latency compensation
+- Move, copy, trim, split, fade, multi-select, snap, undo/redo; Ctrl + mouse wheel zoom
+- Time-stretch and transpose clips with Rubber Band
+- Per-track effect chains as insert (editable later) or printed while recording
+- **Send effects** on up to four return tracks, **track freezing** (and "freeze and flatten")
+- Drum machine: step sequencer with pattern clips, built-in kit or any General MIDI
+  VST3 drum instrument such as [JDrummer](https://github.com/jmantra/jdrummer)
+- Import WAV/AIFF/FLAC/Ogg/MP3 and, via the bundled FFmpeg, AAC/Opus/ALAC and audio
+  from video files; export the mix, the loop range or stems in common formats
+- Freely assignable keyboard shortcuts with an overview (F1)
 
-The complete realtime core and the primary user workflow are implemented:
-ASIO-first/WASAPI audio I/O, mono DSP routing, asynchronous NAM and IR loading,
-EQ, Auto-Wah, Chorus, Delay, Reverb, WAV playback, threaded recording,
-persistent NAM/IR libraries with multi-file/folder import into a model folder
-(imported models are copied to `Documents/Ton of Able/Modelle`, see below), preset Save/Save As/load/rename/delete, A/B state
-switching, effect parameter panels, clipping meters, diagnostics and persistent
-settings. Thirty-one GPL-3.0 curated NAM configurations are bundled under
-[resources/defaults](resources/defaults) and registered in the library on first
-start. The full curated catalog is defined in
-[resources/defaults/curated_catalog.json](resources/defaults/curated_catalog.json)
-and exposes Amp/Configuration selection while retaining technical filenames
-only in the library view. The curated IR list is documented in
-[resources/DEFAULT_ASSETS.md](resources/DEFAULT_ASSETS.md); third-party IRs are
-not redistributed where their licence forbids it.
-Twelve TONE3000 full-rig captures (Mesa Dual Rectifier, EVH 5150 Stealth,
-Vox AC30 1964, Fender Twin Reverb '67 SRV) and four TONE3000 IRs (Marshall
-JCM900 1960 4x12, Sunset Sound Studio 3 live room) are bundled for personal
-use; see [resources/defaults/README.md](resources/defaults/README.md) before
-publishing.
+**Models and library**
+- 45 bundled amp configurations, including twelve TONE3000 full-rig captures
+  (Mesa Dual Rectifier, EVH 5150 Stealth, Vox AC30 1964, Fender Twin '67 SRV), plus cabinet IRs
+- Multi-file and folder import (also by drag and drop); imported models are copied into a
+  model folder (`Documents\Ton of Able\Modelle`) so they never go missing
 
-**Model folder.** *NAM importieren* / *IR importieren* accept several files at
-once or whole folders (including subfolders); `.nam` files and folders can also
-be dropped onto the rig window. Every imported file is copied into the model
-folder (default `Documents/Ton of Able/Modelle/NAM` and `.../IR`), so library
-entries keep working when the downloads are moved or deleted. Identical files
-are not copied twice, a different file with the same name gets a numbered name,
-and files put into the folder by hand are picked up at start-up (or with
-*Modellordner neu einlesen*). The import menu can also open or change the
-folder and copy previously linked external models into it.
+## Install
 
-## Build prerequisites
+Download `Ton-of-Able-<version>-setup.exe` from the
+[releases](https://github.com/nikh93/Ton-of-Able/releases) and run it. It adds a start menu
+entry, optionally a desktop icon, the `.tonproj` file association and the Supermassive
+factory presets; it updates an existing installation in place. The portable ZIP from the same
+release runs without installing.
 
-- Windows 10 or 11
-- CMake 3.24 or newer
-- Visual Studio 2022 Build Tools or Visual Studio 2022 with the **Desktop development with C++** workload and Windows SDK
-- A Steinberg ASIO SDK-compatible installation/licensing arrangement when shipping ASIO support
+The installer is not code-signed: at the SmartScreen warning choose *More info* → *Run anyway*.
 
-## Configure and build
+## Quick start
 
-Third-party code is pulled in as git submodules (JUCE, NeuralAmpModelerCore,
-Rubber Band):
+| | |
+| --- | --- |
+| **Tab** | switch between live rig and arrangement |
+| **F1** | all keyboard shortcuts, editable |
+| **Space / F9** | play / record in the arrangement |
+| **W** | wah pedal follows the mouse (up = toe, down = heel) |
+| right-click a track header | freeze, sends, effects, export |
+
+## Documentation
+
+- [Arrangement, recording, mixing, freeze, sends, compressor, wah, shortcuts](docs/Arrangement.md)
+- [NAM pedals](docs/NAM-Pedals.md) · [VST3 rack](docs/VST3-Rack.md) · [Complete rigs](docs/CompleteRigs.md) · [Drive voicing](docs/Drive-Voicing.md)
+- [Architecture](docs/architecture.md) · [Tests](tests/README.md)
+- Bundled models and IRs: [resources/defaults/README.md](resources/defaults/README.md),
+  [resources/DEFAULT_ASSETS.md](resources/DEFAULT_ASSETS.md)
+- Development log (German): [PhasenDoku.txt](PhasenDoku.txt)
+
+## Build
+
+Requirements: Windows 10/11, CMake 3.24+, Visual Studio 2022 (Desktop development with C++).
+JUCE, NeuralAmpModelerCore and Rubber Band are git submodules.
 
 ```powershell
 git submodule update --init --recursive
-```
-
-```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-The application executable is written to `build/NamTestProgram_artefacts/<configuration>/Ton of Able.exe`.
-The Release build uses the static MSVC runtime (`/MT`), so the application itself does not require the Visual C++ Redistributable. External VST3 plugins may still have their own dependencies.
-Run the tests with:
+The app is written to `build/NamTestProgram_artefacts/Release/Ton of Able.exe`. It uses the static
+MSVC runtime, so no Visual C++ Redistributable is needed.
 
-```powershell
-ctest --test-dir build -C Debug --output-on-failure
-```
+Every push runs [.github/workflows/release-windows.yml](.github/workflows/release-windows.yml):
+it builds with MSVC, runs the tests and packs the portable ZIP and the Inno Setup installer
+([packaging/installer](packaging/installer)) as workflow artifacts. Publishing a GitHub release
+for a tag such as `v0.2.0` attaches both to the release.
+
+## Licences
+
+Ton of Able links the Rubber Band Library (GPL-2.0-or-later), so builds are distributed under
+the GPL. Further components: JUCE, NeuralAmpModelerCore (MIT), FFmpeg (LGPL build), BYOD
+and Valhalla Supermassive (see `licenses` in the package). The NAM_models captures are GPL-3.0.
+The TONE3000 models and IRs are bundled for personal use only; check each tone's licence before
+publishing builds — see [resources/defaults/README.md](resources/defaults/README.md).
