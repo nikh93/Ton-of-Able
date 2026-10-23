@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(NamTestProgram VERSION 0.2.0 LANGUAGES C CXX)
+project(NamTestProgram VERSION 0.2.1 LANGUAGES C CXX)
 
 # Keep the standalone application portable: embed the MSVC runtime instead of
 # requiring the Visual C++ Redistributable on the target machine. Third-party
