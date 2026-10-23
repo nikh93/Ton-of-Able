@@ -7,6 +7,7 @@
 #include "../tests/RigChecks.h"
 #include "../tests/RigAudioChecks.h"
 #include "../tests/DrumInstrumentChecks.h"
+#include "../tests/ChainRoutingChecks.h"
 
 class NamTestProgramApplication final : public juce::JUCEApplication
 {
@@ -40,28 +41,17 @@ public:
             setApplicationReturnValue(runPluginHostChecks(juce::File(args[1]),juce::File(args[2])));
             quit(); return;
         }
+        if (args.size()==4 && args[0]=="--chain-routing-test")
+        {
+            setApplicationReturnValue(runChainRoutingChecks(juce::File(args[1]),juce::File(args[2]),juce::File(args[3])));
+            quit(); return;
+        }
         if (args.size()==3 && args[0]=="--drum-instrument-test")
         {
             setApplicationReturnValue(runDrumInstrumentChecks(juce::File(args[1]),juce::File(args[2])));
             quit(); return;
         }
-        if (args.size()==3 && args[0]=="--scan-vst3-instruments")
-        {
-            juce::XmlElement report("plugins");
-            for (const auto& description : PluginInstrument::scanFile(juce::File(args[1])))
-                report.addChildElement(description.createXml().release());
-            report.writeTo(juce::File(args[2]));
-            quit(); return;
-        }
         if (args.size()==3 && args[0]=="--scan-vst3-all")
-        {
-            juce::XmlElement report("plugins");
-            for (const auto& description : GuitarSynth::scanFile(juce::File(args[1])))
-                report.addChildElement(description.createXml().release());
-            report.writeTo(juce::File(args[2]));
-            quit(); return;
-        }
-        if (args.size()==3 && args[0]=="--scan-vst3")
         {
             juce::XmlElement report("plugins");
             for (const auto& description : Vst3Slot::scanFile(juce::File(args[1])))

@@ -263,7 +263,7 @@ public:
         setUsingNativeTitleBar(true);
         setContentOwned(editor.release(), true);
         setResizable(true, false);
-        setResizeLimits(860, 700, 1600, 1300);
+        setResizeLimits(940, 760, 1800, 1300);
         centreWithSize(getWidth(), getHeight());
     }
     void closeButtonPressed() override { setVisible(false); }

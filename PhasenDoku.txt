@@ -96,3 +96,11 @@ Phase 31 abgeschlossen – Gitarre → MIDI → Synth (VST3):
 - Plugin-Editoren beider Plugins, Live-Notenanzeige, Zustand (Plugins samt Einstellungen, Pegel) wird beim Beenden gespeichert und beim Start geladen.
 - Der VST3-Scan (in Kindprozessen) erfasst jetzt alle Plugins, nicht nur Instrumente.
 - Tests mit Ersatz-Plugins: Erkennung → Synth, Pegel, nur Synth, Note-Off, Transponieren, MIDI-Keyboard, Zustand.
+
+Phase 32 abgeschlossen – Editierbare Signalkette mit freiem Routing:
+- Der Signalweg ist ein Graph (juce::AudioProcessorGraph) nach einem Layout, das Teil jedes Sounds ist (SoundState.layout): Reihenfolge aller Blöcke, beliebig viele VST3-Plugins (Effekte, Instrumente, Audio→MIDI), MIDI transponieren, Blöcke neben der Kette und zusätzliche Audio- und MIDI-Verbindungen mit Pegel, dazu der Pegel der Kette in den Ausgang.
+- Keine Redundanz mehr: Die festen Slots „VST3 vor/nach dem Amp“, das Plugin-Rack-Fenster und der Gitarren-Synth (GuitarSynth + eigenes Fenster) sind entfernt – alles sind Blöcke der Kette. Vst3Slot ist der einzige Plugin-Host (jetzt auch für Instrumente und MIDI-Erzeuger). Ein Plugin-Scanner statt zwei. Die Kompressor-Position ist die Position im Layout (Schalter „VOR AMP“ verschiebt den Block). Blockbeschreibung, Schalten und Plugin-Fenster teilen sich Live-Rig und Spur-Effekte (ui/rig/ChainBlocks).
+- Bedienung: Ziehen sortiert um, „+“ fügt ein (Instrumente landen neben der Kette, gehen in den Ausgang und hören die Keyboards; Plugins neben der Kette hören die Gitarre), Rechtsklick verbindet Audio/MIDI in beide Richtungen, „Verbindungen und Pegel“ zeigt alle Verbindungen eines Blocks mit Reglern, Rechtsklick auf OUT setzt den Pegel der Kette (aus = nur Verbindungen, z. B. nur Synth).
+- Spur-Effekte im Arrangement nutzen dieselbe Kette; Plugin-Zustände werden beim Speichern des Projekts aus den laufenden Plugins übernommen.
+- Migration: Presets und Einstellungen mit den alten VST3-Slots und der Kompressor-Position werden in Blöcke umgewandelt; der Live-Sound samt Kette wird beim Beenden gespeichert.
+- Tests: Layout-Modell (Reihenfolge, Verbindungen, Reparatur, Preset-Format, Migration) und ein Prüfmodus mit echten VST3-Plugins (--chain-routing-test): Gitarre → Test-Tracker → MIDI → −24 Halbtöne → JDrummer → Ausgang, Umverdrahten ohne Neuladen, Ketten-Pegel.

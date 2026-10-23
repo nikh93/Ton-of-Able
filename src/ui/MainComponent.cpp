@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "daw/SampleKit.h"
+#include "ui/rig/ChainBlocks.h"
 
 namespace
 {
@@ -72,7 +73,7 @@ private:
 // never reload NAM models, IRs or VST3 plugins.
 struct TrackRig final : RigChain
 {
-    juce::String namId, irId, preVst, postVst;
+    juce::String namId, irId;
 };
 
 // Shows a drum track's VST3 instrument GUI. Keeps the instrument alive until
@@ -110,16 +111,17 @@ public:
     void closeButtonPressed() override { setVisible(false); }
 };
 
-class RackWindow final : public juce::DocumentWindow
+class PedalWindow final : public juce::DocumentWindow
 {
 public:
-    explicit RackWindow(PluginRackPanel& panel) : DocumentWindow("Pedale & VST3", Theme::surface(), closeButton)
+    explicit PedalWindow(NamPedalPanel& panel) : DocumentWindow("NAM-Pedal", Theme::surface(), closeButton)
     {
         setUsingNativeTitleBar(true); setContentNonOwned(&panel,true);
-        setResizable(true,false); setResizeLimits(840,610,1200,850); centreWithSize(840,610);
+        setResizable(true,false); setResizeLimits(560,300,1200,700); centreWithSize(640,340);
     }
     void closeButtonPressed() override { setVisible(false); }
 };
+
 }
 
 MainComponent::MainComponent()
@@ -127,9 +129,6 @@ MainComponent::MainComponent()
     Theme::applyTo(lookAndFeel); setLookAndFeel(&lookAndFeel);
     // Separate windows (track effects, plugin rack, call-outs) share the theme.
     juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
-    addAndMakeVisible(pluginsButton);
-    pluginsButton.setTooltip(uiText("NAM-Pedale und zwei VST3-Slots (vor und nach dem Amp)"));
-    pluginsButton.onClick = [this] { showPluginRack(); };
     openWav.setButtonText(uiText("Datei öffnen"));
     chooseWavFolder.setButtonText(uiText("Ordner öffnen"));
     record.setIconColour(nam::ui::AmberTheme::record());
@@ -169,7 +168,8 @@ MainComponent::MainComponent()
     if (! juce::File::isAbsolutePath(modelFolderRoot.getFullPathName()) || modelFolderRoot == juce::File())
         modelFolderRoot = ModelFolder::defaultLocation();
     syncModelFolder();
-    pluginRack.addBundledPedals(defaultAssetsDirectory().getSiblingFile("pedal-models"));
+    pedalPanel.addBundledModels(defaultAssetsDirectory().getSiblingFile("pedal-models"));
+    pedalPanel.setSize(640, 340);
     configureRigs();
     title.setText("TON OF ABLE", juce::dontSendNotification); title.setFont(juce::FontOptions(26.0f, juce::Font::bold)); title.setColour(juce::Label::textColourId, Theme::text()); addAndMakeVisible(title);
     status.setText(uiText("Bereit"), juce::dontSendNotification); status.setColour(juce::Label::textColourId, Theme::subduedText()); addAndMakeVisible(status);
@@ -196,8 +196,15 @@ MainComponent::MainComponent()
     effectParameters.onStateChanged = [this](const SoundState& state)
     {
         const auto ampState = captureSoundState(false);
+        // The panel moves only the compressor (pedal or studio position); the
+        // rest of the chain stays as edited in the signal chain.
+        auto layout = currentSound.layout;
         currentSound = state;
         currentSound.retainAmpFrom(ampState);
+        if (state.layout.compressorBeforeAmp() != layout.compressorBeforeAmp())
+            layout.setCompressorBeforeAmp(state.layout.compressorBeforeAmp());
+        currentSound.layout = layout;
+        audioEngine.rigChain().setLayout(layout);
         wahEnabled.setToggleState(!state.autoWahBypassed, juce::dontSendNotification);
         chorusEnabled.setToggleState(!state.chorusBypassed, juce::dontSendNotification);
         delayEnabled.setToggleState(!state.delayBypassed, juce::dontSendNotification);
@@ -313,17 +320,39 @@ MainComponent::MainComponent()
         }
         else
             audioEngine.appSettings().clearLastPreset();
-    if (savedRack.isValid()) pluginRack.restoreRack(savedRack);
-    if (const auto savedSynth = audioEngine.appSettings().loadUiState().getChildWithName("GuitarSynth"); savedSynth.isValid())
+    if (savedRack.isValid())
     {
-        juce::StringArray errors;
-        audioEngine.guitarSynth().restoreState(savedSynth, errors);
-        if (! errors.isEmpty())
-            status.setText(uiText("Gitarren-Synth: ") + errors.joinIntoString(", "), juce::dontSendNotification);
+        // Settings from before the editable chain: the pedal, the known plugins
+        // and the two VST3 slots, which become blocks of the chain.
+        if (const auto pedal = savedRack.getChildWithName("namPedal"); pedal.isValid())
+            pedalPanel.restoreSaved(pedal);
+        for (const auto& entry : savedRack.getChildWithName("knownVst3"))
+            if (const auto xml = entry.createXml())
+            {
+                juce::PluginDescription description;
+                if (description.loadFromXml(*xml) && vst3Catalog.isEmpty())
+                    vst3Catalog.add(description);
+            }
+        auto layout = currentSound.layout;
+        const auto addSlot = [&layout](const juce::ValueTree& state, int position)
+        {
+            if (! state.hasProperty("descriptionXml"))
+                return;
+            chain::Node node;
+            node.kind = "vst3";
+            node.plugin = state.createCopy();
+            node.bypassed = state.getProperty("bypassed", false);
+            if (const auto xml = juce::parseXML(state.getProperty("descriptionXml").toString()))
+                node.name = xml->getStringAttribute("name");
+            layout.add(node, position);
+        };
+        addSlot(savedRack.getChildWithName("pre").getChild(0), layout.serialIndex("pedal"));
+        addSlot(savedRack.getChildWithName("post").getChild(0), static_cast<int>(layout.serial.size()));
+        applyLayout(layout);
     }
     if (!audioEngine.appSettings().loadLastPreset())
         if (const auto saved=audioEngine.appSettings().loadUiState().getChildWithName("lastRigSound").getChild(0); saved.isValid())
-            if (auto sound=SoundState::fromValueTree(saved); sound && rigLibrary.find(sound->rigId))
+            if (auto sound=SoundState::fromValueTree(saved); sound && (sound->rigId.isEmpty() || rigLibrary.find(sound->rigId)))
                 applySoundState(*sound);
     configureArrangement();
     setUpCommands();
@@ -331,7 +360,8 @@ MainComponent::MainComponent()
     startTimerHz(4);
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     setSize(1280, 800);
-    pluginRack.scanInstalled(!savedRack.isValid());
+    if (vst3Catalog.isEmpty())
+        scanPlugins({});
 }
 
 MainComponent::~MainComponent()
@@ -342,16 +372,12 @@ MainComponent::~MainComponent()
     commandManager.getKeyMappings()->removeChangeListener(this);
     removeKeyListener(commandManager.getKeyMappings());
     instrumentEditors.clear();
-    if (guitarSynthPanel != nullptr)
-        guitarSynthPanel->closeEditors();
     instrumentScanPool.removeAllJobs(true, 5000);
-    pluginWindow.reset();
-    pluginRack.closeEditors();
+    pedalWindow.reset();
     auto& settings = audioEngine.appSettings();
     auto uiState = settings.loadUiState();
     if (!uiState.isValid()) uiState=juce::ValueTree("uiState");
-    uiState.removeChild(uiState.getChildWithName("vst3Rack"),nullptr);
-    uiState.addChild(pluginRack.saveRack(),-1,nullptr);
+    uiState.removeChild(uiState.getChildWithName("vst3Rack"),nullptr); // migrated into the chain
     arrangementView.autosave();
     uiState.setProperty("modelFolder", modelFolderRoot.getFullPathName(), nullptr);
     saveKeyMappings(uiState);
@@ -359,17 +385,14 @@ MainComponent::~MainComponent()
     auto arrangementState = arrangementView.saveState();
     arrangementState.setProperty("visible", arrangementVisible, nullptr);
     uiState.addChild(arrangementState,-1,nullptr);
-    uiState.removeChild(uiState.getChildWithName("GuitarSynth"),nullptr);
-    uiState.addChild(audioEngine.guitarSynth().saveState(),-1,nullptr);
-    guitarSynthWindow.reset(); // editors close before the plugins go away with the engine
-    guitarSynthPanel = nullptr;
     uiState.removeChild(uiState.getChildWithName("lastRigSound"),nullptr);
-    if (currentSound.rigId.isNotEmpty())
     {
+        // The live sound, chain and plugins included, comes back on the next start.
         juce::ValueTree lastRig("lastRigSound");
         lastRig.addChild(captureSoundState().toValueTree(),-1,nullptr);
         uiState.addChild(lastRig,-1,nullptr);
     }
+    pluginEditors.clear(); // plugin windows close before the plugins go away with the engine
     settings.saveUiState(uiState);
     settings.saveNamLibrary(namLibrary.toValueTree());
     settings.saveIrLibrary(irLibrary.toValueTree());
@@ -544,23 +567,21 @@ void MainComponent::showAudioSettings()
 SoundState MainComponent::captureSoundState(bool includePlugins)
 {
     auto state = currentSound;
-    pluginRack.capturePedal(state);
+    pedalPanel.capture(state);
     state.inputGainDb = static_cast<float>(inputGain.getValue()); state.bassDb = static_cast<float>(bass.getValue()); state.midDb = static_cast<float>(mid.getValue()); state.trebleDb = static_cast<float>(treble.getValue()); state.outputGainDb = static_cast<float>(outputGain.getValue());
     state.autoWahBypassed = !wahEnabled.getToggleState(); state.chorusBypassed = !chorusEnabled.getToggleState(); state.delayBypassed = !delayEnabled.getToggleState(); state.reverbBypassed = !reverbEnabled.getToggleState();
     state.namBypassed = !namEnabled.getToggleState(); state.irBypassed = !irEnabled.getToggleState();
     if (includePlugins)
-    {
-        state.preVst3State=audioEngine.prePlugin().saveState();
-        state.postVst3State=audioEngine.postPlugin().saveState();
-    }
+        state.layout = audioEngine.rigChain().captureLayout(currentSound.layout);
     return state;
 }
 
 void MainComponent::applySoundState(const SoundState& state)
 {
     currentSound = state;
-    pluginRack.restore(state.preVst3State,state.postVst3State);
-    pluginRack.restorePedal(state);
+    closePluginEditors(true); // plugins may be replaced
+    audioEngine.rigChain().setLayout(state.layout);
+    pedalPanel.restore(state);
     if (const auto* rig=rigLibrary.find(state.rigId))
     {
         for (int n=0;n<rigLibrary.rigs().size();++n)
@@ -732,8 +753,6 @@ void MainComponent::loadSelectedRig()
     {status.setText("Rig konnte nicht registriert werden.",juce::dontSendNotification); return;}
     sound.rigId=rig.id;
     applySoundState(sound);
-    audioEngine.prePlugin().setBypassed(true);
-    audioEngine.postPlugin().setBypassed(true);
     loadedPreset=juce::Uuid::null();
     presetBrowser.setSelectedPreset(juce::Uuid::null());
     audioEngine.appSettings().clearLastPreset();
@@ -1082,7 +1101,7 @@ void MainComponent::chooseRecordingTarget()
 std::vector<juce::Component*> MainComponent::rigComponents()
 {
     return { &rigSelector, &loadRigButton, &rigDetailsButton, &rigInfo, &ampSelector, &configurationSelector,
-             &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &chainStrip,
+             &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &chainViewport,
              &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
              &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline, &record, &liveHint };
 }
@@ -1118,11 +1137,19 @@ void MainComponent::configureArrangement()
     tabRig.onClick = [this] { if (tabRig.getToggleState()) setView(View::rig); };
     tabArrangement.onClick = [this] { if (tabArrangement.getToggleState()) setView(View::arrangement); };
     tabLibrary.onClick = [this] { if (tabLibrary.getToggleState()) setView(View::library); };
-    for (auto* hidden : std::initializer_list<juce::Component*> { &viewToggle, &librariesToggle, &pluginsButton, &graphicEqButton, &pitchButton, &namEnabled, &irEnabled })
+    for (auto* hidden : std::initializer_list<juce::Component*> { &viewToggle, &librariesToggle, &graphicEqButton, &pitchButton, &namEnabled, &irEnabled })
         hidden->setVisible(false);
     chainStrip.onToggle = [this](const juce::String& id) { toggleChainBlock(id); };
     chainStrip.onOpen = [this](const juce::String& id) { openChainBlock(id); };
-    addAndMakeVisible(chainStrip);
+    chainStrip.describe = [this](const chain::Node& node) { return describeBlock(node); };
+    chainStrip.onLayoutChanged = [this](const chain::Layout& layout) { applyLayout(layout); };
+    chainStrip.plugins = [this] { return vst3Catalog; };
+    chainStrip.rescanPlugins = [this](std::function<void()> done) { scanPlugins(std::move(done)); };
+    chainViewport.setViewedComponent(&chainStrip, false);
+    chainViewport.setScrollBarsShown(false, true);
+    chainViewport.setScrollBarThickness(8);
+    addAndMakeVisible(chainViewport);
+    chainStrip.setLayout(currentSound.layout);
 
     arrangementView.onStatus = [this](const juce::String& text) { status.setText(text, juce::dontSendNotification); };
     arrangementView.createTrackFxEditor = [this](const juce::Uuid& trackId) -> std::unique_ptr<juce::Component>
@@ -1202,7 +1229,7 @@ void MainComponent::configureArrangement()
     {
         nam::ui::DrumMachineComponent::Host host;
         host.instruments = [this] { return drumInstruments; };
-        host.rescan = [this](std::function<void()> done) { scanDrumInstruments(std::move(done)); };
+        host.rescan = [this](std::function<void()> done) { scanPlugins(std::move(done)); };
         host.setSource = [this](const juce::Uuid& id, const juce::PluginDescription* description) { return setDrumSource(id, description); };
         host.setKit = [this](const juce::Uuid& id, const juce::String& kitId)
         {
@@ -1221,109 +1248,79 @@ void MainComponent::configureArrangement()
 //==============================================================================
 void MainComponent::updateChainStrip()
 {
-    using Block = nam::ui::SignalChainStrip::Block;
-    const auto& sound = currentSound;
-    const auto percent = [](float value) { return juce::String(juce::roundToInt(value * 100.0f)) + " %"; };
-    const auto signedSemitones = [](float value) { return (value > 0.0f ? "+" : "") + juce::String(value, 0); };
+    chainStrip.setLayout(currentSound.layout);
+}
+
+nam::ui::SignalChainStrip::Block MainComponent::describeBlock(const chain::Node& node)
+{
     const auto libraryName = [](LibraryManager& library, const juce::String& id)
     {
         if (const auto* item = id.isNotEmpty() ? library.find(juce::Uuid(id)) : nullptr)
             return item->displayName;
         return juce::String();
     };
-    std::vector<Block> blocks;
-    const auto add = [&blocks](juce::String id, juce::String label, juce::String detail, bool active, juce::String tip, bool empty = false)
-    {
-        blocks.push_back({ std::move(id), std::move(label), std::move(detail), active, true, empty, std::move(tip) });
-    };
-    const auto compressorBlock = [&]
-    {
-        add("compressor", "KOMP", juce::String(sound.compressorRatio, 1) + ":1 · " + juce::String(sound.compressorThresholdDb, 0) + " dB",
-            ! sound.compressorBypassed, uiText("Kompressor ") + (sound.compressorPreAmp ? uiText("vor dem Amp (Pedal)") : uiText("nach Amp und Box (Studio)")));
-    };
-
-    add("pitch", "PITCH", signedSemitones(sound.pitchSemitones) + uiText(" · ")
-        + (nam::effects::LivePitchShifter::usesAnalogOctave(sound.pitchAnalogOctave, sound.pitchSemitones) ? juce::String("Analog") : sound.pitchHighQuality ? "R3" : "R2"),
-        ! sound.pitchBypassed, uiText("Live-Transponieren (Rubber Band oder Analog-Oktaver)"));
-    if (sound.compressorPreAmp)
-        compressorBlock();
-    add("wah", "WAH", sound.pedalWahMouse ? uiText("Maus · ") + percent(sound.pedalWahPosition) : percent(sound.pedalWahPosition),
-        ! sound.pedalWahBypassed, uiText("Wah-Pedal (Taste W: Maussteuerung)"));
-    const juce::String driveTypes[] { "Crunch", "Overdrive", "Lead", "Fuzz" };
-    add("drive", "DRIVE", driveTypes[juce::jlimit(0, 3, sound.driveType)], ! sound.driveBypassed, uiText("Verzerrer vor dem Amp"));
-    const auto preName = pluginRack.slotName(0);
-    add("vstPre", "VST3 VOR", preName.isNotEmpty() ? preName : uiText("leer"), pluginRack.isSlotActive(0),
-        uiText("VST3-Plugin vor dem Amp"), preName.isEmpty());
-    add("pedal", "NAM-PEDAL", pluginRack.hasPedal() ? pluginRack.pedalName() : uiText("leer"), pluginRack.isPedalActive(),
-        uiText("NAM-Capture eines Pedals vor dem Amp"), ! pluginRack.hasPedal());
-    auto ampName = ampSelector.getSelectedId() > 0 ? ampSelector.getText() : libraryName(namLibrary, sound.namId);
+    nam::ui::chainblocks::Context context;
+    context.ampName = ampSelector.getSelectedId() > 0 ? ampSelector.getText() : libraryName(namLibrary, currentSound.namId);
     if (configurationSelector.getSelectedId() > 0)
-        ampName << uiText(" · ") << configurationSelector.getText();
-    add("amp", "AMP", ampName.isNotEmpty() ? ampName : uiText("kein Modell"), ! sound.namBypassed && ampName.isNotEmpty(),
-        uiText("NAM-Amp (Modell oben im Amp-Bereich wählen)"), ampName.isEmpty());
-    const auto irName = libraryName(irLibrary, sound.irId);
-    add("ir", "BOX / IR", irName.isNotEmpty() ? irName : uiText("kein IR"), ! sound.irBypassed && irName.isNotEmpty(),
-        uiText("Cabinet-Impulsantwort (bei Full-Rig-Modellen aus)"), irName.isEmpty());
-    add("geq", "GRAPHIC EQ", uiText("10 Bänder"), ! sound.graphicEqBypassed, uiText("10-Band-Equalizer nach dem Amp"));
-    if (! sound.compressorPreAmp)
-        compressorBlock();
-    add("autoWah", "AUTO-WAH", juce::String(sound.autoWahMinimumHz, 0) + "–" + juce::String(sound.autoWahMaximumHz, 0) + " Hz",
-        ! sound.autoWahBypassed, uiText("Hüllkurvengesteuertes Wah"));
-    add("chorus", "CHORUS", juce::String(sound.chorusRateHz, 1) + uiText(" Hz · ") + percent(sound.chorusMix), ! sound.chorusBypassed, "Chorus");
-    add("delay", "DELAY", juce::String(sound.delayTimeMs, 0) + uiText(" ms · ") + percent(sound.delayMix), ! sound.delayBypassed, "Delay");
-    add("reverb", "REVERB", juce::String(sound.reverbDecay, 1) + uiText(" s · ") + percent(sound.reverbMix), ! sound.reverbBypassed, "Hall");
+        context.ampName << uiText(" · ") << configurationSelector.getText();
+    context.irName = libraryName(irLibrary, currentSound.irId);
+    context.pedalLoaded = pedalPanel.hasModel();
+    context.pedalOn = pedalPanel.isActive();
+    context.pedalName = pedalPanel.modelName();
+    context.rig = &audioEngine.rigChain();
+    return nam::ui::chainblocks::describe(node, currentSound, context);
+}
+
+void MainComponent::applyLayout(const chain::Layout& layout)
+{
+    currentSound.layout = layout;
+    closePluginEditors(false); // editors go before their plugins
+    audioEngine.rigChain().setLayout(layout);
+    if (const auto& errors = audioEngine.rigChain().loadErrors(); ! errors.isEmpty())
+        status.setText(uiText("Plugin nicht geladen: ") + errors.joinIntoString(" | "), juce::dontSendNotification);
+    effectParameters.setState(currentSound);
+    chainStrip.setLayout(layout);
+    resized(); // the chain may need a second row
+    repaint(); // the panels behind may have moved
+}
+
+void MainComponent::closePluginEditors(bool all)
+{
+    for (auto it = pluginEditors.begin(); it != pluginEditors.end();)
+        if (all || currentSound.layout.find(it->first) == nullptr)
+            it = pluginEditors.erase(it);
+        else
+            ++it;
+}
+
+void MainComponent::openPluginEditor(const juce::String& blockId)
+{
+    if (const auto existing = pluginEditors.find(blockId); existing != pluginEditors.end())
     {
-        auto& guitarSynth = audioEngine.guitarSynth();
-        const auto synthName = guitarSynth.name(GuitarSynth::Slot::synth);
-        const auto trackerName = guitarSynth.name(GuitarSynth::Slot::tracker);
-        add("synth", "SYNTH", synthName.isNotEmpty() ? synthName + (trackerName.isNotEmpty() ? uiText(" ← ") + trackerName : juce::String()) : uiText("leer"),
-            guitarSynth.isEnabled() && synthName.isNotEmpty(),
-            uiText("Gitarre → MIDI → Synth: ein Erkennungs-Plugin (z. B. TONIQ) macht aus der Gitarre Noten, ein Instrument (z. B. Vital) spielt sie"),
-            synthName.isEmpty());
+        existing->second->setVisible(true);
+        existing->second->toFront(true);
+        return;
     }
-    const auto postName = pluginRack.slotName(1);
-    add("vstPost", "VST3 NACH", postName.isNotEmpty() ? postName : uiText("leer"), pluginRack.isSlotActive(1),
-        uiText("VST3-Plugin nach dem Amp (Stereo)"), postName.isEmpty());
-    chainStrip.setBlocks(std::move(blocks));
+    juce::String error;
+    if (auto window = nam::ui::chainblocks::openPluginWindow(audioEngine.rigChain(), blockId, error))
+        pluginEditors[blockId] = std::move(window);
+    else
+        status.setText(error, juce::dontSendNotification);
 }
 
 void MainComponent::toggleChainBlock(const juce::String& id)
 {
     auto& sound = currentSound;
-    const auto flip = [&](bool& bypassed)
+    if (const auto* node = sound.layout.find(id); node != nullptr && ! node->isBuiltin())
+        nam::ui::chainblocks::togglePluginBlock(sound, audioEngine.rigChain(), id);
+    else if (id == "pedal")
+        pedalPanel.setActive(! pedalPanel.isActive()); // the pedal panel owns the pedal's switch
+    else if (nam::ui::chainblocks::toggleBuiltin(sound, id))
     {
-        bypassed = ! bypassed;
         audioEngine.applyEffectState(sound);
         effectParameters.setState(sound);
-    };
-    if (id == "pitch")
-    {
-        sound.pitchBypassed = ! sound.pitchBypassed;
-        audioEngine.setPitch(sound.pitchBypassed, sound.pitchSemitones, sound.pitchMix, sound.pitchFormantPreserved, sound.pitchHighQuality, sound.pitchAnalogOctave);
-    }
-    else if (id == "compressor") flip(sound.compressorBypassed);
-    else if (id == "wah") flip(sound.pedalWahBypassed);
-    else if (id == "drive") flip(sound.driveBypassed);
-    else if (id == "autoWah") flip(sound.autoWahBypassed);
-    else if (id == "chorus") flip(sound.chorusBypassed);
-    else if (id == "delay") flip(sound.delayBypassed);
-    else if (id == "reverb") flip(sound.reverbBypassed);
-    else if (id == "geq") applyGraphicEq(! sound.graphicEqBypassed, sound.graphicEqDb);
-    else if (id == "vstPre") pluginRack.setSlotActive(0, ! pluginRack.isSlotActive(0));
-    else if (id == "vstPost") pluginRack.setSlotActive(1, ! pluginRack.isSlotActive(1));
-    else if (id == "synth") audioEngine.guitarSynth().setEnabled(! audioEngine.guitarSynth().isEnabled());
-    else if (id == "pedal") pluginRack.setPedalActive(! pluginRack.isPedalActive());
-    else if (id == "amp")
-    {
-        sound.namBypassed = ! sound.namBypassed;
         namEnabled.setToggleState(! sound.namBypassed, juce::dontSendNotification);
-        audioEngine.setNamBypassed(sound.namBypassed);
-    }
-    else if (id == "ir")
-    {
-        sound.irBypassed = ! sound.irBypassed;
         irEnabled.setToggleState(! sound.irBypassed, juce::dontSendNotification);
-        audioEngine.setIrBypassed(sound.irBypassed);
     }
     updateChainStrip();
 }
@@ -1341,11 +1338,13 @@ void MainComponent::openChainBlock(const juce::String& id)
             effectParameters.showCard(index);
             return;
         }
-    if (id == "pitch") showPitchShifter(anchor);
+    const auto* node = currentSound.layout.find(id);
+    if (node != nullptr && node->kind == "vst3") openPluginEditor(id);
+    else if (node != nullptr && node->kind == "transpose") status.setText(uiText("Rechtsklick auf den Block: Halbtöne und Verbindungen"), juce::dontSendNotification);
+    else if (id == "pitch") showPitchShifter(anchor);
     else if (id == "geq") showGraphicEq(anchor);
-    else if (id == "vstPre" || id == "vstPost" || id == "pedal") showPluginRack();
-    else if (id == "synth") showGuitarSynth();
-    else if (id == "amp") ampSelector.showPopup();
+    else if (id == "pedal") showPedal();
+    else if (id == "amp" || id == "ampEq") ampSelector.showPopup();
     else if (id == "ir") setView(View::library);
 }
 
@@ -1486,12 +1485,12 @@ void MainComponent::applyGraphicEq(bool bypassed, const std::array<float, 10>& b
     graphicEqButton.setToggleState(! bypassed, juce::dontSendNotification);
 }
 
-void MainComponent::showPluginRack()
+void MainComponent::showPedal()
 {
-    if (! pluginWindow)
-        pluginWindow = std::make_unique<RackWindow>(pluginRack);
-    pluginWindow->setVisible(true);
-    pluginWindow->toFront(true);
+    if (! pedalWindow)
+        pedalWindow = std::make_unique<PedalWindow>(pedalPanel);
+    pedalWindow->setVisible(true);
+    pedalWindow->toFront(true);
 }
 
 void MainComponent::showGraphicEq(juce::Rectangle<int> anchor)
@@ -1545,12 +1544,12 @@ void MainComponent::openInstrumentEditor(const juce::Uuid& trackId)
     instrumentEditors[trackId] = std::move(window);
 }
 
-void MainComponent::scanDrumInstruments(std::function<void()> done)
+void MainComponent::scanPlugins(std::function<void()> done)
 {
     if (scanningInstruments)
         return;
     scanningInstruments = true;
-    status.setText(uiText("Suche VST3-Instrumente (in separaten Prozessen) …"), juce::dontSendNotification);
+    status.setText(uiText("Suche VST3-Plugins (in separaten Prozessen) …"), juce::dontSendNotification);
     juce::FileSearchPath paths;
     const auto appDirectory = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
     for (const auto& directory : { appDirectory, appDirectory.getChildFile("plugins"),
@@ -1619,41 +1618,6 @@ void MainComponent::scanDrumInstruments(std::function<void()> done)
     });
 }
 
-void MainComponent::showGuitarSynth()
-{
-    if (guitarSynthWindow == nullptr)
-    {
-        nam::ui::GuitarSynthPanel::Host host;
-        host.plugins = [this] { return vst3Catalog; };
-        host.rescan = [this](std::function<void()> done) { scanDrumInstruments(std::move(done)); };
-        host.status = [this](const juce::String& message) { status.setText(message, juce::dontSendNotification); };
-        host.changed = [this] { updateChainStrip(); };
-        auto panel = std::make_unique<nam::ui::GuitarSynthPanel>(audioEngine.guitarSynth(), std::move(host));
-        guitarSynthPanel = panel.get();
-        struct Window final : juce::DocumentWindow
-        {
-            Window() : DocumentWindow(uiText("Gitarre → MIDI → Synth"), nam::ui::AmberTheme::panel(), closeButton) {}
-            void closeButtonPressed() override { setVisible(false); }
-        };
-        guitarSynthWindow = std::make_unique<Window>();
-        guitarSynthWindow->setUsingNativeTitleBar(true);
-        guitarSynthWindow->setContentOwned(panel.release(), true);
-        guitarSynthWindow->setResizable(true, false);
-        guitarSynthWindow->setResizeLimits(560, 440, 1200, 900);
-        guitarSynthWindow->centreWithSize(guitarSynthWindow->getWidth(), guitarSynthWindow->getHeight());
-        if (vst3Catalog.isEmpty())
-            scanDrumInstruments([self = juce::Component::SafePointer<MainComponent>(this)]
-            {
-                if (self != nullptr && self->guitarSynthPanel != nullptr)
-                    self->guitarSynthPanel->refresh();
-            });
-    }
-    else if (guitarSynthPanel != nullptr)
-        guitarSynthPanel->refresh();
-    guitarSynthWindow->setVisible(true);
-    guitarSynthWindow->toFront(true);
-}
-
 void MainComponent::showPitchShifter(juce::Rectangle<int> anchor)
 {
     auto editor = std::make_unique<nam::ui::PitchShiftComponent>();
@@ -1709,6 +1673,8 @@ nam::ui::TrackFxComponent::Sources MainComponent::trackFxSources()
         sources.pedals.push_back({ file.getFileNameWithoutExtension(), file.getFullPathName() });
     std::sort(sources.pedals.begin(), sources.pedals.end(), [](const auto& a, const auto& b) { return a.name < b.name; });
     sources.captureLiveRig = [this] { return captureSoundState(); };
+    sources.plugins = [this] { return vst3Catalog; };
+    sources.rescanPlugins = [this](std::function<void()> done) { scanPlugins(std::move(done)); };
     return sources;
 }
 
@@ -1737,30 +1703,12 @@ void MainComponent::applyTrackSound(RigChain& chain, const SoundState& sound)
     }
     if (sound.irId.isEmpty())
         chain.setIrBypassed(true);
-    const auto restoreSlot = [](Vst3Slot& slot, const juce::ValueTree& state, juce::String& loaded)
-    {
-        const auto xml = state.isValid() ? state.toXmlString() : juce::String();
-        if (xml == loaded)
-            return;
-        loaded = xml;
-        if (state.isValid())
-            slot.restoreState(state);
-        else
-            slot.clear();
-    };
-    restoreSlot(chain.prePlugin(), sound.preVst3State, rig->preVst);
-    restoreSlot(chain.postPlugin(), sound.postVst3State, rig->postVst);
+    chain.setLayout(sound.layout); // plugins reload only when their state changed
 }
 
 void MainComponent::exportDesignPreviews(const juce::File& folder)
 {
     folder.createDirectory();
-    pluginRack.setSize(840,610);
-    pluginRack.refresh();
-    {
-        juce::FileOutputStream stream(folder.getChildFile("vst3-rack.png"));
-        juce::PNGImageFormat().writeImageToStream(pluginRack.createComponentSnapshot(pluginRack.getLocalBounds()),stream);
-    }
     const auto original = getBounds();
     for (auto size : { juce::Point<int>(1020,820), juce::Point<int>(1280,860), juce::Point<int>(1800,1040) })
     {
@@ -1799,7 +1747,7 @@ void MainComponent::exportDesignPreviews(const juce::File& folder)
         const auto checkSound=captureSoundState();
         juce::XmlElement result("RigUiCheck");
         result.setAttribute("rig",checkSound.rigId);
-        result.setAttribute("extraEffectsOff",checkSound.driveBypassed && checkSound.autoWahBypassed && checkSound.chorusBypassed && checkSound.delayBypassed && checkSound.reverbBypassed && audioEngine.prePlugin().isBypassed() && audioEngine.postPlugin().isBypassed());
+        result.setAttribute("extraEffectsOff",checkSound.driveBypassed && checkSound.autoWahBypassed && checkSound.chorusBypassed && checkSound.delayBypassed && checkSound.reverbBypassed && std::all_of(checkSound.layout.serial.begin(), checkSound.layout.serial.end(), [](const chain::Node& n) { return n.kind != "vst3" || n.bypassed; }));
         result.writeTo(folder.getChildFile("rig-ui-check.xml"));
         applySoundState(savedSound);
         loadedPreset=savedLoaded; presetBrowser.setSelectedPreset(savedLoaded);
@@ -1890,7 +1838,14 @@ void MainComponent::resized()
     layoutFooter(area.removeFromBottom(32));
     // The signal chain across the full width: the rig's central control surface.
     area.removeFromTop(8);
-    chainStrip.setBounds(area.removeFromTop(66));
+    {
+        // Many blocks scroll sideways; a second row appears for blocks beside the chain.
+        const auto width = area.getWidth();
+        const auto stripWidth = chainStrip.preferredWidth(width);
+        const auto height = chainStrip.preferredHeight() + (stripWidth > width ? 10 : 0);
+        chainViewport.setBounds(area.removeFromTop(height));
+        chainStrip.setSize(stripWidth, chainStrip.preferredHeight());
+    }
     area.removeFromTop(14); area.removeFromBottom(12);
     auto right = area.removeFromRight(juce::jlimit(300, 420, area.getWidth()/3));
     area.removeFromRight(18);

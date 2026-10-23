@@ -20,8 +20,6 @@ public:
     /** Message thread. Settings: Instrument { type="vst3", stateBase64, PLUGIN }. */
     [[nodiscard]] static std::shared_ptr<PluginInstrument> fromSettings(const juce::ValueTree& settings, juce::String& error);
     [[nodiscard]] static juce::ValueTree settingsFor(const juce::PluginDescription&, const juce::MemoryBlock& state = {});
-    /** Instruments in one VST3 file. Message thread; run it in a child process. */
-    [[nodiscard]] static juce::Array<juce::PluginDescription> scanFile(const juce::File&);
 
     void prepare(double sampleRate, int maximumBlockSize) override;
     void render(const daw::DrumEvent* events, int numEvents, float* left, float* right, int numSamples) noexcept override;

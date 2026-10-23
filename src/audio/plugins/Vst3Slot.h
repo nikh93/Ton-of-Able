@@ -4,7 +4,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_data_structures/juce_data_structures.h>
 
-// One audio-effect VST3, usable before a mono amp or after a stereo amp.
+// One VST3 in the signal chain: an effect, an instrument (audio output only)
+// or a MIDI generator such as a guitar-to-MIDI tracker (audio input, MIDI out).
 // Build/link juce_audio_processors with JUCE_PLUGINHOST_VST3=1 (GUI format).
 // load/clear/saveState/restoreState/scanFile/instance: message thread only.
 // prepare: non-audio lifecycle thread; serialized with all plugin calls.
@@ -17,7 +18,9 @@ public:
     Vst3Slot();
     ~Vst3Slot();
     void prepare(double sampleRate, int maximumBlockSize);
-    void process(juce::AudioBuffer<float>&) noexcept;
+    /** midi: notes for the plugin; replaced by the notes it outputs (cleared
+        if it outputs none or is bypassed). Without midi the plugin gets none. */
+    void process(juce::AudioBuffer<float>&, juce::MidiBuffer* midi = nullptr) noexcept;
     juce::Result load(const juce::PluginDescription&);
     void clear();
     void setBypassed(bool);
@@ -27,6 +30,7 @@ public:
     juce::ValueTree saveState();
     juce::Result restoreState(const juce::ValueTree&);
     int latencySamples() const;
+    /** Every plugin type in one VST3 file (run it in a child process). */
     static juce::Array<juce::PluginDescription> scanFile(const juce::File&);
 
 private:

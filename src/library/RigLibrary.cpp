@@ -115,13 +115,14 @@ SoundState RigLibrary::makeSound(const RigEntry& entry, const SoundState& curren
     sound.namPedalPath = sound.namPedalBypassed ? juce::String{} : entry.pedalFile.getFullPathName();
     sound.namPedalInputDb = sound.namPedalOutputDb = 0.0f;
     sound.driveBypassed = sound.autoWahBypassed = sound.chorusBypassed = sound.delayBypassed = sound.reverbBypassed = true;
-    const auto bypassCopy = [](const juce::ValueTree& source)
-    {
-        auto copy = source.createCopy();
-        if (copy.isValid()) copy.setProperty("bypassed", true, nullptr);
-        return copy;
-    };
-    sound.preVst3State = bypassCopy(current.preVst3State);
-    sound.postVst3State = bypassCopy(current.postVst3State);
+    // The chain and its plugins stay, the plugins switched off ("extra effects off").
+    sound.layout = current.layout;
+    for (auto* list : { &sound.layout.serial, &sound.layout.side })
+        for (auto& node : *list)
+        {
+            node.plugin = node.plugin.createCopy(); // the rig's own copy, not shared with the live sound
+            if (! node.isBuiltin())
+                node.bypassed = true;
+        }
     return sound;
 }

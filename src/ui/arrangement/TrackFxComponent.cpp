@@ -1,5 +1,10 @@
 #include "TrackFxComponent.h"
 
+#include <algorithm>
+
+#include "audio/RigChain.h"
+#include "ui/rig/ChainBlocks.h"
+
 #include "daw/DawText.h"
 #include "ui/components/AmberTheme.h"
 
@@ -24,7 +29,7 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
 
     title.setFont(juce::FontOptions(18.0f, juce::Font::bold));
     title.setColour(juce::Label::textColourId, Theme::text());
-    for (auto* label : { &vstInfo, &modeInfo })
+    for (auto* label : { &modeInfo })
     {
         label->setColour(juce::Label::textColourId, Theme::subduedText());
         label->setFont(juce::FontOptions(12.0f));
@@ -42,17 +47,79 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
         if (! sources.captureLiveRig)
             return;
         sound = sources.captureLiveRig();
+        // Tracks have no MIDI keyboards.
+        auto& links = sound.layout.links;
+        links.erase(std::remove_if(links.begin(), links.end(), [](const chain::Link& l) { return l.from == chain::keys; }), links.end());
         enabled = true;
         showState();
         publish();
     };
-    clearVst.onClick = [this]
+    // The signal chain, as in the live rig (without MIDI keyboards).
+    chainStrip.offerKeyboards = false;
+    chainStrip.describe = [this](const chain::Node& node)
     {
-        sound.preVst3State = {};
-        sound.postVst3State = {};
+        chainblocks::Context context;
+        context.ampName = nameOf(sources.amps, sound.namId);
+        context.irName = nameOf(sources.irs, sound.irId);
+        context.pedalLoaded = sound.namPedalPath.isNotEmpty();
+        context.pedalOn = context.pedalLoaded && ! sound.namPedalBypassed;
+        context.pedalName = juce::File(sound.namPedalPath).getFileNameWithoutExtension();
+        context.rig = trackChain();
+        return chainblocks::describe(node, sound, context);
+    };
+    chainStrip.onToggle = [this](const juce::String& id)
+    {
+        if (const auto* node = sound.layout.find(id); node != nullptr && ! node->isBuiltin())
+        {
+            if (auto* rig = trackChain())
+                chainblocks::togglePluginBlock(sound, *rig, id);
+        }
+        else
+            chainblocks::toggleBuiltin(sound, id);
+        enabled = true;
         showState();
         publish();
     };
+    chainStrip.onOpen = [this](const juce::String& id)
+    {
+        const std::pair<const char*, int> cards[] { { "drive", 0 }, { "autoWah", 1 }, { "chorus", 2 }, { "delay", 3 },
+                                                    { "reverb", 4 }, { "compressor", 5 }, { "wah", 6 } };
+        for (const auto& [card, index] : cards)
+            if (id == card)
+                return effects.showCard(index);
+        if (id == "amp") return amp.showPopup();
+        if (id == "ir") return ir.showPopup();
+        if (id == "pedal") return pedal.showPopup();
+        const auto* node = sound.layout.find(id);
+        auto* rig = trackChain();
+        if (node == nullptr || node->kind != "vst3" || rig == nullptr)
+            return;
+        if (const auto existing = pluginWindows.find(id); existing != pluginWindows.end())
+        {
+            existing->second->setVisible(true);
+            existing->second->toFront(true);
+            return;
+        }
+        juce::String error;
+        if (auto window = chainblocks::openPluginWindow(*rig, id, error))
+            pluginWindows[id] = std::move(window);
+        else
+            modeInfo.setText(error, juce::dontSendNotification);
+    };
+    chainStrip.onLayoutChanged = [this](const chain::Layout& layout)
+    {
+        sound.layout = layout;
+        for (auto it = pluginWindows.begin(); it != pluginWindows.end();) // editors go before their plugins
+            it = layout.find(it->first) == nullptr ? pluginWindows.erase(it) : std::next(it);
+        enabled = true;
+        publish();
+        resized();
+    };
+    chainStrip.plugins = [this] { return sources.plugins ? sources.plugins() : juce::Array<juce::PluginDescription>(); };
+    chainStrip.rescanPlugins = [this](std::function<void()> done) { if (sources.rescanPlugins) sources.rescanPlugins(std::move(done)); };
+    chainViewport.setViewedComponent(&chainStrip, false);
+    chainViewport.setScrollBarsShown(false, true);
+    chainViewport.setScrollBarThickness(8);
     amp.onChange = [this]
     {
         const auto index = amp.getSelectedItemIndex() - 1;
@@ -116,20 +183,43 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
         // The panel owns only the effect rack; everything else stays as set here.
         auto next = edited;
         next.retainAmpFrom(sound);
-        next.preVst3State = sound.preVst3State;
-        next.postVst3State = sound.postVst3State;
+        // The chain stays; only the compressor position comes from the panel.
+        auto layout = sound.layout;
+        if (edited.layout.compressorBeforeAmp() != layout.compressorBeforeAmp())
+            layout.setCompressorBeforeAmp(edited.layout.compressorBeforeAmp());
+        next.layout = layout;
         sound = next;
         publish();
     };
 
-    for (auto* component : std::initializer_list<juce::Component*> { &title, &active, &insertMode, &printMode, &fromLiveRig, &clearVst, &amp, &ir, &pedal,
-                                                                      &namOn, &irOn, &vstInfo, &modeInfo, &inputGain, &bass, &mid, &treble, &outputGain,
+    for (auto* component : std::initializer_list<juce::Component*> { &title, &active, &insertMode, &printMode, &fromLiveRig, &amp, &ir, &pedal,
+                                                                      &namOn, &irOn, &modeInfo, &chainViewport, &inputGain, &bass, &mid, &treble, &outputGain,
                                                                       &pitch, &graphicEq, &effects })
         addAndMakeVisible(*component);
 
     effects.setMouseWahAvailable(false);
     loadFromTrack();
-    setSize(980, 860);
+    setSize(1080, 900);
+}
+
+TrackFxComponent::~TrackFxComponent()
+{
+    pluginWindows.clear(); // before the chain could go away
+}
+
+RigChain* TrackFxComponent::trackChain() const
+{
+    if (const auto* track = controller.state().findTrack(trackId))
+        return dynamic_cast<RigChain*>(track->fx->processor.get());
+    return nullptr;
+}
+
+juce::String TrackFxComponent::nameOf(const std::vector<Choice>& choices, const juce::String& id)
+{
+    for (const auto& choice : choices)
+        if (choice.id == id && id.isNotEmpty())
+            return choice.name;
+    return {};
 }
 
 void TrackFxComponent::fill(juce::ComboBox& box, const std::vector<Choice>& choices, const juce::String& none)
@@ -188,9 +278,7 @@ void TrackFxComponent::showState()
     graphicEq.setValues(sound.graphicEqBypassed, sound.graphicEqDb);
     pitch.setSettings({ sound.pitchBypassed, sound.pitchSemitones, sound.pitchMix, sound.pitchFormantPreserved, sound.pitchHighQuality, sound.pitchAnalogOctave });
     effects.setState(sound);
-    const auto vst = (sound.preVst3State.isValid() ? 1 : 0) + (sound.postVst3State.isValid() ? 1 : 0);
-    vstInfo.setText(vst > 0 ? juce::String(vst) + text(" VST3-Slot(s) vom Live-Rig übernommen") : text("Keine VST3-Plugins (über \"Live-Rig übernehmen\" kopierbar)"), juce::dontSendNotification);
-    clearVst.setEnabled(vst > 0);
+    chainStrip.setLayout(sound.layout);
     const auto* track = controller.state().findTrack(trackId);
     modeInfo.setText(track != nullptr && track->isReturn()
                          ? text("Return-Spur: die Kette bearbeitet, was die Spuren per SEND schicken – Hall/Delay hier auf 100 % Mix lassen.")
@@ -203,6 +291,9 @@ void TrackFxComponent::showState()
 
 void TrackFxComponent::publish()
 {
+    // Keep what was edited in the plugin windows.
+    if (auto* rig = trackChain())
+        sound.layout = rig->captureLayout(sound.layout);
     active.setToggleState(enabled, juce::dontSendNotification);
     controller.setTrackFx(trackId, sound.toValueTree(), enabled, print);
     showState();
@@ -235,11 +326,13 @@ void TrackFxComponent::resized()
     amp.setBounds(selectors.removeFromLeft(third).withTrimmedRight(6));
     irOn.setBounds(selectors.removeFromLeft(60));
     ir.setBounds(selectors);
-    area.removeFromTop(6);
-    auto vst = area.removeFromTop(24);
-    clearVst.setBounds(vst.removeFromRight(130));
-    vstInfo.setBounds(vst);
-    area.removeFromTop(6);
+    area.removeFromTop(8);
+    {
+        const auto stripWidth = chainStrip.preferredWidth(area.getWidth());
+        chainViewport.setBounds(area.removeFromTop(chainStrip.preferredHeight() + (stripWidth > area.getWidth() ? 10 : 0)));
+        chainStrip.setSize(stripWidth, chainStrip.preferredHeight());
+    }
+    area.removeFromTop(8);
 
     auto knobs = area.removeFromTop(118);
     const auto cell = knobs.getWidth() / 5;

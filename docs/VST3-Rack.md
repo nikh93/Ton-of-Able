@@ -1,18 +1,41 @@
-# VST3-Rack bedienen
+# Signalkette, VST3-Plugins und Routing
 
-Oben im Programm **VST3** anklicken. **VST3 importieren** akzeptiert Windows-x64 `.vst3`-Dateien und Bundles sowie einen Ordner zum Scannen. Import bedeutet Registrierung am vorhandenen Ort, kein Kopieren; Plugin-Dateien danach nicht verschieben. Standardordner: `D:\Amp Modeler\plugins` und `C:\Program Files\Common Files\VST3`.
+Die Signalkette oben im Rig (und im Spur-Effekt-Fenster jeder Arrangement-Spur) ist frei bearbeitbar.
 
-- **VOR AMP / DRIVE:** Verzerrer wie BYOD. Reihenfolge: interner Drive, PRE-VST3, NAM, Cabinet/IR.
-- **NACH AMP / STEREO:** Hall/Delay wie Supermassive, hinter den internen Effekten. Stereo bleibt bis Ausgabe und Aufnahme erhalten.
-- Plugin im oberen Dropdown, Factory-Preset im darunterliegenden Dropdown auswählen. Nicht jedes Plugin veröffentlicht seine Presets über die Host-Schnittstelle; dann **Plugin / Presets oeffnen** verwenden.
-- **ON** aktiviert den Slot. Beim ersten automatischen Laden bleibt er zunächst ausgeschaltet; BYOD wird auf John Mayer vorbereitet. BYODs Default-Preset kann eine leere Effektkette sein.
-- Plugin-Zustände werden mit Sound-Presets, A/B und beim Beenden gespeichert. Fehlende Plugins erzeugen eine Meldung und setzen den betroffenen Slot auf Bypass.
+## Aufbau
 
-Zum Vergleich zunächst internen Drive ausschalten. Für Dumble-Leads zuerst nur den NAM mit Cabinet hören, anschließend BYOD bei Bedarf sparsam dazuschalten. Die fünf persönlichen Captures stehen unter **Dumble-style / ODS #102 Clone / Lead**: Smooth, Bluesy, Open Robben, Open Larry und Carlosanta.
+- **Obere Reihe:** der Signalweg von der Gitarre (**IN**) zum Ausgang (**OUT**). Alle eingebauten Effekte stehen hier genau einmal: Pitch, Kompressor, Wah, Drive, NAM-Pedal, Amp, Box/IR, Amp-EQ, Graphic EQ, Auto-Wah, Chorus, Delay, Reverb.
+- **Untere Reihe „Neben der Kette“:** Blöcke, die nicht im Signalweg liegen, z. B. ein Synth. **KEYS** sind die MIDI-Keyboards und virtuellen MIDI-Ports (nur im Live-Rig).
+- **Kurven** zeigen zusätzliche Verbindungen: orange = Audio (mit Pegel), blau gestrichelt = MIDI.
 
-BYOD 1.3.0 und Valhalla Supermassive 5.0.0 sind unter `D:\Amp Modeler\plugins` installiert. Supermassive wird bei der ersten Erkennung im freien hinteren Slot vorbereitet, zunächst ausgeschaltet. Es veröffentlicht keine Factory-Programme über VST3: Seine Presets im Originalfenster über **Plugin / Presets oeffnen** auswählen. Beide Slots mit **ON** aktivieren.
+## Bedienung
 
-Supermassives 204 Factory-Presets liegen ebenfalls auf D: und sind am erwarteten Windows-Pfad verknüpft. Der Hosttest bestand 71 Prüfungen ohne Fehler, einschließlich eines vier Sekunden langen Stereo-Impulstests mit messbarer Hallfahne. 19 nicht passende Host-Programmprüfungen wurden übersprungen, weil Supermassive keine Host-Programme veröffentlicht.
+- **Punkt** im Block: an/aus. **Klick** auf den Block: Einstellungen bzw. das Plugin-Fenster.
+- **Ziehen:** Block an eine andere Stelle der Kette schieben. Plugins lassen sich auch in die untere Reihe ziehen.
+- **+** am Ende einer Reihe: VST3-Effekt (auch Audio → MIDI wie TONIQ, MIDI Guitar, Transkr, MiGiC), VST3-Instrument (z. B. Vital) oder **MIDI transponieren** einfügen. Plugins werden mit „VST3-Plugins suchen“ in den Standardordnern gefunden (jedes in einem eigenen Prozess, 30 s Zeitlimit).
+- **Rechtsklick** auf einen Block: *Audio senden an*, *MIDI senden an*, *Audio empfangen von* (auch „Gitarre (trocken)“), *MIDI empfangen von* (auch „MIDI-Keyboards“), *Verbindungen und Pegel …*, in die Kette / neben die Kette stellen, entfernen. Ein Haken im Menü bedeutet: Verbindung besteht – erneut wählen trennt sie.
+- **Rechtsklick auf OUT:** *Pegel der Kette in den Ausgang* – „aus“ lässt nur die Verbindungen hören (z. B. nur den Synth).
+- Mehrere Verbindungen in denselben Eingang werden addiert. Eingebaute Effekte arbeiten mono (Stereo davor wird zusammengemischt), Plugins und der Ausgang stereo.
+
+## Beispiele
+
+- **Gitarre → MIDI → Synth:** TONIQ neben der Kette einfügen (es hört automatisch die trockene Gitarre), Vital einfügen (geht automatisch in den Ausgang und hört die Keyboards), dann Rechtsklick auf TONIQ → *MIDI senden an* → Vital. Für eine Oktave tiefer **MIDI transponieren** dazwischen setzen. Nur Synth: Rechtsklick auf OUT → Pegel der Kette „aus“.
+- **Parallel-Hall:** Rechtsklick auf Box/IR → *Audio senden an* → ein Hall-Plugin neben der Kette, dieses → *Audio senden an* → Ausgang, Pegel nach Geschmack.
+- **Kompressor vor oder nach dem Amp:** ziehen – oder in der Effektkarte „VOR AMP“.
+
+## Speichern
+
+Reihenfolge, Plugins mit ihrem Zustand und alle Verbindungen gehören zum Sound: Sie werden mit Presets, A/B, Rigs („Zusatz-FX beim Laden AUS“ schaltet die Plugins aus) und beim Beenden gespeichert. Spur-Ketten werden mit dem Projekt gespeichert. Ältere Presets mit den früheren Slots „VST3 vor/nach dem Amp“ werden beim Laden in Blöcke an denselben Stellen umgewandelt.
+
+Fehlende Plugins erscheinen gestrichelt als „nicht geladen“ und werden in der Statuszeile gemeldet; der Signalweg läuft an ihnen vorbei.
+
+## Technisch
+
+Der Signalweg ist ein `juce::AudioProcessorGraph`. Jedes Plugin läuft in einem `Vst3Slot` (Absturz- und NaN-Schutz, latenzkorrigiertes Bypass, Effekte, Instrumente und MIDI-Erzeuger). Geladene Plugins laufen im Audioprozess: Ein fehlerhaftes fremdes Plugin kann die Anwendung weiterhin abstürzen lassen. Umverdrahten lädt Plugins nicht neu; nur ein geänderter Plugin-Zustand (z. B. ein anderes Preset) lädt das Plugin.
+
+Prüfung mit echten VST3-Plugins: `"Ton of Able" --chain-routing-test <tracker.vst3> <instrument.vst3> <report.xml>` (Gitarre → Audio-to-MIDI → Transponieren → Instrument → Ausgang, Umverdrahten ohne Neuladen, Ketten-Pegel).
+
+## Frühere Tests der mitgelieferten Plugins
 
 Teststand: John Mayer bestand alle 18 Kombinationen aus 44,1/48/96 kHz, 32/128/512 Samples und Mono/Stereo, einschließlich hörpfadwirksamer Signalverarbeitung und latenzkorrigiertem Bypass. Die zusätzlichen King-Of-Tone-Diagnosen zeigten Stille bei 96 kHz, auch beim direkten Plugin-Aufruf; nach einem solchen Wechsel kann auch 48 kHz stumm bleiben. Dann Plugin entfernen und neu laden. Für King Of Tone bei 48 kHz bleiben. `docs/byod-final-host-checks.xml` hält alle 91 bestandenen Prüfungen und die vier fehlgeschlagenen King-Of-Tone-Diagnosen ausdrücklich fest.
 

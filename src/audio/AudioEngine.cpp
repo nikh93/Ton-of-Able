@@ -6,7 +6,7 @@
 
 AudioEngine::AudioEngine()
 {
-    rig.setGuitarSynth(&guitarSynthHost);
+    keyboardMidi.ensureSize(4096);
     const auto dataDirectory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
         .getChildFile("Ton of Able");
     dataDirectory.createDirectory();
@@ -47,14 +47,14 @@ AudioEngine::AudioEngine()
         }
     }
     manager.addAudioCallback(this);
-    manager.addMidiInputDeviceCallback({}, &guitarSynthHost);
+    manager.addMidiInputDeviceCallback({}, this);
     enableMidiInputs();
 }
 
 AudioEngine::~AudioEngine()
 {
     manager.removeAudioCallback(this);
-    manager.removeMidiInputDeviceCallback({}, &guitarSynthHost);
+    manager.removeMidiInputDeviceCallback({}, this);
     if (const auto state = manager.createStateXml())
         settings.saveAudioDeviceState(*state);
     manager.closeAudioDevice();
@@ -62,6 +62,12 @@ AudioEngine::~AudioEngine()
     recorder.finaliseStoppedRecordings();
     logger.stop();
     settings.flush();
+}
+
+void AudioEngine::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& message)
+{
+    if (! message.isActiveSense() && ! message.isMidiClock())
+        keyboardCollector.addMessageToQueue(message);
 }
 
 void AudioEngine::enableMidiInputs()
@@ -114,6 +120,7 @@ void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
     filePlayer.setOutputSampleRate(rate);
     monoBuffer.setSize(1, block, false, false, true);
     stereoBuffer.setSize(2, block, false, false, true);
+    keyboardCollector.reset(rate);
     rig.prepare(rate, block);
     arrangementEngine.prepare(rate, block);
     inputPeak.store(0.0f, std::memory_order_relaxed);
@@ -164,7 +171,9 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
 
     auto* left = stereoBuffer.getWritePointer(0);
     auto* right = stereoBuffer.getWritePointer(1);
-    inPeak = rig.processWithInputPeak(mono, left, right, numSamples);
+    keyboardMidi.clear();
+    keyboardCollector.removeNextBlockOfMessages(keyboardMidi, numSamples);
+    inPeak = rig.processWithInputPeak(mono, left, right, numSamples, &keyboardMidi);
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
     recorder.process(stereoView);

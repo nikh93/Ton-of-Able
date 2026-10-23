@@ -6,6 +6,8 @@
 #include <juce_core/juce_core.h>
 #include <juce_data_structures/juce_data_structures.h>
 
+#include "ChainLayout.h"
+
 /** The complete non-audio state for one sound. Field names form the persistent
     schema; values are deliberately primitive for stable ValueTree/JSON storage. */
 struct SoundState
@@ -20,7 +22,6 @@ struct SoundState
     juce::String namPedalPath;
     bool namPedalBypassed = true;
     float namPedalInputDb = 0.0f, namPedalOutputDb = 0.0f;
-    juce::ValueTree preVst3State, postVst3State;
     bool driveBypassed = true;
     int driveType = 0;
     float driveAmount = 0.35f, driveTone = 0.5f, driveWarmth = 0.5f, drivePresence = 0.5f, driveSustain = 0.5f, driveBias = 0.35f, driveLevel = 0.8f, driveMix = 1.0f;
@@ -33,8 +34,8 @@ struct SoundState
     // Ten-band graphic EQ after the amp EQ: 31.5 Hz ... 16 kHz, +/-12 dB.
     bool graphicEqBypassed = true;
     std::array<float, 10> graphicEqDb {};
-    // Compressor: after the amp (mixing) or, with compressorPreAmp, in front of drive and NAM (pedal).
-    bool compressorBypassed = true, compressorPreAmp = false;
+    // Compressor: its place in the chain (pedal or studio position) is part of the layout.
+    bool compressorBypassed = true;
     float compressorThresholdDb = -18.0f, compressorRatio = 4.0f, compressorAttackMs = 10.0f, compressorReleaseMs = 150.0f,
           compressorKneeDb = 6.0f, compressorMakeupDb = 0.0f, compressorMix = 1.0f;
     // Wah pedal in front of drive and amp; the position (0 heel ... 1 toe) can follow the mouse.
@@ -45,6 +46,8 @@ struct SoundState
     float pitchSemitones = -12.0f, pitchMix = 1.0f;
     bool pitchFormantPreserved = false, pitchHighQuality = false;
     bool pitchAnalogOctave = false; // at -12: flip-flop octaver instead of Rubber Band
+    // Order of the blocks, plugins (with their state) and extra audio/MIDI connections.
+    chain::Layout layout = chain::Layout::standard();
 
     juce::ValueTree toValueTree() const;
     static std::optional<SoundState> fromValueTree(const juce::ValueTree&, juce::String* error = nullptr);

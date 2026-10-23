@@ -14,7 +14,7 @@
 
 struct SoundState;
 
-class AudioEngine final : private juce::AudioIODeviceCallback
+class AudioEngine final : private juce::AudioIODeviceCallback, private juce::MidiInputCallback
 {
 public:
     enum class SourceMode : unsigned char { live, wav };
@@ -73,12 +73,10 @@ public:
     const std::atomic<float>& inputPeakSource() const noexcept { return inputPeak; }
     const std::atomic<float>& outputPeakSource() const noexcept { return outputPeak; }
     juce::String lastError() const;
-    Vst3Slot& prePlugin() noexcept { return rig.prePlugin(); }
-    /** Guitar to MIDI to synth (live rig). */
-    GuitarSynth& guitarSynth() noexcept { return guitarSynthHost; }
-    /** Opens every MIDI input so keyboards can play the synth. Message thread. */
+    /** The live rig's signal chain (layout, plugins). Message thread. */
+    RigChain& rigChain() noexcept { return rig; }
+    /** Opens every MIDI input so keyboards can play instruments in the chain. Message thread. */
     void enableMidiInputs();
-    Vst3Slot& postPlugin() noexcept { return rig.postPlugin(); }
     /** Processing latency of the live rig (IR, drive oversampling, VST3). */
     int rigLatencySamples() const { return rig.latencySamples(); }
     daw::ArrangementEngine& arrangement() noexcept { return arrangementEngine; }
@@ -86,6 +84,7 @@ public:
 private:
     void audioDeviceAboutToStart(juce::AudioIODevice*) override;
     void audioDeviceStopped() override;
+    void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage&) override;
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
                                           int numInputChannels,
                                           float* const* outputChannelData,
@@ -99,8 +98,9 @@ private:
     juce::AudioDeviceManager manager;
     std::atomic<float> inputPeak { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
-    GuitarSynth guitarSynthHost; // before rig: the rig points to it
     RigChain rig;
+    juce::MidiMessageCollector keyboardCollector; // MIDI keyboards -> "keys" in the rig
+    juce::MidiBuffer keyboardMidi;
     juce::AudioBuffer<float> monoBuffer;
     juce::AudioBuffer<float> stereoBuffer;
     std::atomic<double> activeSampleRate { 48000.0 };

@@ -16,10 +16,12 @@ Ableton-style arrangement. The interface is in German.
   **compressor** (pedal or studio position), Chorus, Delay, Reverb
 - Live pitch shifting with the [Rubber Band Library](https://breakfastquay.com/rubberband/);
   for exactly one octave down an analog-style flip-flop octaver is available as a **latency-free** mode
-- Two VST3 slots (bundled: BYOD, Valhalla Supermassive), presets with A/B, complete rigs
-- **Guitar to MIDI to synth**: an audio-to-MIDI VST3 (e.g. TONIQ, MIDI Guitar, Transkr, MiGiC)
-  listens to the guitar in real time and plays an instrument VST3 such as Vital, mixed with the
-  guitar (own levels, transpose); MIDI keyboards and virtual MIDI ports (e.g. loopMIDI) play along
+- **Editable signal chain**: reorder every block by dragging, add any number of VST3 effects,
+  instruments and MIDI tools, and route the audio or MIDI output of any block into any other
+  (with levels) — e.g. guitar → audio-to-MIDI VST3 (TONIQ, MIDI Guitar, Transkr, MiGiC) → Vital,
+  parallel effects, synth only. MIDI keyboards and virtual MIDI ports play along. Track effect
+  chains in the arrangement use the same editor. Bundled: BYOD, Valhalla Supermassive
+- Presets with A/B, complete rigs
 - ASIO first, WASAPI exclusive as fallback; meters, latency and CPU diagnostics
 
 **Arrangement (multitrack)**
@@ -63,11 +65,12 @@ The installer is not code-signed: at the SmartScreen warning choose *More info* 
 | **Space / F9** | play / record in the arrangement |
 | **W** | wah pedal follows the mouse (up = toe, down = heel) |
 | right-click a track header | freeze, sends, effects, export |
+| signal chain: drag / **+** / right-click | reorder, add plugins, connect audio and MIDI |
 
 ## Documentation
 
 - [Arrangement, recording, mixing, freeze, sends, compressor, wah, shortcuts](docs/Arrangement.md)
-- [NAM pedals](docs/NAM-Pedals.md) · [VST3 rack](docs/VST3-Rack.md) · [Complete rigs](docs/CompleteRigs.md) · [Drive voicing](docs/Drive-Voicing.md)
+- [NAM pedals](docs/NAM-Pedals.md) · [Signal chain, VST3 and routing](docs/VST3-Rack.md) · [Complete rigs](docs/CompleteRigs.md) · [Drive voicing](docs/Drive-Voicing.md)
 - [Architecture](docs/architecture.md) · [Tests](tests/README.md)
 - Bundled models and IRs: [resources/defaults/README.md](resources/defaults/README.md),
   [resources/DEFAULT_ASSETS.md](resources/DEFAULT_ASSETS.md)

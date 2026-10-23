@@ -28,17 +28,17 @@ inline int runRigChecks(juce::File catalog, juce::File reportFile)
     current.namPedalInputDb = 8.0f; current.namPedalOutputDb = -9.0f;
     current.namPedalPath = "old-pedal";
     current.driveBypassed = current.autoWahBypassed = current.chorusBypassed = current.delayBypassed = current.reverbBypassed = false;
-    current.preVst3State = juce::ValueTree("Vst3Slot");
-    current.preVst3State.setProperty("version", 1, nullptr);
-    current.preVst3State.setProperty("bypassed", false, nullptr);
-    current.preVst3State.setProperty("descriptionXml", "opaque description", nullptr);
-    current.preVst3State.setProperty("stateBase64", "opaque state", nullptr);
+    juce::ValueTree pluginState("Vst3Slot");
+    pluginState.setProperty("version", 1, nullptr);
+    pluginState.setProperty("bypassed", false, nullptr);
+    pluginState.setProperty("descriptionXml", "opaque description", nullptr);
+    pluginState.setProperty("stateBase64", "opaque state", nullptr);
     juce::ValueTree child("opaqueChild");
     child.setProperty("value", "keep", nullptr);
-    current.preVst3State.addChild(child, -1, nullptr);
-    current.postVst3State = current.preVst3State.createCopy();
-    const auto beforePre = current.preVst3State.toXmlString();
-    const auto beforePost = current.postVst3State.toXmlString();
+    pluginState.addChild(child, -1, nullptr);
+    const auto pre = current.layout.add({ {}, "vst3", "Pre", pluginState, false, 0 }, current.layout.serialIndex("pedal"));
+    const auto post = current.layout.add({ {}, "vst3", "Post", pluginState.createCopy(), false, 0 }, -1);
+    const auto beforeLayout = current.layout.toValueTree().toXmlString();
     const auto verify = [&](const RigEntry& entry)
     {
         auto sound = RigLibrary::makeSound(entry, current);
@@ -49,16 +49,15 @@ inline int runRigChecks(juce::File catalog, juce::File reportFile)
             && sound.namPedalPath == (entry.routing == "pedal-amp-cab" ? entry.pedalFile.getFullPathName() : juce::String{})
             && sound.namPedalInputDb == 0.0f && sound.namPedalOutputDb == 0.0f);
         check(entry.id + ": extras disabled", sound.driveBypassed && sound.autoWahBypassed && sound.chorusBypassed
-            && sound.delayBypassed && sound.reverbBypassed && static_cast<bool>(sound.preVst3State["bypassed"])
-            && static_cast<bool>(sound.postVst3State["bypassed"]));
-        check(entry.id + ": opaque plugin data preserved", sound.preVst3State["descriptionXml"].toString() == "opaque description"
-            && sound.preVst3State["stateBase64"].toString() == "opaque state"
-            && sound.postVst3State["stateBase64"].toString() == "opaque state"
-            && sound.preVst3State.getChild(0)["value"].toString() == "keep");
-        sound.preVst3State.getChild(0).setProperty("value", "changed copy", nullptr);
-        sound.postVst3State.setProperty("stateBase64", "changed copy", nullptr);
-        check(entry.id + ": current plugin trees are not shared", current.preVst3State.toXmlString() == beforePre
-            && current.postVst3State.toXmlString() == beforePost);
+            && sound.delayBypassed && sound.reverbBypassed && sound.layout.find(pre) != nullptr && sound.layout.find(pre)->bypassed
+            && sound.layout.find(post) != nullptr && sound.layout.find(post)->bypassed);
+        const auto* preNode = sound.layout.find(pre);
+        check(entry.id + ": opaque plugin data preserved", preNode != nullptr && preNode->plugin["descriptionXml"].toString() == "opaque description"
+            && preNode->plugin["stateBase64"].toString() == "opaque state"
+            && preNode->plugin.getChild(0)["value"].toString() == "keep");
+        if (auto* node = sound.layout.find(pre))
+            node->plugin.getChild(0).setProperty("value", "changed copy", nullptr);
+        check(entry.id + ": current plugin trees are not shared", current.layout.toValueTree().toXmlString() == beforeLayout);
         check(entry.id + ": rig identity and deferred asset mapping", sound.rigId == entry.id && sound.namId.isEmpty() && sound.irId.isEmpty());
     };
     if (loaded)

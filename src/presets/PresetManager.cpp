@@ -33,18 +33,12 @@ juce::ValueTree SoundState::toValueTree() const
     tree.setProperty("namPedalBypassed", namPedalBypassed, nullptr);
     tree.setProperty("namPedalInputDb", safeNamPedalDb(namPedalInputDb), nullptr);
     tree.setProperty("namPedalOutputDb", safeNamPedalDb(namPedalOutputDb), nullptr);
-    for (const auto& item : { std::pair<const char*, juce::ValueTree>{"preVst3", preVst3State}, {"postVst3", postVst3State} })
-    {
-        juce::ValueTree wrapper(item.first);
-        if (item.second.isValid()) wrapper.addChild(item.second.createCopy(), -1, nullptr);
-        tree.addChild(wrapper, -1, nullptr);
-    }
+    tree.addChild(layout.toValueTree(), -1, nullptr);
     tree.setProperty("graphicEqBypassed", graphicEqBypassed, nullptr);
     juce::StringArray bands;
     for (const auto band : graphicEqDb) bands.add(juce::String(band, 2));
     tree.setProperty("graphicEqDb", bands.joinIntoString(","), nullptr);
     tree.setProperty("compressorBypassed", compressorBypassed, nullptr);
-    tree.setProperty("compressorPreAmp", compressorPreAmp, nullptr);
     tree.setProperty("compressorThresholdDb", compressorThresholdDb, nullptr);
     tree.setProperty("compressorRatio", compressorRatio, nullptr);
     tree.setProperty("compressorAttackMs", compressorAttackMs, nullptr);
@@ -101,7 +95,6 @@ std::optional<SoundState> SoundState::fromValueTree(const juce::ValueTree& tree,
         return std::isfinite(value) ? juce::jlimit(low, high, value) : fallback;
     };
     result.compressorBypassed = static_cast<bool>(tree.getProperty("compressorBypassed", true));
-    result.compressorPreAmp = static_cast<bool>(tree.getProperty("compressorPreAmp", false));
     result.compressorThresholdDb = number("compressorThresholdDb", -18.0f, -60.0f, 0.0f);
     result.compressorRatio = number("compressorRatio", 4.0f, 1.0f, 20.0f);
     result.compressorAttackMs = number("compressorAttackMs", 10.0f, 0.1f, 200.0f);
@@ -122,8 +115,28 @@ std::optional<SoundState> SoundState::fromValueTree(const juce::ValueTree& tree,
     result.pitchFormantPreserved = static_cast<bool>(tree.getProperty("pitchFormantPreserved", false));
     result.pitchHighQuality = static_cast<bool>(tree.getProperty("pitchHighQuality", false));
     result.pitchAnalogOctave = static_cast<bool>(tree.getProperty("pitchAnalogOctave", false));
-    result.preVst3State = tree.getChildWithName("preVst3").getChild(0).createCopy();
-    result.postVst3State = tree.getChildWithName("postVst3").getChild(0).createCopy();
+    if (const auto layout = tree.getChildWithName("chainLayout"); layout.isValid())
+        result.layout = chain::Layout::fromValueTree(layout);
+    else
+    {
+        // Sounds saved before the editable chain: fixed order, the compressor as
+        // pedal or after the amp, VST3 slots before the NAM pedal and at the end.
+        result.layout = chain::Layout::standard(static_cast<bool>(tree.getProperty("compressorPreAmp", false)));
+        const auto addSlot = [&result](const juce::ValueTree& state, int position)
+        {
+            if (! state.hasProperty("descriptionXml"))
+                return;
+            chain::Node node;
+            node.kind = "vst3";
+            node.plugin = state.createCopy();
+            node.bypassed = state.getProperty("bypassed", false);
+            if (const auto xml = juce::parseXML(state.getProperty("descriptionXml").toString()))
+                node.name = xml->getStringAttribute("name");
+            result.layout.add(node, position);
+        };
+        addSlot(tree.getChildWithName("preVst3").getChild(0), result.layout.serialIndex("pedal"));
+        addSlot(tree.getChildWithName("postVst3").getChild(0), static_cast<int>(result.layout.serial.size()));
+    }
     result.driveAmount = static_cast<float>(tree.getProperty("driveAmount", .35f)); result.driveTone = static_cast<float>(tree.getProperty("driveTone", .5f)); result.driveWarmth = static_cast<float>(tree.getProperty("driveWarmth", .5f)); result.drivePresence = static_cast<float>(tree.getProperty("drivePresence", .5f)); result.driveSustain = static_cast<float>(tree.getProperty("driveSustain", .5f)); result.driveBias = static_cast<float>(tree.getProperty("driveBias", .35f)); result.driveLevel = static_cast<float>(tree.getProperty("driveLevel", .8f)); result.driveMix = static_cast<float>(tree.getProperty("driveMix", 1.f));
 #define READ_NUMERIC_FIELD(name) result.name = static_cast<decltype(result.name)>(tree.getProperty(#name));
     READ_NUMERIC_FIELD(inputGainDb) READ_NUMERIC_FIELD(outputGainDb) READ_NUMERIC_FIELD(bassDb) READ_NUMERIC_FIELD(midDb) READ_NUMERIC_FIELD(trebleDb)

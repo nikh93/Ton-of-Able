@@ -1042,11 +1042,16 @@ juce::Result ArrangementController::openProject(const juce::File& file)
 
 juce::Result ArrangementController::save()
 {
-    // Plugin instruments may have been edited in their own GUI.
+    // Plugin instruments and chain plugins may have been edited in their own GUI.
     for (auto& track : current.tracks)
+    {
         if (track.drums && track.instrument->instrument != nullptr)
             if (const auto settings = track.instrument->instrument->currentSettings(); settings.isValid())
                 track.instrument->settings = settings;
+        if (track.fx->processor != nullptr && track.fx->settings.isValid())
+            if (const auto settings = track.fx->processor->currentSettings(track.fx->settings); settings.isValid())
+                track.fx->settings = settings;
+    }
     auto tree = toValueTree(current, project.getParentDirectory());
     tree.setProperty("masterDb", audio.masterGainDb(), nullptr);
     tree.setProperty("metronome", audio.isMetronomeOn(), nullptr);

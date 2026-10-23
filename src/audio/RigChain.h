@@ -1,14 +1,17 @@
 #pragma once
 
 #include <atomic>
+#include <map>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include "NamProcessor.h"
 #include "NamPedalProcessor.h"
 #include "IRProcessor.h"
-#include "plugins/Vst3Slot.h"
-#include "plugins/GuitarSynth.h"
+#include <juce_audio_processors/juce_audio_processors.h>
+
+#include "ChainNodes.h"
+#include "presets/ChainLayout.h"
 #include "audio/effects/Effects.h"
 #include "audio/effects/GraphicEQProcessor.h"
 #include "audio/effects/LivePitchShifter.h"
@@ -16,13 +19,18 @@
 
 struct SoundState;
 
-/** The complete guitar chain: input gain, live pitch shifter, [compressor], wah pedal, drive, pre-VST3, NAM pedal,
-    NAM amp, cabinet IR, 3-band EQ, graphic EQ, [compressor], Auto-Wah, Chorus, Delay, Reverb,
-    post-VST3 (stereo) and output gain.
+/** The complete guitar chain: input gain, a signal graph, output gain.
+
+    The graph follows a chain::Layout: built-in effects (pitch shifter,
+    compressor, wah, drive, NAM pedal, NAM amp, cabinet IR, amp EQ, graphic
+    EQ, Auto-Wah, Chorus, Delay, Reverb), VST3 plugins (effects, instruments,
+    MIDI generators) and MIDI tools in any order, plus extra audio and MIDI
+    connections between them. MIDI keyboards feed the "keys" source.
 
     Used once for the live rig and once per arrangement track that has its
     own effects. Models and IRs load off the audio thread; process() does not
-    allocate (third-party VST3 code excepted). */
+    allocate (third-party VST3 code excepted). setLayout / plugin access:
+    message thread. */
 class RigChain : public daw::TrackProcessor
 {
 public:
@@ -35,9 +43,22 @@ public:
     void prepare(double sampleRate, int maximumBlockSize) override;
     void process(float* mono, float* left, float* right, int numSamples) noexcept override { processWithInputPeak(mono, left, right, numSamples); }
     [[nodiscard]] int latencySamples() const override;
+    [[nodiscard]] juce::ValueTree currentSettings(const juce::ValueTree& settings) override;
 
-    /** Same as process(); returns the input peak after the input gain. */
-    float processWithInputPeak(float* mono, float* left, float* right, int numSamples) noexcept;
+    /** Same as process(); returns the input peak after the input gain.
+        keyboard: MIDI from keyboards for the "keys" source (may be null). */
+    float processWithInputPeak(float* mono, float* left, float* right, int numSamples, juce::MidiBuffer* keyboard = nullptr) noexcept;
+
+    /** Builds the graph for a layout. Plugins load only when their state
+        differs from what is loaded; unchanged blocks keep running. */
+    void setLayout(const chain::Layout&);
+    /** The layout with the plugins' current state (e.g. after editing them in their editors). */
+    [[nodiscard]] chain::Layout captureLayout(const chain::Layout&);
+    /** The hosted plugin of a block, or null. */
+    [[nodiscard]] Vst3Slot* plugin(const juce::String& blockId);
+    void setBlockBypassed(const juce::String& blockId, bool bypassed);
+    /** Plugins the last setLayout could not load ("name: reason"). */
+    [[nodiscard]] const juce::StringArray& loadErrors() const noexcept { return errors; }
 
     // Message thread.
     void loadNamAsync(const juce::File& modelFile) { namProcessor.loadAsync(modelFile); }
@@ -63,12 +84,12 @@ public:
     void setDelayBypassed(bool value) noexcept { delayProcessor.setBypassed(value); }
     void setReverbBypassed(bool value) noexcept { reverbProcessor.setBypassed(value); }
     void setGraphicEqBypassed(bool value) noexcept { graphicEq.setBypassed(value); }
-    void setCompressor(bool bypassed, bool preAmp, float thresholdDb, float ratio, float attackMs, float releaseMs,
+    void setCompressor(bool bypassed, float thresholdDb, float ratio, float attackMs, float releaseMs,
                        float kneeDb, float makeupDb, float mix) noexcept
     {
         compressor.setThresholdDb(thresholdDb); compressor.setRatio(ratio); compressor.setAttackMs(attackMs);
         compressor.setReleaseMs(releaseMs); compressor.setKneeDb(kneeDb); compressor.setMakeupDb(makeupDb);
-        compressor.setMix(mix); compressorPreAmp.store(preAmp); compressor.setBypassed(bypassed);
+        compressor.setMix(mix); compressor.setBypassed(bypassed);
     }
     [[nodiscard]] float compressorGainReductionDb() const noexcept { return compressor.gainReductionDb(); }
     void setWahPedal(bool bypassed, float position, float heelHz, float toeHz, float q, float mix) noexcept
@@ -90,26 +111,34 @@ public:
     }
     [[nodiscard]] int pitchLatencySamples() const noexcept { return pitchShifter.latencySamples(); }
 
-    /** Live rig only: guitar-to-MIDI synth, mixed in before the post-VST3. Set before prepare(). */
-    void setGuitarSynth(GuitarSynth* synth) noexcept { guitarSynth = synth; }
-
-    Vst3Slot& prePlugin() noexcept { return preVst3; }
-    Vst3Slot& postPlugin() noexcept { return postVst3; }
-
 private:
+    /** The processing of one built-in block (bound once, no lookups on the audio thread). */
+    chainnodes::Builtin::Process builtinProcess(const juce::String& kind);
+    struct Block
+    {
+        juce::AudioProcessorGraph::NodeID node;
+        juce::String kind;
+        juce::String loadedState; // plugin state the instance was created from
+    };
+    juce::AudioProcessorGraph graph;
+    juce::AudioProcessorGraph::NodeID audioIn, audioOut, midiIn;
+    std::map<juce::String, Block> blocks;
+    std::vector<juce::AudioProcessorGraph::NodeID> linkNodes;
+    chain::Layout currentLayout;
+    juce::StringArray errors;
+    juce::MidiBuffer graphMidi;
+    double preparedRate = 48000.0;
+
     NamProcessor namProcessor;
     NamPedalProcessor namPedalProcessor;
     IRProcessor irProcessor;
-    Vst3Slot preVst3, postVst3;
-    juce::AudioBuffer<float> namDryBuffer, guitarDryBuffer;
-    GuitarSynth* guitarSynth = nullptr;
+    juce::AudioBuffer<float> namDryBuffer;
     nam::effects::EQProcessor eqProcessor;
     nam::effects::GraphicEQProcessor graphicEq;
     nam::effects::LivePitchShifter pitchShifter;
     nam::effects::DriveProcessor driveProcessor;
     nam::effects::CompressorProcessor compressor;
     nam::effects::WahPedalProcessor wahPedal;
-    std::atomic<bool> compressorPreAmp { false };
     nam::effects::AutoWahProcessor autoWahProcessor;
     nam::effects::ChorusProcessor chorusProcessor;
     nam::effects::DelayProcessor delayProcessor;

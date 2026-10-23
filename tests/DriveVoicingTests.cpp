@@ -120,12 +120,12 @@ public:
         expect(restored.has_value()); if (restored) expectEquals(restored->namInputTrimDb,0.f);
 
         beginTest("VST3 states survive preset JSON and A/B without losing plugin identity");
-        state.preVst3State=juce::ValueTree("Vst3Slot");
-        state.preVst3State.setProperty("descriptionXml","BYOD identity",nullptr);
-        state.preVst3State.setProperty("stateBase64","opaque plugin state",nullptr);
-        state.postVst3State=juce::ValueTree("Vst3Slot");
-        state.postVst3State.setProperty("descriptionXml","Supermassive identity",nullptr);
-        state.postVst3State.setProperty("bypassed",true,nullptr);
+        juce::ValueTree byod("Vst3Slot"), supermassive("Vst3Slot");
+        byod.setProperty("descriptionXml","BYOD identity",nullptr);
+        byod.setProperty("stateBase64","opaque plugin state",nullptr);
+        supermassive.setProperty("descriptionXml","Supermassive identity",nullptr);
+        state.layout.add({ "vst3-byod", "vst3", "BYOD", byod, false, 0 }, 2);
+        state.layout.add({ "vst3-sm", "vst3", "Supermassive", supermassive, true, 0 }, -1);
         const auto json=PresetManager::valueTreeToJson(state.toValueTree());
         const auto decoded=PresetManager::valueTreeFromJson(json);
         expect(decoded.has_value());
@@ -133,12 +133,12 @@ public:
         {
             restored=SoundState::fromValueTree(*decoded);
             expect(restored.has_value());
-            if (restored) { expect(restored->preVst3State.isEquivalentTo(state.preVst3State)); expect(restored->postVst3State.isEquivalentTo(state.postVst3State)); }
+            if (restored) expect(restored->layout == state.layout);
         }
         ABState ab; ab.a=state; ab.b=SoundState{};
         const auto recovered=ABState::fromValueTree(ab.toValueTree());
         expect(recovered.has_value());
-        if (recovered) { expect(recovered->a.preVst3State.isEquivalentTo(state.preVst3State)); expect(!recovered->b.preVst3State.isValid()); }
+        if (recovered) { expect(recovered->a.layout == state.layout); expect(recovered->b.layout == chain::Layout::standard()); }
     }
 };
 DriveVoicingTests driveVoicingTests;

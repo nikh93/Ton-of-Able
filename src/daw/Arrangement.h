@@ -46,6 +46,9 @@ struct TrackProcessor
     /** Audio thread: mono input (may be modified) to stereo output. */
     virtual void process(float* mono, float* left, float* right, int numSamples) noexcept = 0;
     [[nodiscard]] virtual int latencySamples() const = 0;
+    /** Message thread: the settings with the current state of hosted plugins
+        (edited in their own windows), or an invalid tree if nothing changed. */
+    [[nodiscard]] virtual juce::ValueTree currentSettings(const juce::ValueTree&) { return {}; }
 };
 
 /** Per-track effect settings, shared by all undo states of a track.

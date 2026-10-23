@@ -18,7 +18,7 @@
 #include "library/CuratedAmpLibrary.h"
 #include "library/RigLibrary.h"
 #include "library/ModelFolder.h"
-#include "ui/plugins/PluginRackPanel.h"
+#include "ui/plugins/NamPedalPanel.h"
 #include "ui/arrangement/ArrangementView.h"
 #include "ui/arrangement/TrackFxComponent.h"
 #include "ui/effects/PitchShiftComponent.h"
@@ -27,7 +27,6 @@
 #include "daw/ArrangementController.h"
 #include "ui/shortcuts/Shortcuts.h"
 #include "ui/rig/SignalChainStrip.h"
-#include "ui/plugins/GuitarSynthPanel.h"
 
 class MainComponent final : public juce::Component, public juce::FileDragAndDropTarget, public juce::ApplicationCommandTarget,
                             private juce::Timer, private juce::ChangeListener
@@ -91,8 +90,13 @@ private:
     void showGraphicEq(juce::Rectangle<int> anchor);
     void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
     void showPitchShifter(juce::Rectangle<int> anchor);
-    void showPluginRack();
-    void showGuitarSynth();
+    void showPedal();
+    /** Applies an edited signal chain to the live rig. */
+    void applyLayout(const chain::Layout&);
+    [[nodiscard]] nam::ui::SignalChainStrip::Block describeBlock(const chain::Node&);
+    void openPluginEditor(const juce::String& blockId);
+    /** Closes plugin windows of blocks that are gone (or all). */
+    void closePluginEditors(bool all);
     // The signal chain strip: blocks in processing order, LED = on/off, click = editor.
     void updateChainStrip();
     void toggleChainBlock(const juce::String& id);
@@ -103,7 +107,8 @@ private:
     void addModelFolderItems(juce::PopupMenu&);
     void chooseModelFolder();
     void syncModelFolder();
-    void scanDrumInstruments(std::function<void()> done);
+    /** Scans all VST3 plugins (each in a child process) into the catalog. */
+    void scanPlugins(std::function<void()> done);
     void openInstrumentEditor(const juce::Uuid& trackId);
     juce::Result setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description);
     [[nodiscard]] nam::ui::TrackFxComponent::Sources trackFxSources();
@@ -120,23 +125,22 @@ private:
     juce::File modelFolderRoot;
     std::shared_ptr<juce::FileChooser> modelChooser;
     juce::Array<juce::PluginDescription> drumInstruments;
-    juce::Array<juce::PluginDescription> vst3Catalog; // every scanned VST3 (guitar synth)
-    std::unique_ptr<juce::DocumentWindow> guitarSynthWindow;
-    nam::ui::GuitarSynthPanel* guitarSynthPanel = nullptr;
+    juce::Array<juce::PluginDescription> vst3Catalog; // every scanned VST3 plugin
+    std::map<juce::String, std::unique_ptr<juce::DocumentWindow>> pluginEditors; // by chain block
     juce::ThreadPool instrumentScanPool { juce::ThreadPoolOptions {}.withThreadName("Instrument scan").withNumberOfThreads(1) };
     bool scanningInstruments = false;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> instrumentEditors;
     bool arrangementVisible = false;
     View view = View::rig;
     nam::ui::SignalChainStrip chainStrip;
+    juce::Viewport chainViewport;
     juce::TextButton tabRig { "RIG" }, tabArrangement { "ARRANGEMENT" }, tabLibrary { "BIBLIOTHEK" };
-    PluginRackPanel pluginRack { audioEngine };
-    std::unique_ptr<juce::DocumentWindow> pluginWindow;
+    NamPedalPanel pedalPanel { audioEngine };
+    std::unique_ptr<juce::DocumentWindow> pedalWindow;
     juce::ApplicationCommandManager commandManager;
     juce::TimedCallback wahMouseTimer { [this] { followMouseWithWah(); } };
     float lastMouseWah = -1.0f;
     std::unique_ptr<juce::DocumentWindow> shortcutWindow; // after commandManager: it edits its key mappings
-    juce::TextButton pluginsButton { "Pedale / VST3" };
     NamLibrary namLibrary;
     IRLibrary irLibrary;
     PresetManager presetManager;

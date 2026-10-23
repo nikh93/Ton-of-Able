@@ -62,28 +62,6 @@ std::shared_ptr<PluginInstrument> PluginInstrument::fromSettings(const juce::Val
     return instrument;
 }
 
-juce::Array<juce::PluginDescription> PluginInstrument::scanFile(const juce::File& file)
-{
-    juce::Array<juce::PluginDescription> result;
-   #if JUCE_PLUGINHOST_VST3
-    if (! file.exists() || ! file.hasFileExtension("vst3"))
-        return result;
-    try
-    {
-        juce::VST3PluginFormat format;
-        juce::OwnedArray<juce::PluginDescription> descriptions;
-        format.findAllTypesForFile(descriptions, file.getFullPathName());
-        for (const auto* description : descriptions)
-            if (description->isInstrument)
-                result.add(*description);
-    }
-    catch (...) {}
-   #else
-    juce::ignoreUnused(file);
-   #endif
-    return result;
-}
-
 void PluginInstrument::prepare(double sampleRate, int maximumBlockSize)
 {
     const juce::ScopedLock scoped(lock);

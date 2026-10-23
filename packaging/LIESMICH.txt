@@ -34,18 +34,23 @@ Bedienung
 - Im Rig zeigt die Signalkette alle Bloecke in Verarbeitungsreihenfolge
   (Pitch, Wah, Drive, VST3, NAM-Pedal, Amp, Box/IR, EQ, Effekte).
   Klick auf den Punkt: an/aus. Klick auf den Block: bearbeiten.
+  Ziehen: umsortieren. Rechtsklick: verbinden.
 
-Gitarre -> MIDI -> Synth
-------------------------
-- Block SYNTH in der Signalkette anklicken.
-- 1. Erkennung: ein VST3, das aus der Gitarre MIDI macht (z. B. TONIQ,
-  MIDI Guitar, Transkr, MiGiC). 2. Synth: ein Instrument-VST3 (z. B. Vital).
-- "VST3-Plugins suchen" findet die Plugins in den Standardordnern
-  (C:\Program Files\Common Files\VST3).
-- Pegel fuer Synth und Gitarre (Gitarre ganz links = nur Synth), Transponieren.
-- MIDI-Keyboards spielen mit. Programme ohne VST3 koennen ueber einen
-  virtuellen MIDI-Port (z. B. loopMIDI) senden.
+Signalkette bearbeiten
+----------------------
+- Bloecke in der Signalkette per Ziehen umsortieren.
+- "+" fuegt VST3-Effekte, Instrumente (z. B. Vital), Audio->MIDI-Plugins
+  (z. B. TONIQ, MIDI Guitar) oder "MIDI transponieren" ein - in die Kette
+  oder daneben (untere Reihe).
+- Rechtsklick auf einen Block: Audio oder MIDI an andere Bloecke senden,
+  Pegel der Verbindungen, verschieben, entfernen.
+- Beispiel Gitarre -> Synth: TONIQ neben die Kette (hoert die Gitarre),
+  Vital einfuegen (geht in den Ausgang), Rechtsklick auf TONIQ ->
+  "MIDI senden an" -> Vital. Nur Synth: Rechtsklick auf OUT -> Pegel aus.
+- "VST3-Plugins suchen" durchsucht C:\Program Files\Common Files\VST3.
+- MIDI-Keyboards (KEYS) und virtuelle MIDI-Ports (loopMIDI) spielen mit.
 - Fuer schnelle Erkennung eine kleine Puffergroesse (64-128) einstellen.
+- Die Spur-Effekte im Arrangement haben dieselbe Signalkette.
 
 Arrangement (Mehrspur)
 ----------------------

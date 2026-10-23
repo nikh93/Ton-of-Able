@@ -23,7 +23,10 @@ inline int runDrumInstrumentChecks(juce::File pluginPath, juce::File reportPath)
         failures += ok ? 0 : 1;
     };
 
-    const auto descriptions = PluginInstrument::scanFile(pluginPath);
+    juce::Array<juce::PluginDescription> descriptions;
+    for (const auto& description : Vst3Slot::scanFile(pluginPath))
+        if (description.isInstrument)
+            descriptions.add(description);
     check("scan finds an instrument", ! descriptions.isEmpty(), juce::String(descriptions.size()));
     if (descriptions.isEmpty())
     {

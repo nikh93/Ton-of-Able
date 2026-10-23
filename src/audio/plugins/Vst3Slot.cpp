@@ -100,17 +100,23 @@ void Vst3Slot::handleAsyncUpdate()
 
 juce::Result Vst3Slot::configureBuses(juce::AudioPluginInstance& p)
 {
-    if (p.isMidiEffect() || p.producesMidi() || p.getBusCount(true) < 1 || p.getBusCount(false) < 1)
-        return juce::Result::fail("Requires an audio effect with main input/output and no MIDI output");
-    // Prefer stereo, then mono-to-stereo, then mono, then stereo-to-mono.
-    // Effects accepting MIDI control remain usable with an empty MIDI input.
-    for (const auto channels : { std::pair{2, 2}, std::pair{1, 2}, std::pair{1, 1}, std::pair{2, 1} })
+    const auto hasInput = p.getBusCount(true) > 0, hasOutput = p.getBusCount(false) > 0;
+    if (! hasInput && ! hasOutput)
+        return juce::Result::ok(); // pure MIDI effect
+    // Prefer stereo, then mono-to-stereo, then mono, then stereo-to-mono;
+    // instruments have no input, MIDI trackers may have no output.
+    for (const auto channels : { std::pair{2, 2}, std::pair{1, 2}, std::pair{1, 1}, std::pair{2, 1},
+                                 std::pair{0, 2}, std::pair{0, 1}, std::pair{2, 0}, std::pair{1, 0} })
     {
+        if ((channels.first > 0) != hasInput || (channels.second > 0) != hasOutput)
+            continue;
         auto layout = p.getBusesLayout();
         for (auto& bus : layout.inputBuses) bus = juce::AudioChannelSet::disabled();
         for (auto& bus : layout.outputBuses) bus = juce::AudioChannelSet::disabled();
-        layout.inputBuses.getReference(0) = juce::AudioChannelSet::canonicalChannelSet(channels.first);
-        layout.outputBuses.getReference(0) = juce::AudioChannelSet::canonicalChannelSet(channels.second);
+        if (hasInput)
+            layout.inputBuses.getReference(0) = juce::AudioChannelSet::canonicalChannelSet(channels.first);
+        if (hasOutput)
+            layout.outputBuses.getReference(0) = juce::AudioChannelSet::canonicalChannelSet(channels.second);
         if (p.checkBusesLayoutSupported(layout) && p.setBusesLayout(layout)
             && p.getTotalNumInputChannels() == channels.first
             && p.getTotalNumOutputChannels() == channels.second)
@@ -124,8 +130,8 @@ juce::Result Vst3Slot::install(const juce::PluginDescription& desc,
 {
     if (!onMessageThread())
         return juce::Result::fail("VST3 loading requires the message thread");
-    if (desc.pluginFormatName != "VST3" || desc.isInstrument)
-        return juce::Result::fail("Only VST3 audio effects are supported");
+    if (desc.pluginFormatName != "VST3")
+        return juce::Result::fail("Only VST3 plugins are supported");
     if (!juce::File::isAbsolutePath(desc.fileOrIdentifier)
         || !juce::File(desc.fileOrIdentifier).exists()) // .vst3 may be a directory.
         return juce::Result::fail("VST3 missing: " + desc.fileOrIdentifier);
@@ -224,18 +230,22 @@ juce::AudioPluginInstance* Vst3Slot::instance()
     return plugin.get();
 }
 
-void Vst3Slot::process(juce::AudioBuffer<float>& audio) noexcept
+void Vst3Slot::process(juce::AudioBuffer<float>& audio, juce::MidiBuffer* notes) noexcept
 {
+    auto& events = notes != nullptr ? *notes : midi;
+    if (notes == nullptr)
+        midi.clear();
+    const auto dropMidi = [&events] { events.clear(); };
     const juce::ScopedTryLock lock(mutex);
-    if (!lock.isLocked()) return; // Emergency immediate dry; no UI/load waiting.
+    if (!lock.isLocked()) return dropMidi(); // Emergency immediate dry; no UI/load waiting.
     const int count = audio.getNumSamples(), channels = audio.getNumChannels();
     if (!prepared || faulted || !plugin || count <= 0 || count > maximumBlockSize
-        || (channels != 1 && channels != 2)) return;
+        || (channels != 1 && channels != 2)) return dropMidi();
     const juce::ScopedTryLock pluginLock(plugin->getCallbackLock());
-    if (!pluginLock.isLocked()) return;
+    if (!pluginLock.isLocked()) return dropMidi();
     const int ins = plugin->getTotalNumInputChannels(), outs = plugin->getTotalNumOutputChannels();
     const int latency = plugin->getLatencySamples();
-    if (ins < 1 || ins > 2 || outs < 1 || outs > 2 || latency < 0 || latency > maximumLatency)
+    if (ins < 0 || ins > 2 || outs < 0 || outs > 2 || latency < 0 || latency > maximumLatency)
     {
         faulted = true;
         reportedLatency.store(0, std::memory_order_relaxed);
@@ -253,25 +263,29 @@ void Vst3Slot::process(juce::AudioBuffer<float>& audio) noexcept
     const auto* inRight = audio.getReadPointer(channels == 2 ? 1 : 0);
     for (int i = 0; i < count; ++i)
     {
-        left[i] = ins == 1 ? 0.5f * inLeft[i] + 0.5f * inRight[i] : inLeft[i];
+        // Instruments (no input) start from silence.
+        left[i] = ins == 0 ? 0.0f : ins == 1 ? 0.5f * inLeft[i] + 0.5f * inRight[i] : inLeft[i];
         right[i] = ins == 2 ? inRight[i] : 0.0f;
     }
     // External-data views with <=2 channels use JUCE's inline channel pointer
     // storage. Never resize owned buffers or allocate on this path.
     float* pointers[] { left, right };
-    juce::AudioBuffer<float> block(pointers, std::max(ins, outs), count);
-    midi.clear();
+    juce::AudioBuffer<float> block(pointers, std::max({ ins, outs, 1 }), count);
     try
     {
         // Run wet even when bypassed so tails and latency stay continuous.
-        plugin->processBlock(block, midi);
+        plugin->processBlock(block, events);
     }
     catch (...)
     {
         faulted = true;
         reportedLatency.store(0, std::memory_order_relaxed);
-        return; // Original caller buffer is still intact.
+        return dropMidi(); // Original caller buffer is still intact.
     }
+    if (isBypassed() || ! plugin->producesMidi())
+        dropMidi();
+    if (outs == 0)
+        return; // a listener (e.g. guitar-to-MIDI): the audio passes unchanged
     for (int i = 0; i < count; ++i)
         if (!std::isfinite(left[i]) || (outs == 2 && !std::isfinite(right[i])))
         {
@@ -358,7 +372,9 @@ juce::Result Vst3Slot::restoreState(const juce::ValueTree& tree)
     if (xml == nullptr || !desc.loadFromXml(*xml) || !tree.hasProperty("stateBase64"))
         return juce::Result::fail("Invalid plugin description/state");
     juce::MemoryBlock state;
-    if (!state.fromBase64Encoding(tree["stateBase64"].toString())
+    const auto encoded = tree["stateBase64"].toString();
+    // An empty state is a freshly added plugin with its default settings.
+    if ((encoded.isNotEmpty() && !state.fromBase64Encoding(encoded))
         || state.getSize() > static_cast<size_t>(std::numeric_limits<int>::max()))
         return juce::Result::fail("Invalid or oversized plugin state");
     // Failure, including a missing bundle, leaves the old slot untouched.
@@ -377,9 +393,8 @@ juce::Array<juce::PluginDescription> Vst3Slot::scanFile(const juce::File& file)
         juce::OwnedArray<juce::PluginDescription> descriptions;
         format.findAllTypesForFile(descriptions, file.getFullPathName());
         for (const auto* desc : descriptions)
-            if (!desc->isInstrument && desc->numInputChannels > 0 && desc->numOutputChannels > 0)
-                result.add(*desc); // Preserve every class ID in multi-type bundles.
-        // Actual bus negotiation occurs on load; description counts may include
+            result.add(*desc); // Preserve every class ID in multi-type bundles.
+        // Bus negotiation occurs on load; description counts may include
         // optional sidechains and are not enough to reject surround/aux layouts.
     }
     catch (...) {} // Scan failure returns an empty list.

@@ -80,7 +80,7 @@ EffectParameterPanel::EffectParameterPanel()
     compressorPreAmp.setTooltip(juce::String(juce::CharPointer_UTF8("An: wie ein Kompressor-Pedal vor Drive und Amp (mehr Sustain). Aus: nach Amp und Box, wie im Studio.")));
     compressorPreAmp.onClick = [this]
     {
-        currentState.compressorPreAmp = compressorPreAmp.getToggleState();
+        currentState.layout.setCompressorBeforeAmp(compressorPreAmp.getToggleState());
         publish();
     };
     cardContent.addAndMakeVisible(wahDirection);
@@ -336,7 +336,7 @@ void EffectParameterPanel::setState(const SoundState& state, const juce::Notific
     compressorAttack.setValue(state.compressorAttackMs, notification); compressorRelease.setValue(state.compressorReleaseMs, notification);
     compressorKnee.setValue(state.compressorKneeDb, notification); compressorMakeup.setValue(state.compressorMakeupDb, notification);
     compressorMix.setValue(state.compressorMix, notification);
-    compressorPreAmp.setToggleState(state.compressorPreAmp, juce::dontSendNotification);
+    compressorPreAmp.setToggleState(state.layout.compressorBeforeAmp(), juce::dontSendNotification);
     wahPosition.setValue(state.pedalWahPosition, notification); wahHeel.setValue(state.pedalWahHeelHz, notification);
     wahToe.setValue(state.pedalWahToeHz, notification); wahPedalQ.setValue(state.pedalWahQ, notification);
     wahPedalMix.setValue(state.pedalWahMix, notification);
@@ -359,7 +359,7 @@ void EffectParameterPanel::updateCardLabels()
     chorusCard.setButtonText("CHORUS");
     delayCard.setButtonText("DELAY" + dot + juce::String(juce::roundToInt(currentState.delayTimeMs)) + " ms");
     reverbCard.setButtonText("REVERB");
-    compressorCard.setButtonText("KOMPRESSOR" + dot + (currentState.compressorPreAmp ? "vor dem Amp" : "nach dem Amp"));
+    compressorCard.setButtonText("KOMPRESSOR" + dot + (currentState.layout.compressorBeforeAmp() ? "vor dem Amp" : "nach dem Amp"));
     wahPedalCard.setButtonText("WAH-PEDAL" + (currentState.pedalWahMouse ? dot + "Maus" : juce::String()));
     juce::TextButton* cards[numCards] = { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard };
     for (int i = 0; i < numCards; ++i)
@@ -421,7 +421,7 @@ void EffectParameterPanel::applyEffectPreset(int effect, int preset)
         case 5:
             // Gentle levelling, a pedal-style sustainer, a hard funk squash and parallel compression.
             state.compressorBypassed = false;
-            state.compressorPreAmp = p == 1 || p == 2;
+            state.layout.setCompressorBeforeAmp(p == 1 || p == 2);
             state.compressorThresholdDb = std::array<float,4>{ -16.f, -30.f, -36.f, -32.f }[p];
             state.compressorRatio = std::array<float,4>{ 2.5f, 6.f, 12.f, 8.f }[p];
             state.compressorAttackMs = std::array<float,4>{ 15.f, 8.f, 1.f, 3.f }[p];

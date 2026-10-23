@@ -50,6 +50,8 @@ set(DAW_SOURCES
     src/daw/DawText.h
     src/daw/Drums.cpp
     src/daw/Drums.h
+    src/presets/ChainLayout.cpp
+    src/presets/ChainLayout.h
     src/daw/SampleKit.cpp
     src/daw/SampleKit.h
     src/daw/TimeStretcher.cpp
@@ -74,15 +76,11 @@ target_sources(NamTestProgram PRIVATE
     src/audio/IRProcessor.h
     src/audio/RigChain.cpp
     src/audio/RigChain.h
+    src/audio/ChainNodes.h
     src/audio/effects/GraphicEQProcessor.h
-    src/audio/plugins/GuitarSynth.cpp
-    src/audio/plugins/GuitarSynth.h
     src/audio/plugins/PluginInstrument.cpp
     src/audio/plugins/PluginInstrument.h
     src/audio/plugins/Vst3Slot.cpp
-    src/ui/plugins/GuitarSynthPanel.cpp
-    src/ui/plugins/GuitarSynthPanel.h
-    src/ui/plugins/PluginRackPanel.cpp
     src/ui/plugins/NamPedalPanel.cpp
     src/audio/NamPedalProcessor.cpp
     src/audio/effects/DriveProcessor.cpp
@@ -129,6 +127,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/playback/WavFileBrowser.h
     src/daw/ArrangementController.cpp
     src/daw/ArrangementController.h
+    src/ui/rig/ChainBlocks.cpp
+    src/ui/rig/ChainBlocks.h
     src/ui/rig/SignalChainStrip.cpp
     src/ui/rig/SignalChainStrip.h
     src/ui/shortcuts/Shortcuts.cpp
@@ -206,9 +206,8 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/BundledModelTests.cpp
         tests/MixingTests.cpp
         tests/DrumKitTests.cpp
-        tests/GuitarSynthTests.cpp
-        src/audio/plugins/GuitarSynth.cpp
-        src/ui/shortcuts/Shortcuts.cpp
+        tests/ChainLayoutTests.cpp
+            src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}
         ${NAM_CORE_SOURCES}
