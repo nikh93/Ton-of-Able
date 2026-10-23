@@ -56,6 +56,10 @@ Loop einschalten (**Ctrl+L**, Bereich oben im Lineal ziehen) und aufnehmen (**F9
 
 Rig-Spuren nehmen das Live-Rig auf. Ihre eigene Kette wirkt dort zusätzlich als Insert.
 
+**Was wirkt bei der Wiedergabe?** Nur die Kette der Spur selbst. Das Live-Rig (oben im Tab RIG) verarbeitet ausschließlich das, was gerade am Eingang hereinkommt; Aufnahmen laufen nie noch einmal hindurch. Bei einer Rig-Spur ist der Live-Sound schon in der Aufnahme enthalten: Ein Wah, das beim Einspielen aus war, lässt sich danach nicht mehr über das Rig hinzuschalten – auch kein anderer Rig-Effekt. Wer den Sound nachträglich ändern will, nimmt die Gitarre trocken auf (Audio-Spur mit Eingang, Insert) und baut den Sound in der Spurkette, z. B. mit **Live-Rig übernehmen**.
+
+Die Spurkette bearbeitet Clips und das Drum-Instrument einer Drum-Spur gleichermaßen und arbeitet in Stereo: Ausgeschaltete eingebaute Effekte lassen das Stereobild durch, eingeschaltete eingebaute Effekte sind mono, VST3-Plugins stereo. Return-Spuren erhalten so auch das Panorama der sendenden Spuren.
+
 ## Send-Effekte (Return-Spuren A–D)
 
 Statt jeder Spur einen eigenen Hall zu geben, teilen sich mehrere Spuren einen Effekt. Das klingt zusammenhängender und spart Rechenleistung.

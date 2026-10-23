@@ -12,10 +12,22 @@ Die Signalkette oben im Rig (und im Spur-Effekt-Fenster jeder Arrangement-Spur) 
 
 - **Punkt** im Block: an/aus. **Klick** auf den Block: Einstellungen bzw. das Plugin-Fenster.
 - **Ziehen:** Block an eine andere Stelle der Kette schieben. Plugins lassen sich auch in die untere Reihe ziehen.
-- **+** am Ende einer Reihe: VST3-Effekt (auch Audio → MIDI wie TONIQ, MIDI Guitar, Transkr, MiGiC), VST3-Instrument (z. B. Vital) oder **MIDI transponieren** einfügen. Plugins werden mit „VST3-Plugins suchen“ in den Standardordnern gefunden (jedes in einem eigenen Prozess, 30 s Zeitlimit).
+- **+** am Ende einer Reihe: VST3-Effekt (auch Audio → MIDI wie TONIQ, MIDI Guitar, Transkr, MiGiC), VST3-Instrument (z. B. Vital) oder **MIDI transponieren** einfügen. Plugins werden mit „VST3-Plugins suchen“ gefunden (jedes in einem eigenen Prozess, 30 s Zeitlimit); *Plugins verwalten / importieren …* öffnet die Plugin-Verwaltung (siehe unten).
 - **Rechtsklick** auf einen Block: *Audio senden an*, *MIDI senden an*, *Audio empfangen von* (auch „Gitarre (trocken)“), *MIDI empfangen von* (auch „MIDI-Keyboards“), *Verbindungen und Pegel …*, in die Kette / neben die Kette stellen, entfernen. Ein Haken im Menü bedeutet: Verbindung besteht – erneut wählen trennt sie.
 - **Rechtsklick auf OUT:** *Pegel der Kette in den Ausgang* – „aus“ lässt nur die Verbindungen hören (z. B. nur den Synth).
-- Mehrere Verbindungen in denselben Eingang werden addiert. Eingebaute Effekte arbeiten mono (Stereo davor wird zusammengemischt), Plugins und der Ausgang stereo.
+- Mehrere Verbindungen in denselben Eingang werden addiert. Eingeschaltete eingebaute Effekte arbeiten mono (Stereo davor wird zusammengemischt), ausgeschaltete lassen Stereo durch; Plugins und der Ausgang sind stereo.
+
+## Plugins verwalten
+
+„+“ → *Plugins verwalten / importieren …* zeigt alle bekannten VST3-Plugins mit Hersteller, Art und Datei.
+
+- **Plugin-Datei importieren …**: eine oder mehrere `.vst3`-Dateien von beliebigen Orten hinzufügen (eine Datei innerhalb eines VST3-Bundles steht für das ganze Bundle). Sie werden sofort geprüft.
+- **Ordner hinzufügen …**: ein eigener Suchordner (mit Unterordnern), der bei jeder Suche dazukommt. Die Standardordner (Programmordner, `plugins`, `C:\Program Files\Common Files\VST3`, `Dokumente\VST3`) sind immer dabei; eigene Ordner entfernt das ✕.
+- **Alle neu suchen**: prüft alle Ordner und importierten Dateien neu; verschwundene Plugins fallen heraus.
+- **Haken „Menü“**: ausgeblendete Plugins erscheinen nicht mehr im „+“-Menü und bei den Drum-Instrumenten; bestehende Blöcke laufen weiter.
+- **Fehlerhafte Dateien** stehen rot oben in der Liste mit Grund (abgestürzt, hängt beim Laden, kein ladbares Plugin). Rechtsklick: *Erneut prüfen*, *Im Dateimanager zeigen*, *Import entfernen*.
+
+Die Liste, eigene Ordner, Importe und ausgeblendete Plugins werden in den Einstellungen gespeichert.
 
 ## Beispiele
 

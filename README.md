@@ -20,7 +20,8 @@ Ableton-style arrangement. The interface is in German.
   instruments and MIDI tools, and route the audio or MIDI output of any block into any other
   (with levels) — e.g. guitar → audio-to-MIDI VST3 (TONIQ, MIDI Guitar, Transkr, MiGiC) → Vital,
   parallel effects, synth only. MIDI keyboards and virtual MIDI ports play along. Track effect
-  chains in the arrangement use the same editor. Bundled: BYOD, Valhalla Supermassive
+  chains in the arrangement use the same editor. A plugin manager imports single `.vst3` files,
+  adds search folders, hides plugins and lists the ones that failed to load. Bundled: BYOD, Valhalla Supermassive
 - Presets with A/B, complete rigs
 - ASIO first, WASAPI exclusive as fallback; meters, latency and CPU diagnostics
 

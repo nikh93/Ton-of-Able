@@ -117,6 +117,7 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
     };
     chainStrip.plugins = [this] { return sources.plugins ? sources.plugins() : juce::Array<juce::PluginDescription>(); };
     chainStrip.rescanPlugins = [this](std::function<void()> done) { if (sources.rescanPlugins) sources.rescanPlugins(std::move(done)); };
+    chainStrip.managePlugins = [this] { if (sources.managePlugins) sources.managePlugins(); };
     chainViewport.setViewedComponent(&chainStrip, false);
     chainViewport.setScrollBarsShown(false, true);
     chainViewport.setScrollBarThickness(8);

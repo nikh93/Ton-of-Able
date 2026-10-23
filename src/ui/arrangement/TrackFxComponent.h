@@ -33,6 +33,7 @@ public:
         std::function<SoundState()> captureLiveRig;
         std::function<juce::Array<juce::PluginDescription>()> plugins;
         std::function<void(std::function<void()> done)> rescanPlugins;
+        std::function<void()> managePlugins;
     };
 
     TrackFxComponent(daw::ArrangementController&, const juce::Uuid& trackId, Sources);

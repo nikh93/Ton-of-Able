@@ -632,12 +632,18 @@ void SignalChainStrip::showAddMenu(bool side)
     menu.addSubMenu(text("Instrument (z. B. Vital)"), instruments, instruments.getNumItems() > 0);
     menu.addItem(9001, text("MIDI transponieren"));
     menu.addSeparator();
-    menu.addItem(9002, list.isEmpty() ? text("VST3-Plugins suchen … (noch keine gefunden)") : text("VST3-Plugins neu suchen …"));
+    menu.addItem(9002, list.isEmpty() ? text("VST3-Plugins suchen … (noch keine gefunden)") : text("VST3-Plugins neu suchen"));
+    menu.addItem(9003, text("Plugins verwalten / importieren …"), managePlugins != nullptr);
     const juce::Component::SafePointer<SignalChainStrip> self(this);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition(), [self, side, choices](int result)
     {
         if (self == nullptr || result == 0)
             return;
+        if (result == 9003)
+        {
+            self->managePlugins();
+            return;
+        }
         if (result == 9002)
         {
             if (self->rescanPlugins)

@@ -47,7 +47,11 @@ Signalkette bearbeiten
 - Beispiel Gitarre -> Synth: TONIQ neben die Kette (hoert die Gitarre),
   Vital einfuegen (geht in den Ausgang), Rechtsklick auf TONIQ ->
   "MIDI senden an" -> Vital. Nur Synth: Rechtsklick auf OUT -> Pegel aus.
-- "VST3-Plugins suchen" durchsucht C:\Program Files\Common Files\VST3.
+- "VST3-Plugins suchen" durchsucht C:\Program Files\Common Files\VST3,
+  Dokumente\VST3 und den Programmordner.
+- "+" -> "Plugins verwalten / importieren": einzelne .vst3-Dateien
+  importieren, eigene Suchordner hinzufuegen, Plugins im Menue ausblenden,
+  fehlerhafte Plugins mit Grund sehen und erneut pruefen.
 - MIDI-Keyboards (KEYS) und virtuelle MIDI-Ports (loopMIDI) spielen mit.
 - Fuer schnelle Erkennung eine kleine Puffergroesse (64-128) einstellen.
 - Die Spur-Effekte im Arrangement haben dieselbe Signalkette.

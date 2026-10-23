@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(NamTestProgram VERSION 0.2.1 LANGUAGES C CXX)
+project(NamTestProgram VERSION 0.2.2 LANGUAGES C CXX)
 
 # Keep the standalone application portable: embed the MSVC runtime instead of
 # requiring the Visual C++ Redistributable on the target machine. Third-party
@@ -82,6 +82,8 @@ target_sources(NamTestProgram PRIVATE
     src/audio/plugins/PluginInstrument.h
     src/audio/plugins/Vst3Slot.cpp
     src/ui/plugins/NamPedalPanel.cpp
+    src/audio/plugins/PluginCatalog.cpp
+    src/ui/plugins/PluginManagerComponent.cpp
     src/audio/NamPedalProcessor.cpp
     src/audio/effects/DriveProcessor.cpp
     src/audio/effects/DriveProcessor.h
@@ -207,6 +209,7 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/MixingTests.cpp
         tests/DrumKitTests.cpp
         tests/ChainLayoutTests.cpp
+        src/audio/plugins/PluginCatalog.cpp
             src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}

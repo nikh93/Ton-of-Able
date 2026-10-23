@@ -46,6 +46,7 @@ public:
     /** All scanned VST3 plugins, and a rescan that calls back when done. */
     std::function<juce::Array<juce::PluginDescription>()> plugins;
     std::function<void(std::function<void()> done)> rescanPlugins;
+    std::function<void()> managePlugins;
     /** MIDI keyboards exist only in the live rig. */
     bool offerKeyboards = true;
 

@@ -320,6 +320,7 @@ MainComponent::MainComponent()
         }
         else
             audioEngine.appSettings().clearLastPreset();
+    pluginCatalog = PluginCatalog::fromUiState(audioEngine.appSettings().loadUiState());
     if (savedRack.isValid())
     {
         // Settings from before the editable chain: the pedal, the known plugins
@@ -330,8 +331,8 @@ MainComponent::MainComponent()
             if (const auto xml = entry.createXml())
             {
                 juce::PluginDescription description;
-                if (description.loadFromXml(*xml) && vst3Catalog.isEmpty())
-                    vst3Catalog.add(description);
+                if (description.loadFromXml(*xml))
+                    pluginCatalog.plugins.add(description);
             }
         auto layout = currentSound.layout;
         const auto addSlot = [&layout](const juce::ValueTree& state, int position)
@@ -360,8 +361,8 @@ MainComponent::MainComponent()
     startTimerHz(4);
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     setSize(1280, 800);
-    if (vst3Catalog.isEmpty())
-        scanPlugins({});
+    if (pluginCatalog.plugins.isEmpty())
+        scanPlugins({}, {});
 }
 
 MainComponent::~MainComponent()
@@ -372,7 +373,7 @@ MainComponent::~MainComponent()
     commandManager.getKeyMappings()->removeChangeListener(this);
     removeKeyListener(commandManager.getKeyMappings());
     instrumentEditors.clear();
-    instrumentScanPool.removeAllJobs(true, 5000);
+    pluginScanPool.removeAllJobs(true, 5000);
     pedalWindow.reset();
     auto& settings = audioEngine.appSettings();
     auto uiState = settings.loadUiState();
@@ -1143,8 +1144,9 @@ void MainComponent::configureArrangement()
     chainStrip.onOpen = [this](const juce::String& id) { openChainBlock(id); };
     chainStrip.describe = [this](const chain::Node& node) { return describeBlock(node); };
     chainStrip.onLayoutChanged = [this](const chain::Layout& layout) { applyLayout(layout); };
-    chainStrip.plugins = [this] { return vst3Catalog; };
-    chainStrip.rescanPlugins = [this](std::function<void()> done) { scanPlugins(std::move(done)); };
+    chainStrip.plugins = [this] { return pluginCatalog.visible(); };
+    chainStrip.rescanPlugins = [this](std::function<void()> done) { scanPlugins({}, std::move(done)); };
+    chainStrip.managePlugins = [this] { showPluginManager(); };
     chainViewport.setViewedComponent(&chainStrip, false);
     chainViewport.setScrollBarsShown(false, true);
     chainViewport.setScrollBarThickness(8);
@@ -1193,20 +1195,6 @@ void MainComponent::configureArrangement()
         return sound.toValueTree();
     });
 
-    for (const auto& item : audioEngine.appSettings().loadUiState().getChildWithName("vst3Catalog"))
-        if (const auto xml = item.createXml())
-        {
-            juce::PluginDescription description;
-            if (description.loadFromXml(*xml))
-                vst3Catalog.add(description);
-        }
-    for (const auto& item : audioEngine.appSettings().loadUiState().getChildWithName("drumInstruments"))
-        if (const auto xml = item.createXml())
-        {
-            juce::PluginDescription description;
-            if (description.loadFromXml(*xml))
-                drumInstruments.add(description);
-        }
     arrangementController.setInstrumentFactory([this](const juce::ValueTree& settings) -> std::shared_ptr<daw::TrackInstrument>
     {
         if (settings.getProperty("type").toString() == "kit")
@@ -1228,8 +1216,8 @@ void MainComponent::configureArrangement()
     arrangementView.createDrumEditor = [this](const juce::Uuid& trackId, int pattern) -> std::unique_ptr<juce::Component>
     {
         nam::ui::DrumMachineComponent::Host host;
-        host.instruments = [this] { return drumInstruments; };
-        host.rescan = [this](std::function<void()> done) { scanPlugins(std::move(done)); };
+        host.instruments = [this] { return pluginCatalog.instruments(); };
+        host.rescan = [this](std::function<void()> done) { scanPlugins({}, std::move(done)); };
         host.setSource = [this](const juce::Uuid& id, const juce::PluginDescription* description) { return setDrumSource(id, description); };
         host.setKit = [this](const juce::Uuid& id, const juce::String& kitId)
         {
@@ -1544,78 +1532,100 @@ void MainComponent::openInstrumentEditor(const juce::Uuid& trackId)
     instrumentEditors[trackId] = std::move(window);
 }
 
-void MainComponent::scanPlugins(std::function<void()> done)
+void MainComponent::scanPlugins(const juce::StringArray& only, std::function<void()> done)
 {
-    if (scanningInstruments)
+    if (scanningPlugins)
         return;
-    scanningInstruments = true;
+    scanningPlugins = true;
     status.setText(uiText("Suche VST3-Plugins (in separaten Prozessen) …"), juce::dontSendNotification);
-    juce::FileSearchPath paths;
-    const auto appDirectory = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-    for (const auto& directory : { appDirectory, appDirectory.getChildFile("plugins"),
-                                   juce::File("C:/Program Files/Common Files/VST3"),
-                                   juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("VST3"),
-                                   juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".vst3") })
-        if (directory.isDirectory())
-            paths.add(directory);
-    juce::StringArray files;
-   #if JUCE_PLUGINHOST_VST3
-    files = juce::VST3PluginFormat().searchPathsForPlugins(paths, true, false);
-   #endif
+    const auto everything = only.isEmpty();
+    const auto files = everything ? pluginCatalog.filesToScan() : only;
+    if (pluginManager != nullptr)
+        pluginManager->refresh();
     const juce::Component::SafePointer<MainComponent> self(this);
-    instrumentScanPool.addJob([self, files, done]
+    pluginScanPool.addJob([self, files, everything, done]
     {
-        juce::Array<juce::PluginDescription> found;
-        for (const auto& file : files)
-        {
-            // A crashing plugin only takes the scanner process down.
-            const auto report = juce::File::getSpecialLocation(juce::File::tempDirectory).getNonexistentChildFile("ton-instrument-scan", ".xml");
-            juce::ChildProcess child;
-            const juce::StringArray args { juce::File::getSpecialLocation(juce::File::currentExecutableFile).getFullPathName(),
-                                           "--scan-vst3-all", file, report.getFullPathName() };
-            if (child.start(args) && child.waitForProcessToFinish(30000))
-                if (const auto xml = juce::XmlDocument::parse(report))
-                    for (auto* item = xml->getFirstChildElement(); item != nullptr; item = item->getNextElement())
-                    {
-                        juce::PluginDescription description;
-                        if (description.loadFromXml(*item))
-                            found.add(description);
-                    }
-            child.kill();
-            report.deleteFile();
-        }
-        juce::MessageManager::callAsync([self, found, done]
+        auto result = PluginCatalog::scan(files);
+        juce::MessageManager::callAsync([self, files, everything, result = std::move(result), done]
         {
             if (self == nullptr)
                 return;
-            self->scanningInstruments = false;
-            self->vst3Catalog = found;
-            self->drumInstruments.clear();
-            for (const auto& description : found)
-                if (description.isInstrument)
-                    self->drumInstruments.add(description);
-            auto uiState = self->audioEngine.appSettings().loadUiState();
-            if (! uiState.isValid())
-                uiState = juce::ValueTree("uiState");
-            uiState.removeChild(uiState.getChildWithName("drumInstruments"), nullptr);
-            uiState.removeChild(uiState.getChildWithName("vst3Catalog"), nullptr);
-            juce::ValueTree list("drumInstruments"), catalog("vst3Catalog");
-            for (const auto& description : found)
-                if (const auto xml = description.createXml())
-                {
-                    if (description.isInstrument)
-                        list.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
-                    catalog.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
-                }
-            uiState.addChild(list, -1, nullptr);
-            uiState.addChild(catalog, -1, nullptr);
-            self->audioEngine.appSettings().saveUiState(uiState);
-            self->status.setText(juce::String(self->drumInstruments.size()) + uiText(" VST3-Instrument(e), ")
-                                     + juce::String(found.size()) + uiText(" VST3-Plugins insgesamt gefunden."), juce::dontSendNotification);
+            self->scanningPlugins = false;
+            auto& catalog = self->pluginCatalog;
+            if (everything)
+            {
+                // Plugins that are gone leave the catalog with a full scan.
+                catalog.plugins.clear();
+                catalog.failures.clear();
+            }
+            catalog.merge(files, result);
+            self->savePluginCatalog();
+            auto message = juce::String(result.found.size()) + uiText(" VST3-Plugin(s) gefunden");
+            if (! result.failures.empty())
+                message << uiText(", ") << static_cast<int>(result.failures.size()) << uiText(" Datei(en) fehlerhaft – siehe „Plugins verwalten“");
+            self->status.setText(message + ".", juce::dontSendNotification);
+            if (self->pluginManager != nullptr)
+                self->pluginManager->refresh();
             if (done)
                 done();
         });
     });
+}
+
+void MainComponent::savePluginCatalog()
+{
+    auto uiState = audioEngine.appSettings().loadUiState();
+    if (! uiState.isValid())
+        uiState = juce::ValueTree("uiState");
+    for (const auto* old : { "pluginCatalog", "vst3Catalog", "drumInstruments" })
+        uiState.removeChild(uiState.getChildWithName(old), nullptr);
+    uiState.appendChild(pluginCatalog.toValueTree(), nullptr);
+    audioEngine.appSettings().saveUiState(uiState);
+    updateChainStrip();
+}
+
+namespace
+{
+class PluginManagerWindow final : public juce::DocumentWindow
+{
+public:
+    explicit PluginManagerWindow(juce::Component& content)
+        : juce::DocumentWindow(uiText("Plugins verwalten"), Theme::surface(), closeButton)
+    {
+        setUsingNativeTitleBar(true);
+        setContentNonOwned(&content, true);
+        setResizable(true, false);
+        setResizeLimits(640, 380, 1600, 1200);
+        centreWithSize(getWidth(), getHeight());
+    }
+    void closeButtonPressed() override { setVisible(false); }
+    bool keyPressed(const juce::KeyPress& key) override
+    {
+        if (key == juce::KeyPress::escapeKey)
+        {
+            closeButtonPressed();
+            return true;
+        }
+        return DocumentWindow::keyPressed(key);
+    }
+};
+} // namespace
+
+void MainComponent::showPluginManager()
+{
+    if (pluginManager == nullptr)
+    {
+        nam::ui::PluginManagerComponent::Host host;
+        host.catalog = [this]() -> PluginCatalog& { return pluginCatalog; };
+        host.changed = [this] { savePluginCatalog(); };
+        host.scan = [this](const juce::StringArray& files, std::function<void()> done) { scanPlugins(files, std::move(done)); };
+        host.scanning = [this] { return scanningPlugins; };
+        pluginManager = std::make_unique<nam::ui::PluginManagerComponent>(std::move(host));
+        pluginManagerWindow = std::make_unique<PluginManagerWindow>(*pluginManager);
+    }
+    pluginManager->refresh();
+    pluginManagerWindow->setVisible(true);
+    pluginManagerWindow->toFront(true);
 }
 
 void MainComponent::showPitchShifter(juce::Rectangle<int> anchor)
@@ -1673,8 +1683,9 @@ nam::ui::TrackFxComponent::Sources MainComponent::trackFxSources()
         sources.pedals.push_back({ file.getFileNameWithoutExtension(), file.getFullPathName() });
     std::sort(sources.pedals.begin(), sources.pedals.end(), [](const auto& a, const auto& b) { return a.name < b.name; });
     sources.captureLiveRig = [this] { return captureSoundState(); };
-    sources.plugins = [this] { return vst3Catalog; };
-    sources.rescanPlugins = [this](std::function<void()> done) { scanPlugins(std::move(done)); };
+    sources.plugins = [this] { return pluginCatalog.visible(); };
+    sources.rescanPlugins = [this](std::function<void()> done) { scanPlugins({}, std::move(done)); };
+    sources.managePlugins = [this] { showPluginManager(); };
     return sources;
 }
 

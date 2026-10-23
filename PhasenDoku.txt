@@ -111,3 +111,10 @@ Phase 33 abgeschlossen – Loop-Aufnahme mit Takes:
 - Takes sind Positionen in derselben Datei (Clip.takes, activeTake): Wechseln verschiebt nur den Offset, kostet nichts, ist rückgängig machbar und überlebt Teilen, Kopieren, Time-Stretch und Speichern. So entsteht Comping durch Teilen und Wahl pro Teil.
 - Bedienung: Feld „TAKE n/N ▾“ im Clip (Liste zum Anklicken), Clip-Menü „Take wählen“, Tasten ] / [ für nächsten/vorherigen Take der Auswahl (frei belegbar), „Andere Takes verwerfen“.
 - Tests: Zerlegung (volle Runden, kurze/lange letzte Runde, Start vor/im Loop, ohne Wiederholung), Take-Wahl, Comping nach dem Teilen, Speichern, Verwerfen und lückenloses Schreiben der Engine über Loop-Sprünge.
+
+Phase 34 abgeschlossen – Plugin-Verwaltung, Send-/Insert-Ketten geprüft:
+- Plugin-Verwaltung („+“ → „Plugins verwalten / importieren …“): alle VST3-Plugins mit Hersteller, Art und Datei; einzelne .vst3-Dateien von beliebigen Orten importieren (ersetzt das verlorene „VST3 importieren“), eigene Suchordner, „Alle neu suchen“, Plugins im Menü ausblenden, fehlerhafte Dateien mit Grund (abgestürzt, Zeitüberschreitung, kein ladbares Plugin) erneut prüfen oder entfernen.
+- PluginCatalog bündelt Suchorte, Scan in Kindprozessen, Zusammenführen pro Datei und Speichern; MainComponent hatte dafür vorher eigenen Code mit zwei Listen (Katalog + Drum-Instrumente). Alte Einstellungen werden übernommen.
+- Fehler in den Spur- und Send-Ketten behoben: Das Instrument einer Drum-Spur lief an der Spurkette vorbei (live und beim Export). Wiedergabe und Return-Spuren wurden vor der Kette auf Mono zusammengemischt, Panorama und Stereo-Hall der Sends gingen verloren; jetzt läuft die Kette stereo, ausgeschaltete eingebaute Effekte lassen die Seiteninformation durch (weich überblendet).
+- Geprüft und in Ordnung: Sends post-Fader, Mute/Solo, Solo-Sicherheit der Returns, Rampen, Export und Stems.
+- Tests: Katalog (Zusammenführen, Ausblenden, Speichern, Altformat, Ordner/Import entfernen, Bundle-Pfad), Drum-Instrument durch die Spurkette, Stereo durch ausgeschaltete Blöcke.

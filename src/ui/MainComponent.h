@@ -19,6 +19,8 @@
 #include "library/RigLibrary.h"
 #include "library/ModelFolder.h"
 #include "ui/plugins/NamPedalPanel.h"
+#include "ui/plugins/PluginManagerComponent.h"
+#include "audio/plugins/PluginCatalog.h"
 #include "ui/arrangement/ArrangementView.h"
 #include "ui/arrangement/TrackFxComponent.h"
 #include "ui/effects/PitchShiftComponent.h"
@@ -107,8 +109,10 @@ private:
     void addModelFolderItems(juce::PopupMenu&);
     void chooseModelFolder();
     void syncModelFolder();
-    /** Scans all VST3 plugins (each in a child process) into the catalog. */
-    void scanPlugins(std::function<void()> done);
+    /** Scans plugin files (each in a child process) into the catalog; no files: everything. */
+    void scanPlugins(const juce::StringArray& files, std::function<void()> done);
+    void savePluginCatalog();
+    void showPluginManager();
     void openInstrumentEditor(const juce::Uuid& trackId);
     juce::Result setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description);
     [[nodiscard]] nam::ui::TrackFxComponent::Sources trackFxSources();
@@ -124,11 +128,12 @@ private:
     juce::TextButton pitchButton { "PITCH" };
     juce::File modelFolderRoot;
     std::shared_ptr<juce::FileChooser> modelChooser;
-    juce::Array<juce::PluginDescription> drumInstruments;
-    juce::Array<juce::PluginDescription> vst3Catalog; // every scanned VST3 plugin
+    PluginCatalog pluginCatalog;
+    std::unique_ptr<nam::ui::PluginManagerComponent> pluginManager;
+    std::unique_ptr<juce::DocumentWindow> pluginManagerWindow;
     std::map<juce::String, std::unique_ptr<juce::DocumentWindow>> pluginEditors; // by chain block
-    juce::ThreadPool instrumentScanPool { juce::ThreadPoolOptions {}.withThreadName("Instrument scan").withNumberOfThreads(1) };
-    bool scanningInstruments = false;
+    juce::ThreadPool pluginScanPool { juce::ThreadPoolOptions {}.withThreadName("Plugin scan").withNumberOfThreads(1) };
+    bool scanningPlugins = false;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> instrumentEditors;
     bool arrangementVisible = false;
     View view = View::rig;

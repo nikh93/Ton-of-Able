@@ -1,6 +1,7 @@
 #include <juce_core/juce_core.h>
 
 #include "audio/ChainNodes.h"
+#include "audio/plugins/PluginCatalog.h"
 #include "presets/PresetManager.h"
 
 namespace
@@ -119,6 +120,59 @@ public:
             // Switched on: the mono effect feeds both sides.
             expectWithinAbsoluteError(audio.getSample(0, 511), 0.125f, 1.0e-5f);
             expectWithinAbsoluteError(audio.getSample(1, 511), 0.125f, 1.0e-5f);
+        }
+
+        beginTest("Plugin catalog: scans merge per file, hidden plugins stay out of the menus");
+        {
+            const auto plugin = [](const juce::String& name, const juce::String& file, bool instrument)
+            {
+                juce::PluginDescription description;
+                description.name = name;
+                description.pluginFormatName = "VST3";
+                description.fileOrIdentifier = file;
+                description.uniqueId = name.hashCode();
+                description.isInstrument = instrument;
+                return description;
+            };
+            PluginCatalog catalog;
+            catalog.merge({ "/a/Vital.vst3", "/a/Toniq.vst3", "/a/Broken.vst3" },
+                          { { plugin("Vital", "/a/Vital.vst3", true), plugin("TONIQ", "/a/Toniq.vst3", false) },
+                            { { "/a/Broken.vst3", "crash" } } });
+            expectEquals(catalog.plugins.size(), 2);
+            expectEquals(static_cast<int>(catalog.failures.size()), 1);
+            expectEquals(catalog.instruments().size(), 1);
+            // Rescanning one file replaces only its entries.
+            catalog.merge({ "/a/Broken.vst3" }, { { plugin("Fixed", "/a/Broken.vst3", false) }, {} });
+            expectEquals(catalog.plugins.size(), 3);
+            expect(catalog.failures.empty());
+            catalog.setHidden(catalog.plugins[0], true);
+            expectEquals(catalog.visible().size(), 2);
+            catalog.files.add("/b/Imported.vst3");
+            catalog.folders.add("/a");
+            catalog.merge({ "/b/Imported.vst3" }, { { plugin("Imported", "/b/Imported.vst3", false) }, {} });
+
+            juce::ValueTree uiState("uiState");
+            uiState.appendChild(catalog.toValueTree(), nullptr);
+            auto loaded = PluginCatalog::fromUiState(uiState);
+            expectEquals(loaded.plugins.size(), 4);
+            expectEquals(loaded.visible().size(), 3);
+            expect(loaded.files.contains("/b/Imported.vst3") && loaded.folders.contains("/a"));
+            loaded.removeFolder("/a");
+            expectEquals(loaded.plugins.size(), 1); // only the imported file is left
+            loaded.removeFile("/b/Imported.vst3");
+            expect(loaded.plugins.isEmpty() && loaded.files.isEmpty());
+
+            // The plain list of earlier versions is read too.
+            juce::ValueTree old("uiState"), list("vst3Catalog");
+            list.appendChild(juce::ValueTree::fromXml(*plugin("Vital", "/a/Vital.vst3", true).createXml()), nullptr);
+            old.appendChild(list, nullptr);
+            expectEquals(PluginCatalog::fromUiState(old).plugins.size(), 1);
+
+            const auto bundle = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("catalog-test/Synth.vst3");
+            const auto inner = bundle.getChildFile("Contents/x86_64-win/Synth.vst3");
+            expect(inner.create().wasOk());
+            expectEquals(PluginCatalog::bundleOf(inner).getFullPathName(), bundle.getFullPathName());
+            bundle.getParentDirectory().deleteRecursively();
         }
 
         beginTest("Sounds saved with the fixed chain become a layout");
