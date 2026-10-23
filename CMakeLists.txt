@@ -50,6 +50,8 @@ set(DAW_SOURCES
     src/daw/DawText.h
     src/daw/Drums.cpp
     src/daw/Drums.h
+    src/daw/SampleKit.cpp
+    src/daw/SampleKit.h
     src/daw/TimeStretcher.cpp
     src/daw/TimeStretcher.h
 )
@@ -199,6 +201,7 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/ArrangementTests.cpp
         tests/BundledModelTests.cpp
         tests/MixingTests.cpp
+        tests/DrumKitTests.cpp
         src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}

@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "daw/DawText.h"
+#include "daw/SampleKit.h"
 #include "ui/components/AmberTheme.h"
 
 namespace nam::ui
@@ -13,6 +14,7 @@ using Theme = AmberTheme;
 using daw::text;
 constexpr int builtInId = 1;
 constexpr int rescanId = 2;
+constexpr int firstKitId = 10;
 constexpr int firstPluginId = 100;
 constexpr int laneWidth = 120;
 } // namespace
@@ -47,7 +49,9 @@ DrumMachineComponent::DrumMachineComponent(daw::ArrangementController& c, const 
         if (! host.setSource)
             return;
         if (choice == builtInId)
-            result = host.setSource(trackId, nullptr);
+            result = host.setKit ? host.setKit(trackId, {}) : host.setSource(trackId, nullptr);
+        else if (const auto& kits = daw::SampleKit::bundledKits(); juce::isPositiveAndBelow(choice - firstKitId, static_cast<int>(kits.size())) && host.setKit)
+            result = host.setKit(trackId, kits[static_cast<size_t>(choice - firstKitId)].id);
         else if (juce::isPositiveAndBelow(choice - firstPluginId, instrumentList.size()))
             result = host.setSource(trackId, &instrumentList.getReference(choice - firstPluginId));
         if (result.failed())
@@ -157,7 +161,12 @@ void DrumMachineComponent::refreshSources()
 {
     instrumentList = host.instruments ? host.instruments() : juce::Array<juce::PluginDescription>();
     source.clear(juce::dontSendNotification);
-    source.addItem(text("Internes Synth-Kit"), builtInId);
+    source.addSectionHeading(text("Eingebaute Kits"));
+    const auto& kits = daw::SampleKit::bundledKits();
+    for (size_t index = 0; index < kits.size(); ++index)
+        source.addItem(text("Akustik: ") + text(kits[index].name), firstKitId + static_cast<int>(index));
+    source.addItem(text("Synth-Kit (elektronisch, 808/909)"), builtInId);
+    source.addSectionHeading(text("VST3-Instrumente"));
     for (int index = 0; index < instrumentList.size(); ++index)
         source.addItem("VST3: " + instrumentList[index].name, firstPluginId + index);
     source.addSeparator();
@@ -167,6 +176,11 @@ void DrumMachineComponent::refreshSources()
     const auto settings = t != nullptr ? t->instrument->settings : juce::ValueTree();
     const auto isPlugin = settings.getProperty("type").toString() == "vst3";
     source.setSelectedId(builtInId, juce::dontSendNotification);
+    const auto isKit = settings.getProperty("type").toString() == "kit";
+    if (isKit)
+        for (size_t index = 0; index < kits.size(); ++index)
+            if (settings.getProperty("kit").toString() == kits[index].id)
+                source.setSelectedId(firstKitId + static_cast<int>(index), juce::dontSendNotification);
     if (isPlugin)
     {
         const auto name = settings.getProperty("name").toString();
@@ -182,8 +196,8 @@ void DrumMachineComponent::refreshSources()
     }
     editor.setEnabled(isPlugin);
     info.setText(isPlugin ? text("Gesendet wird General MIDI (Kanal 10) – das Kit wählst du im Plugin-Editor.")
-                          : text("Tipp: Für echte Drum-Samples das freie Open-Source-Plugin JDrummer (GPL-3, VST3) installieren "
-                                 "– github.com/jmantra/jdrummer – und dann hier auswählen."),
+                 : isKit ? text("Echte Drum-Samples mit 5 Anschlagstufen: AVL Drumkits von Glen MacArthur (bandshed.net), CC-BY-SA 3.0.")
+                         : text("Synthetisiertes Kit im 808/909-Stil. Für echte Drums oben ein Akustik-Kit wählen."),
                  juce::dontSendNotification);
 }
 

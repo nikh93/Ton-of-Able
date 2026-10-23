@@ -22,6 +22,8 @@ public:
         /** null description = built-in kit */
         std::function<juce::Result(const juce::Uuid& trackId, const juce::PluginDescription*)> setSource;
         std::function<void(const juce::Uuid& trackId)> openEditor;
+        /** Selects a bundled sample kit; an empty id selects the synthesized kit. */
+        std::function<juce::Result(const juce::Uuid& trackId, const juce::String& kitId)> setKit;
     };
 
     DrumMachineComponent(daw::ArrangementController&, const juce::Uuid& trackId, int pattern, Host);

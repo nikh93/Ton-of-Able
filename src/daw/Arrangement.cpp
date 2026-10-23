@@ -1,4 +1,5 @@
 #include "Arrangement.h"
+#include "SampleKit.h"
 
 #include <algorithm>
 #include <cmath>
@@ -188,6 +189,7 @@ Track makeDrumTrack(const ArrangementState& state, const juce::String& name)
     auto track = makeTrack(state, name);
     track.drums = true;
     track.patterns = defaultDrumPatterns();
+    track.instrument->settings = SampleKit::settingsFor(SampleKit::defaultKitId()); // real drum samples
     return track;
 }
 

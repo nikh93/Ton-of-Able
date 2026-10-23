@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "daw/SampleKit.h"
 
 namespace
 {
@@ -591,6 +592,12 @@ void MainComponent::configureMainControls()
     inputGain.onValueChange = [this](double v) { audioEngine.setInputGainDb((float) v); }; bass.onValueChange = [this](double v) { audioEngine.setBassDb((float) v); }; mid.onValueChange = [this](double v) { audioEngine.setMidDb((float) v); }; treble.onValueChange = [this](double v) { audioEngine.setTrebleDb((float) v); }; outputGain.onValueChange = [this](double v) { audioEngine.setOutputGainDb((float) v); };
 }
 
+juce::File MainComponent::drumKitsDirectory() const
+{
+    // resources/drums next to resources/defaults.
+    return defaultAssetsDirectory().getParentDirectory().getChildFile("drums");
+}
+
 juce::File MainComponent::defaultAssetsDirectory() const
 {
     juce::Array<juce::File> candidates;
@@ -1155,6 +1162,14 @@ void MainComponent::configureArrangement()
         }
     arrangementController.setInstrumentFactory([this](const juce::ValueTree& settings) -> std::shared_ptr<daw::TrackInstrument>
     {
+        if (settings.getProperty("type").toString() == "kit")
+        {
+            juce::String error;
+            if (auto kit = daw::SampleKit::load(drumKitsDirectory(), settings.getProperty("kit").toString(), error))
+                return kit;
+            status.setText(uiText("Drum-Kit nicht verfügbar (") + error + uiText("), internes Synth-Kit wird verwendet."), juce::dontSendNotification);
+            return std::make_shared<daw::DrumSynth>();
+        }
         if (settings.getProperty("type").toString() != "vst3")
             return std::make_shared<daw::DrumSynth>();
         juce::String error;
@@ -1169,6 +1184,11 @@ void MainComponent::configureArrangement()
         host.instruments = [this] { return drumInstruments; };
         host.rescan = [this](std::function<void()> done) { scanDrumInstruments(std::move(done)); };
         host.setSource = [this](const juce::Uuid& id, const juce::PluginDescription* description) { return setDrumSource(id, description); };
+        host.setKit = [this](const juce::Uuid& id, const juce::String& kitId)
+        {
+            instrumentEditors.erase(id);
+            return arrangementController.setDrumInstrument(id, kitId.isEmpty() ? daw::builtInInstrumentSettings() : daw::SampleKit::settingsFor(kitId));
+        };
         host.openEditor = [this](const juce::Uuid& id) { openInstrumentEditor(id); };
         return std::make_unique<nam::ui::DrumMachineComponent>(arrangementController, trackId, pattern, std::move(host));
     };

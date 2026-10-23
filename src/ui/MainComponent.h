@@ -64,6 +64,7 @@ private:
     void configureRigs();
     void loadSelectedRig();
     juce::File defaultAssetsDirectory() const;
+    juce::File drumKitsDirectory() const;
     void registerBundledDefaults();
     void timerCallback() override;
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
