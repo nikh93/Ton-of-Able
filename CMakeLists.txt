@@ -122,6 +122,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/playback/WavFileBrowser.h
     src/daw/ArrangementController.cpp
     src/daw/ArrangementController.h
+    src/ui/rig/SignalChainStrip.cpp
+    src/ui/rig/SignalChainStrip.h
     src/ui/shortcuts/Shortcuts.cpp
     src/ui/shortcuts/Shortcuts.h
     src/ui/arrangement/ArrangementView.cpp

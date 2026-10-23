@@ -125,6 +125,12 @@ void EffectParameterPanel::previewExpanded(int index)
     cardViewport.setViewPosition(0, juce::jmax(0, index) * 92);
 }
 
+void EffectParameterPanel::showCard(int index)
+{
+    previewExpanded(juce::jlimit(0, numCards - 1, index));
+    updateCardLabels();
+}
+
 void EffectParameterPanel::animateTo(int index)
 {
     expandedCard = index;

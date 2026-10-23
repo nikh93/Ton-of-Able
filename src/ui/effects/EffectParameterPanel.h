@@ -26,6 +26,9 @@ class EffectParameterPanel final : public juce::Component, private juce::Timer
 public:
     EffectParameterPanel();
     void previewExpanded(int index);
+    /** Opens one effect card and scrolls it into view (0 Drive, 1 Auto-Wah, 2 Chorus,
+        3 Delay, 4 Reverb, 5 Kompressor, 6 Wah-Pedal). */
+    void showCard(int index);
     ~EffectParameterPanel() override;
 
     void setState(const SoundState& state,

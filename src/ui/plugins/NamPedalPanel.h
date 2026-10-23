@@ -11,6 +11,11 @@ public:
     juce::ValueTree save();
     void restoreSaved(const juce::ValueTree&);
     void addBundledModels(const juce::File&);
+    /** For the signal chain view: a pedal model is selected and switched on. */
+    [[nodiscard]] bool isActive() const { return path.isNotEmpty() && enabled.getToggleState(); }
+    [[nodiscard]] bool hasModel() const { return path.isNotEmpty(); }
+    [[nodiscard]] juce::String modelName() const { return juce::File(path).getFileNameWithoutExtension(); }
+    void setActive(bool active) { enabled.setToggleState(active, juce::dontSendNotification); apply(); }
     void resized() override;
     void paint(juce::Graphics&) override;
 private:

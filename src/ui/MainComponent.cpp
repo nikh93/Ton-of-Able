@@ -128,11 +128,7 @@ MainComponent::MainComponent()
     juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
     addAndMakeVisible(pluginsButton);
     pluginsButton.setTooltip(uiText("NAM-Pedale und zwei VST3-Slots (vor und nach dem Amp)"));
-    pluginsButton.onClick = [this]
-    {
-        if (!pluginWindow) pluginWindow=std::make_unique<RackWindow>(pluginRack);
-        pluginWindow->setVisible(true); pluginWindow->toFront(true);
-    };
+    pluginsButton.onClick = [this] { showPluginRack(); };
     openWav.setButtonText(uiText("Datei öffnen"));
     chooseWavFolder.setButtonText(uiText("Ordner öffnen"));
     record.setButtonText(uiText("● REC"));
@@ -204,6 +200,7 @@ MainComponent::MainComponent()
         delayEnabled.setToggleState(!state.delayBypassed, juce::dontSendNotification);
         reverbEnabled.setToggleState(!state.reverbBypassed, juce::dontSendNotification);
         audioEngine.applyEffectState(currentSound);
+        updateChainStrip();
     };
     addAndMakeVisible(diagnosticsToggle);
     addAndMakeVisible(librariesToggle);
@@ -476,7 +473,7 @@ void MainComponent::timerCallback()
     const bool wav = audioEngine.getSourceMode() == AudioEngine::SourceMode::wav;
     liveMode.setToggleState(!wav, juce::dontSendNotification);
     wavMode.setToggleState(wav, juce::dontSendNotification);
-    wavBrowser.setVisible(wav && ! arrangementVisible);
+    wavBrowser.setVisible(wav && view == View::rig);
     graphicEqButton.setToggleState(! currentSound.graphicEqBypassed, juce::dontSendNotification);
     pitchButton.setToggleState(! currentSound.pitchBypassed, juce::dontSendNotification);
     pitchButton.setButtonText(currentSound.pitchBypassed ? juce::String("PITCH") : "PITCH " + juce::String(currentSound.pitchSemitones > 0 ? "+" : "") + juce::String(currentSound.pitchSemitones, 0));
@@ -489,11 +486,12 @@ void MainComponent::timerCallback()
     latency.setText(latencyMs >= 0.0
         ? uiText("Latenz ") + juce::String(latencyMs, 1) + uiText(" ms · Last ") + juce::String(performance.realtimeLoad * 100.0, 0) + uiText(" % · Aussetzer ") + juce::String(performance.xruns)
         : uiText("Kein Audiogerät aktiv"), juce::dontSendNotification);
+    updateChainStrip();
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     audioSummaryLabel.setColour(juce::Label::textColourId,
                                 audioEngine.deviceManager().getCurrentAudioDevice() == nullptr ? Theme::amber() : Theme::subduedText());
     // LIVE shows a hint instead of the WAV player controls.
-    const auto showWav = wav && ! arrangementVisible;
+    const auto showWav = wav && view == View::rig;
     if (playWav.isVisible() != showWav)
         resized();
 }
@@ -999,7 +997,7 @@ void MainComponent::importModels(const juce::Array<juce::File>& selection, bool 
 
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files)
 {
-    if (arrangementVisible)
+    if (view == View::arrangement)
         return false; // the arrangement takes audio drops itself
     for (const auto& path : files)
         if (juce::File(path).isDirectory() || juce::File(path).hasFileExtension("nam"))
@@ -1062,8 +1060,8 @@ void MainComponent::chooseRecordingTarget()
 std::vector<juce::Component*> MainComponent::rigComponents()
 {
     return { &rigSelector, &loadRigButton, &rigDetailsButton, &rigInfo, &ampSelector, &configurationSelector,
-             &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &namEnabled, &irEnabled,
-             &graphicEqButton, &pitchButton, &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
+             &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &chainStrip,
+             &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
              &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline, &record, &liveHint };
 }
 
@@ -1075,10 +1073,34 @@ void MainComponent::configureArrangement()
     viewToggle.onClick = [this] { setArrangementVisible(! arrangementVisible); };
     addAndMakeVisible(graphicEqButton);
     graphicEqButton.setTooltip(uiText("10-Band Graphic EQ des Live-Rigs"));
-    graphicEqButton.onClick = [this] { showGraphicEq(); };
+    graphicEqButton.onClick = [this] { showGraphicEq(graphicEqButton.getScreenBounds()); };
     addAndMakeVisible(pitchButton);
     pitchButton.setTooltip(uiText("Live-Transponieren mit Rubber Band, z. B. eine Oktave tiefer"));
-    pitchButton.onClick = [this] { showPitchShifter(); };
+    pitchButton.onClick = [this] { showPitchShifter(pitchButton.getScreenBounds()); };
+
+    // Main navigation and the signal chain replace the scattered buttons
+    // (view toggle, libraries checkbox, GRAPHIC EQ, PITCH, NAM/IR, Pedale/VST3).
+    for (auto* tab : { &tabRig, &tabArrangement, &tabLibrary })
+    {
+        tab->setRadioGroupId(4711);
+        tab->setClickingTogglesState(true);
+        tab->setConnectedEdges(tab == &tabRig ? juce::Button::ConnectedOnRight
+                               : tab == &tabLibrary ? juce::Button::ConnectedOnLeft
+                                                    : juce::Button::ConnectedOnLeft | juce::Button::ConnectedOnRight);
+        addAndMakeVisible(*tab);
+    }
+    tabRig.setToggleState(true, juce::dontSendNotification);
+    tabRig.setTooltip(uiText("Live-Rig: Signalkette, Amp, Effekte, Presets (Tab wechselt zum Arrangement)"));
+    tabArrangement.setTooltip(uiText("Mehrspur-Arrangement: aufnehmen, schneiden, mischen (Tab)"));
+    tabLibrary.setTooltip(uiText("NAM- und IR-Bibliothek: importieren, umbenennen, Tags, fehlende Dateien"));
+    tabRig.onClick = [this] { if (tabRig.getToggleState()) setView(View::rig); };
+    tabArrangement.onClick = [this] { if (tabArrangement.getToggleState()) setView(View::arrangement); };
+    tabLibrary.onClick = [this] { if (tabLibrary.getToggleState()) setView(View::library); };
+    for (auto* hidden : std::initializer_list<juce::Component*> { &viewToggle, &librariesToggle, &pluginsButton, &graphicEqButton, &pitchButton, &namEnabled, &irEnabled })
+        hidden->setVisible(false);
+    chainStrip.onToggle = [this](const juce::String& id) { toggleChainBlock(id); };
+    chainStrip.onOpen = [this](const juce::String& id) { openChainBlock(id); };
+    addAndMakeVisible(chainStrip);
 
     arrangementView.onStatus = [this](const juce::String& text) { status.setText(text, juce::dontSendNotification); };
     arrangementView.createTrackFxEditor = [this](const juce::Uuid& trackId) -> std::unique_ptr<juce::Component>
@@ -1151,19 +1173,143 @@ void MainComponent::configureArrangement()
 
     const auto saved = audioEngine.appSettings().loadUiState().getChildWithName("arrangementView");
     arrangementView.restoreState(saved);
-    if (saved.isValid() && static_cast<bool>(saved.getProperty("visible", false)))
-        setArrangementVisible(true);
+    setView(saved.isValid() && static_cast<bool>(saved.getProperty("visible", false)) ? View::arrangement : View::rig);
 }
 
-void MainComponent::setArrangementVisible(bool visible)
+//==============================================================================
+void MainComponent::updateChainStrip()
 {
-    arrangementVisible = visible;
+    using Block = nam::ui::SignalChainStrip::Block;
+    const auto& sound = currentSound;
+    const auto percent = [](float value) { return juce::String(juce::roundToInt(value * 100.0f)) + " %"; };
+    const auto signedSemitones = [](float value) { return (value > 0.0f ? "+" : "") + juce::String(value, 0); };
+    const auto libraryName = [](LibraryManager& library, const juce::String& id)
+    {
+        if (const auto* item = id.isNotEmpty() ? library.find(juce::Uuid(id)) : nullptr)
+            return item->displayName;
+        return juce::String();
+    };
+    std::vector<Block> blocks;
+    const auto add = [&blocks](juce::String id, juce::String label, juce::String detail, bool active, juce::String tip, bool empty = false)
+    {
+        blocks.push_back({ std::move(id), std::move(label), std::move(detail), active, true, empty, std::move(tip) });
+    };
+    const auto compressorBlock = [&]
+    {
+        add("compressor", "KOMP", juce::String(sound.compressorRatio, 1) + ":1 · " + juce::String(sound.compressorThresholdDb, 0) + " dB",
+            ! sound.compressorBypassed, uiText("Kompressor ") + (sound.compressorPreAmp ? uiText("vor dem Amp (Pedal)") : uiText("nach Amp und Box (Studio)")));
+    };
+
+    add("pitch", "PITCH", signedSemitones(sound.pitchSemitones) + uiText(" · ")
+        + (nam::effects::LivePitchShifter::usesAnalogOctave(sound.pitchAnalogOctave, sound.pitchSemitones) ? juce::String("Analog") : sound.pitchHighQuality ? "R3" : "R2"),
+        ! sound.pitchBypassed, uiText("Live-Transponieren (Rubber Band oder Analog-Oktaver)"));
+    if (sound.compressorPreAmp)
+        compressorBlock();
+    add("wah", "WAH", sound.pedalWahMouse ? uiText("Maus · ") + percent(sound.pedalWahPosition) : percent(sound.pedalWahPosition),
+        ! sound.pedalWahBypassed, uiText("Wah-Pedal (Taste W: Maussteuerung)"));
+    const juce::String driveTypes[] { "Crunch", "Overdrive", "Lead", "Fuzz" };
+    add("drive", "DRIVE", driveTypes[juce::jlimit(0, 3, sound.driveType)], ! sound.driveBypassed, uiText("Verzerrer vor dem Amp"));
+    const auto preName = pluginRack.slotName(0);
+    add("vstPre", "VST3 VOR", preName.isNotEmpty() ? preName : uiText("leer"), pluginRack.isSlotActive(0),
+        uiText("VST3-Plugin vor dem Amp"), preName.isEmpty());
+    add("pedal", "NAM-PEDAL", pluginRack.hasPedal() ? pluginRack.pedalName() : uiText("leer"), pluginRack.isPedalActive(),
+        uiText("NAM-Capture eines Pedals vor dem Amp"), ! pluginRack.hasPedal());
+    auto ampName = ampSelector.getSelectedId() > 0 ? ampSelector.getText() : libraryName(namLibrary, sound.namId);
+    if (configurationSelector.getSelectedId() > 0)
+        ampName << uiText(" · ") << configurationSelector.getText();
+    add("amp", "AMP", ampName.isNotEmpty() ? ampName : uiText("kein Modell"), ! sound.namBypassed && ampName.isNotEmpty(),
+        uiText("NAM-Amp (Modell oben im Amp-Bereich wählen)"), ampName.isEmpty());
+    const auto irName = libraryName(irLibrary, sound.irId);
+    add("ir", "BOX / IR", irName.isNotEmpty() ? irName : uiText("kein IR"), ! sound.irBypassed && irName.isNotEmpty(),
+        uiText("Cabinet-Impulsantwort (bei Full-Rig-Modellen aus)"), irName.isEmpty());
+    add("geq", "GRAPHIC EQ", uiText("10 Bänder"), ! sound.graphicEqBypassed, uiText("10-Band-Equalizer nach dem Amp"));
+    if (! sound.compressorPreAmp)
+        compressorBlock();
+    add("autoWah", "AUTO-WAH", juce::String(sound.autoWahMinimumHz, 0) + "–" + juce::String(sound.autoWahMaximumHz, 0) + " Hz",
+        ! sound.autoWahBypassed, uiText("Hüllkurvengesteuertes Wah"));
+    add("chorus", "CHORUS", juce::String(sound.chorusRateHz, 1) + uiText(" Hz · ") + percent(sound.chorusMix), ! sound.chorusBypassed, "Chorus");
+    add("delay", "DELAY", juce::String(sound.delayTimeMs, 0) + uiText(" ms · ") + percent(sound.delayMix), ! sound.delayBypassed, "Delay");
+    add("reverb", "REVERB", juce::String(sound.reverbDecay, 1) + uiText(" s · ") + percent(sound.reverbMix), ! sound.reverbBypassed, "Hall");
+    const auto postName = pluginRack.slotName(1);
+    add("vstPost", "VST3 NACH", postName.isNotEmpty() ? postName : uiText("leer"), pluginRack.isSlotActive(1),
+        uiText("VST3-Plugin nach dem Amp (Stereo)"), postName.isEmpty());
+    chainStrip.setBlocks(std::move(blocks));
+}
+
+void MainComponent::toggleChainBlock(const juce::String& id)
+{
+    auto& sound = currentSound;
+    const auto flip = [&](bool& bypassed)
+    {
+        bypassed = ! bypassed;
+        audioEngine.applyEffectState(sound);
+        effectParameters.setState(sound);
+    };
+    if (id == "pitch")
+    {
+        sound.pitchBypassed = ! sound.pitchBypassed;
+        audioEngine.setPitch(sound.pitchBypassed, sound.pitchSemitones, sound.pitchMix, sound.pitchFormantPreserved, sound.pitchHighQuality, sound.pitchAnalogOctave);
+    }
+    else if (id == "compressor") flip(sound.compressorBypassed);
+    else if (id == "wah") flip(sound.pedalWahBypassed);
+    else if (id == "drive") flip(sound.driveBypassed);
+    else if (id == "autoWah") flip(sound.autoWahBypassed);
+    else if (id == "chorus") flip(sound.chorusBypassed);
+    else if (id == "delay") flip(sound.delayBypassed);
+    else if (id == "reverb") flip(sound.reverbBypassed);
+    else if (id == "geq") applyGraphicEq(! sound.graphicEqBypassed, sound.graphicEqDb);
+    else if (id == "vstPre") pluginRack.setSlotActive(0, ! pluginRack.isSlotActive(0));
+    else if (id == "vstPost") pluginRack.setSlotActive(1, ! pluginRack.isSlotActive(1));
+    else if (id == "pedal") pluginRack.setPedalActive(! pluginRack.isPedalActive());
+    else if (id == "amp")
+    {
+        sound.namBypassed = ! sound.namBypassed;
+        namEnabled.setToggleState(! sound.namBypassed, juce::dontSendNotification);
+        audioEngine.setNamBypassed(sound.namBypassed);
+    }
+    else if (id == "ir")
+    {
+        sound.irBypassed = ! sound.irBypassed;
+        irEnabled.setToggleState(! sound.irBypassed, juce::dontSendNotification);
+        audioEngine.setIrBypassed(sound.irBypassed);
+    }
+    updateChainStrip();
+}
+
+void MainComponent::openChainBlock(const juce::String& id)
+{
+    chainStrip.setSelected(id);
+    const auto anchor = chainStrip.screenBoundsOf(id);
+    // Effect cards in the panel on the right, in card order.
+    const std::pair<const char*, int> cards[] { { "drive", 0 }, { "autoWah", 1 }, { "chorus", 2 }, { "delay", 3 },
+                                                { "reverb", 4 }, { "compressor", 5 }, { "wah", 6 } };
+    for (const auto& [card, index] : cards)
+        if (id == card)
+        {
+            effectParameters.showCard(index);
+            return;
+        }
+    if (id == "pitch") showPitchShifter(anchor);
+    else if (id == "geq") showGraphicEq(anchor);
+    else if (id == "vstPre" || id == "vstPost" || id == "pedal") showPluginRack();
+    else if (id == "amp") ampSelector.showPopup();
+    else if (id == "ir") setView(View::library);
+}
+
+void MainComponent::setView(View next)
+{
+    view = next;
+    arrangementVisible = next == View::arrangement;
+    const auto rig = next == View::rig;
     for (auto* component : rigComponents())
-        component->setVisible(! visible);
-    wavBrowser.setVisible(! visible && audioEngine.getSourceMode() == AudioEngine::SourceMode::wav);
-    arrangementView.setVisible(visible);
-    viewToggle.setButtonText(visible ? "LIVE-RIG" : "ARRANGEMENT");
-    viewToggle.setToggleState(visible, juce::dontSendNotification);
+        component->setVisible(rig);
+    wavBrowser.setVisible(rig && audioEngine.getSourceMode() == AudioEngine::SourceMode::wav);
+    arrangementView.setVisible(next == View::arrangement);
+    namBrowser.setVisible(next == View::library);
+    irBrowser.setVisible(next == View::library);
+    tabRig.setToggleState(rig, juce::dontSendNotification);
+    tabArrangement.setToggleState(next == View::arrangement, juce::dontSendNotification);
+    tabLibrary.setToggleState(next == View::library, juce::dontSendNotification);
     resized();
     repaint();
 }
@@ -1270,7 +1416,7 @@ bool MainComponent::perform(const InvocationInfo& info)
 {
     switch (info.commandID)
     {
-        case nam::ui::commands::toggleView: setArrangementVisible(! arrangementVisible); return true;
+        case nam::ui::commands::toggleView: setView(view == View::rig ? View::arrangement : View::rig); return true;
         case nam::ui::commands::showShortcuts: showShortcuts(); return true;
         case nam::ui::commands::wahMouse: toggleMouseWah(); return true;
         default: return arrangementVisible && arrangementView.performCommand(info.commandID);
@@ -1287,7 +1433,15 @@ void MainComponent::applyGraphicEq(bool bypassed, const std::array<float, 10>& b
     graphicEqButton.setToggleState(! bypassed, juce::dontSendNotification);
 }
 
-void MainComponent::showGraphicEq()
+void MainComponent::showPluginRack()
+{
+    if (! pluginWindow)
+        pluginWindow = std::make_unique<RackWindow>(pluginRack);
+    pluginWindow->setVisible(true);
+    pluginWindow->toFront(true);
+}
+
+void MainComponent::showGraphicEq(juce::Rectangle<int> anchor)
 {
     auto editor = std::make_unique<nam::ui::GraphicEqComponent>();
     editor->setValues(currentSound.graphicEqBypassed, currentSound.graphicEqDb);
@@ -1297,7 +1451,7 @@ void MainComponent::showGraphicEq()
             safe->applyGraphicEq(bypassed, bands);
     };
     editor->setSize(560, 330);
-    juce::CallOutBox::launchAsynchronously(std::move(editor), graphicEqButton.getScreenBounds(), nullptr);
+    juce::CallOutBox::launchAsynchronously(std::move(editor), anchor, nullptr);
 }
 
 juce::Result MainComponent::setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description)
@@ -1401,7 +1555,7 @@ void MainComponent::scanDrumInstruments(std::function<void()> done)
     });
 }
 
-void MainComponent::showPitchShifter()
+void MainComponent::showPitchShifter(juce::Rectangle<int> anchor)
 {
     auto editor = std::make_unique<nam::ui::PitchShiftComponent>();
     editor->setSettings({ currentSound.pitchBypassed, currentSound.pitchSemitones, currentSound.pitchMix,
@@ -1428,7 +1582,7 @@ void MainComponent::showPitchShifter()
         return device != nullptr && device->getCurrentSampleRate() > 0.0
             ? self->audioEngine.pitchLatencySamples() * 1000.0 / device->getCurrentSampleRate() : 0.0;
     };
-    juce::CallOutBox::launchAsynchronously(std::move(editor), pitchButton.getScreenBounds(), nullptr);
+    juce::CallOutBox::launchAsynchronously(std::move(editor), anchor, nullptr);
 }
 
 nam::ui::TrackFxComponent::Sources MainComponent::trackFxSources()
@@ -1580,7 +1734,7 @@ void MainComponent::paint(juce::Graphics& g)
         g.restoreState();
         g.setColour(juce::Colours::white.withAlpha(.15f)); g.drawRoundedRectangle(r.reduced(.5f), 14, 1);
     };
-    if (arrangementVisible)
+    if (view != View::rig)
         return;
     wood(soundPanel, juce::Colour(0xff705139), juce::Colour(0xff38281f));
     wood(transportPanel, juce::Colour(0xff4b3c30), juce::Colour(0xff292722));
@@ -1594,32 +1748,35 @@ void MainComponent::resized()
 {
     auto area = getLocalBounds().withSizeKeepingCentre(juce::jmin(1440, getWidth()), juce::jmin(900, getHeight())).reduced(24);
     auto header = area.removeFromTop(42);
-    title.setBounds(header.removeFromLeft(320));
+    title.setBounds(header.removeFromLeft(220));
+    // Main navigation: RIG | ARRANGEMENT | BIBLIOTHEK.
+    auto tabs = header.removeFromLeft(400).reduced(0, 4);
+    tabRig.setBounds(tabs.removeFromLeft(110));
+    tabArrangement.setBounds(tabs.removeFromLeft(150));
+    tabLibrary.setBounds(tabs.removeFromLeft(130));
     configureAudio.setBounds(header.removeFromRight(114).reduced(0,4));
-    header.removeFromRight(8); pluginsButton.setBounds(header.removeFromRight(112).reduced(0,4));
-    header.removeFromRight(8); viewToggle.setBounds(header.removeFromRight(130).reduced(0,4));
     header.removeFromRight(12); audioSummaryLabel.setBounds(header);
+    audioSummaryLabel.setJustificationType(juce::Justification::centredRight);
+    const auto layoutFooter = [this](juce::Rectangle<int> footer)
+    {
+        diagnosticsToggle.setBounds(footer.removeFromRight(104));
+        latency.setBounds(footer.removeFromRight(330));
+        status.setBounds(footer);
+    };
     const auto placeOverlays = [this]
     {
         if (diagnosticsPanel.isVisible())
             diagnosticsPanel.setBounds(getLocalBounds().reduced(70).removeFromBottom(240));
-        if (librariesToggle.getToggleState())
-        {
-            auto panel = getLocalBounds().reduced(50).withTrimmedTop(80);
-            namBrowser.setBounds(panel.removeFromLeft(panel.getWidth()/2).reduced(4));
-            irBrowser.setBounds(panel.reduced(4));
-        }
     };
-    if (arrangementVisible)
+    if (view != View::rig)
     {
-        // The arrangement uses the full window below the header; the live rig keeps running.
+        // Arrangement and library use the full window below the header; the live rig keeps running.
         auto full = getLocalBounds().reduced(16).withTrimmedTop(area.getY() - 16);
-        auto footer = full.removeFromBottom(28);
-        diagnosticsToggle.setBounds(footer.removeFromRight(104));
-        librariesToggle.setBounds(footer.removeFromRight(126));
-        latency.setBounds(footer.removeFromRight(330));
-        status.setBounds(footer);
-        arrangementView.setBounds(full.withTrimmedBottom(6));
+        layoutFooter(full.removeFromBottom(28));
+        full.removeFromBottom(6);
+        arrangementView.setBounds(full);
+        namBrowser.setBounds(full.removeFromLeft(full.getWidth() / 2).withTrimmedRight(6));
+        irBrowser.setBounds(full.withTrimmedLeft(6));
         soundPanel = transportPanel = {};
         placeOverlays();
         return;
@@ -1629,16 +1786,15 @@ void MainComponent::resized()
     rigRow.removeFromLeft(8); loadRigButton.setBounds(rigRow.removeFromLeft(90));
     rigRow.removeFromLeft(8); rigDetailsButton.setBounds(rigRow.removeFromLeft(65));
     rigRow.removeFromLeft(12); rigInfo.setBounds(rigRow);
-    auto footer = area.removeFromBottom(32);
-    diagnosticsToggle.setBounds(footer.removeFromRight(104));
-    librariesToggle.setBounds(footer.removeFromRight(126));
-    latency.setBounds(footer.removeFromRight(330));
-    status.setBounds(footer);
-    area.removeFromTop(16); area.removeFromBottom(12);
+    layoutFooter(area.removeFromBottom(32));
+    // The signal chain across the full width: the rig's central control surface.
+    area.removeFromTop(8);
+    chainStrip.setBounds(area.removeFromTop(66));
+    area.removeFromTop(14); area.removeFromBottom(12);
     auto right = area.removeFromRight(juce::jlimit(300, 420, area.getWidth()/3));
     area.removeFromRight(18);
     effectParameters.setBounds(right);
-    soundPanel = area.removeFromTop(320);
+    soundPanel = area.removeFromTop(318);
     auto sound = soundPanel.reduced(22);
     sound.removeFromTop(18);
     auto selectors = sound.removeFromTop(38);
@@ -1654,11 +1810,6 @@ void MainComponent::resized()
     inputMeter.setBounds(meters.removeFromLeft(meters.getWidth()/2).withTrimmedRight(10));
     outputMeter.setBounds(meters.withTrimmedLeft(10));
     sound.removeFromTop(8);
-    namEnabled.setBounds(sound.removeFromLeft(66).withHeight(28));
-    irEnabled.setBounds(sound.removeFromLeft(54).withHeight(28));
-    graphicEqButton.setBounds(sound.removeFromLeft(118).withHeight(28));
-    sound.removeFromLeft(6);
-    pitchButton.setBounds(sound.removeFromLeft(70).withHeight(28));
     selectIr.setBounds(sound.removeFromRight(110).withHeight(28)); sound.removeFromRight(6);
     selectNam.setBounds(sound.removeFromRight(126).withHeight(28));
     area.removeFromTop(14);

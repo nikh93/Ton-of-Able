@@ -20,6 +20,19 @@ public:
     juce::ValueTree saveRack();
     void restoreRack(const juce::ValueTree&);
     std::function<void(const juce::String&)> onStatus;
+
+    // For the signal chain view. Slot 0 = before the amp, 1 = after (stereo).
+    [[nodiscard]] juce::String slotName(int index) { return slot(index).name(); }
+    [[nodiscard]] bool isSlotActive(int index) { return slot(index).name().isNotEmpty() && ! slot(index).isBypassed(); }
+    void setSlotActive(int index, bool active)
+    {
+        slot(index).setBypassed(! active);
+        enabled[index].setToggleState(active, juce::dontSendNotification);
+    }
+    [[nodiscard]] bool isPedalActive() const { return pedal.isActive(); }
+    [[nodiscard]] bool hasPedal() const { return pedal.hasModel(); }
+    [[nodiscard]] juce::String pedalName() const { return pedal.modelName(); }
+    void setPedalActive(bool active) { pedal.setActive(active); }
 private:
     void timerCallback() override;
     void choosePlugin();

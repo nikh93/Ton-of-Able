@@ -1,7 +1,7 @@
 # Arrangement (Mehrspur-Aufnahme und -Bearbeitung)
 
 Das Arrangement ist die Mehrspur-Ansicht von Ton of Able, angelehnt an die Arrangement-Ansicht von Ableton Live.
-Umschalten zwischen Live-Rig und Arrangement: Button **ARRANGEMENT / LIVE-RIG** oben rechts oder **Tab**.
+Umschalten über die Reiter **RIG / ARRANGEMENT / BIBLIOTHEK** oben oder **Tab** (Rig ↔ Arrangement).
 Das Live-Rig (NAM, IR, Effekte, VST3) läuft in beiden Ansichten weiter.
 
 ## Spuren und Eingänge

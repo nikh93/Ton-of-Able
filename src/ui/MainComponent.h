@@ -25,6 +25,7 @@
 #include "audio/plugins/PluginInstrument.h"
 #include "daw/ArrangementController.h"
 #include "ui/shortcuts/Shortcuts.h"
+#include "ui/rig/SignalChainStrip.h"
 
 class MainComponent final : public juce::Component, public juce::FileDragAndDropTarget, public juce::ApplicationCommandTarget,
                             private juce::Timer, private juce::ChangeListener
@@ -80,10 +81,18 @@ private:
     void showAudioSettings();
     juce::String audioSummary() const;
     void configureArrangement();
-    void setArrangementVisible(bool visible);
-    void showGraphicEq();
+    /** Main views, chosen with the tabs in the header. */
+    enum class View { rig, arrangement, library };
+    void setView(View);
+    void setArrangementVisible(bool visible) { setView(visible ? View::arrangement : View::rig); }
+    void showGraphicEq(juce::Rectangle<int> anchor);
     void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
-    void showPitchShifter();
+    void showPitchShifter(juce::Rectangle<int> anchor);
+    void showPluginRack();
+    // The signal chain strip: blocks in processing order, LED = on/off, click = editor.
+    void updateChainStrip();
+    void toggleChainBlock(const juce::String& id);
+    void openChainBlock(const juce::String& id);
     [[nodiscard]] ModelFolder modelFolder() const { return ModelFolder(modelFolderRoot); }
     void importModels(const juce::Array<juce::File>& selection, bool nam);
     void showModelImportMenu(bool nam, juce::Component& target);
@@ -111,6 +120,9 @@ private:
     bool scanningInstruments = false;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> instrumentEditors;
     bool arrangementVisible = false;
+    View view = View::rig;
+    nam::ui::SignalChainStrip chainStrip;
+    juce::TextButton tabRig { "RIG" }, tabArrangement { "ARRANGEMENT" }, tabLibrary { "BIBLIOTHEK" };
     PluginRackPanel pluginRack { audioEngine };
     std::unique_ptr<juce::DocumentWindow> pluginWindow;
     juce::ApplicationCommandManager commandManager;

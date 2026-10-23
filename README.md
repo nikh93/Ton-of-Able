@@ -10,6 +10,7 @@ Ableton-style arrangement. The interface is in German.
 ## Features
 
 **Live rig**
+- The whole signal chain as one row of blocks in processing order: LED = on/off, click = edit
 - NAM amps and NAM pedals (`.nam`), cabinet IRs, 3-band amp EQ and 10-band graphic EQ
 - Drive, Auto-Wah, a **wah pedal you play with the mouse** (vertical position = pedal, key W),
   **compressor** (pedal or studio position), Chorus, Delay, Reverb
@@ -51,7 +52,8 @@ The installer is not code-signed: at the SmartScreen warning choose *More info* 
 
 | | |
 | --- | --- |
-| **Tab** | switch between live rig and arrangement |
+| **RIG / ARRANGEMENT / BIBLIOTHEK** | main tabs; **Tab** switches between rig and arrangement |
+| signal chain (rig) | click a block's LED to switch it on/off, the block to edit it |
 | **F1** | all keyboard shortcuts, editable |
 | **Space / F9** | play / record in the arrangement |
 | **W** | wah pedal follows the mouse (up = toe, down = heel) |

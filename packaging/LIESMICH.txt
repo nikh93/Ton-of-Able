@@ -27,6 +27,14 @@ Audio / Latenz
   Dann sind andere Programme (YouTube, Discord ...) stumm, solange die App
   laeuft. Umstellen kannst du das in den Audio-Einstellungen der App.
 
+Bedienung
+---------
+- Oben drei Reiter: RIG (live spielen), ARRANGEMENT (Mehrspur),
+  BIBLIOTHEK (NAM-Modelle und IRs verwalten). Tab wechselt Rig/Arrangement.
+- Im Rig zeigt die Signalkette alle Bloecke in Verarbeitungsreihenfolge
+  (Pitch, Wah, Drive, VST3, NAM-Pedal, Amp, Box/IR, EQ, Effekte).
+  Klick auf den Punkt: an/aus. Klick auf den Block: bearbeiten.
+
 Arrangement (Mehrspur)
 ----------------------
 - Spuren aufnehmen, schneiden, verschieben, kuerzen, Fades, Undo/Redo.

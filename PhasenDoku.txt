@@ -67,3 +67,9 @@ Phase 27 abgeschlossen – UI/UX-Durchgang:
 - Presets neu angeordnet (Auswahl + Laden oben, Speichern/Speichern unter/Umbenennen/Löschen unten), damit die deutschen Beschriftungen passen.
 - Verständliche Meldung statt technischem Fehler, wenn keine Rig-Vorlagen gefunden werden.
 - Arrangement: Hinweis bei leerem Projekt (aufnehmen, Dateien ziehen, Drum-Spur, F1).
+
+Phase 28 abgeschlossen – Neue Bedienstruktur:
+- Kopfzeile mit drei Reitern RIG / ARRANGEMENT / BIBLIOTHEK statt einzelner Umschalt-Buttons; Tab wechselt weiter zwischen Rig und Arrangement, die Ansicht wird gespeichert.
+- Signalkette als zentrale Rig-Bedienung: alle Blöcke in Verarbeitungsreihenfolge (Pitch, Kompressor vor dem Amp, Wah, Drive, VST3 vor, NAM-Pedal, Amp, Box/IR, Graphic EQ, Kompressor danach, Auto-Wah, Chorus, Delay, Reverb, VST3 nach) mit Zustand und aktueller Einstellung. Klick auf die LED schaltet an/aus, Klick auf den Block öffnet den passenden Editor (Effektkarte aufklappen, Pitch/EQ als Call-out am Block, VST3/Pedal-Rack, Amp-Auswahl, Bibliothek). Leere Plätze werden gestrichelt gezeigt.
+- Die Bibliotheken (NAM und IR) haben eine eigene Ansicht nebeneinander in voller Höhe statt eines Overlays.
+- Entfallen, weil die Signalkette sie ersetzt: die Buttons NAM/IR an/aus, GRAPHIC EQ, PITCH, VST3/Pedale, Bibliotheken und Arrangement/Live-Rig.
