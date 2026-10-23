@@ -130,9 +130,7 @@ void runChain(TrackProcessor& processor, float* left, float* right, float* mono,
     for (int done = 0; done < length;)
     {
         const auto count = std::min(block, length - done);
-        for (int sample = 0; sample < count; ++sample)
-            mono[sample] = 0.5f * (left[done + sample] + right[done + sample]);
-        processor.process(mono, left + done, right + done, count);
+        processor.processStereo(left + done, right + done, mono, count);
         done += count;
     }
 }
@@ -484,11 +482,7 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                 juce::FloatVectorOperations::copy(left, returnBuffer.getReadPointer(2 * slot), length);
                 juce::FloatVectorOperations::copy(right, returnBuffer.getReadPointer(2 * slot + 1), length);
                 if (fxOn)
-                {
-                    for (int sample = 0; sample < length; ++sample)
-                        mono[sample] = 0.5f * (left[sample] + right[sample]);
-                    track.processor->process(mono, left, right, length);
-                }
+                    track.processor->processStereo(left, right, mono, length); // stereo sends keep their image
             }
             else
             {
@@ -518,13 +512,6 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                     if (playingNow && ! (recordingNow && track.armed))
                     {
                         renderTrackClips(track, position, length, left, right);
-                        if (fxOn && ! print)
-                        {
-                            // Insert mode: the chain is applied to the recorded audio on playback.
-                            for (int sample = 0; sample < length; ++sample)
-                                mono[sample] = 0.5f * (left[sample] + right[sample]);
-                            track.processor->process(mono, left, right, length);
-                        }
                     }
                     else
                         audible = false;
@@ -551,6 +538,10 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                         juce::FloatVectorOperations::add(right, instrumentRight, length);
                         audible = true;
                     }
+                    // Insert mode: the chain runs on the recorded audio and on the drum
+                    // instrument, in stereo.
+                    if (fxOn && ! print && audible)
+                        track.processor->processStereo(left, right, mono, length);
                     if (recordingNow && track.armed && track.inputChannel < 0)
                         recordTrack(track.id, rigLeft != nullptr ? rigLeft + inputOffset : silence.data(),
                                     rigRight != nullptr ? rigRight + inputOffset : silence.data(), position, length);
@@ -699,8 +690,6 @@ void ArrangementEngine::renderOffline(const Snapshot& snapshot, juce::int64 star
             }
             else
                 renderTrackClips(track, start, numSamples, trackLeft, trackRight);
-            if (chainOn)
-                runChain(*track.processor, trackLeft, trackRight, scratch.getWritePointer(4), numSamples, std::max(1, options.processorBlock));
             if (auto* instrument = options.instruments != nullptr && index < options.instruments->size() ? (*options.instruments)[index] : nullptr;
                 instrument != nullptr && track.drums)
             {
@@ -711,6 +700,9 @@ void ArrangementEngine::renderOffline(const Snapshot& snapshot, juce::int64 star
                 juce::FloatVectorOperations::add(trackLeft, scratch.getReadPointer(2), numSamples);
                 juce::FloatVectorOperations::add(trackRight, scratch.getReadPointer(3), numSamples);
             }
+            // The chain processes clips and drum instrument alike, as in playback.
+            if (chainOn)
+                runChain(*track.processor, trackLeft, trackRight, scratch.getWritePointer(4), numSamples, std::max(1, options.processorBlock));
             juce::FloatVectorOperations::multiply(trackLeft, gainLeft, numSamples);
             juce::FloatVectorOperations::multiply(trackRight, gainRight, numSamples);
             if (toOutput)

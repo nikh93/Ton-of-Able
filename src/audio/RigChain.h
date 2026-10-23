@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <atomic>
 #include <map>
 
@@ -42,6 +44,8 @@ public:
     // daw::TrackProcessor
     void prepare(double sampleRate, int maximumBlockSize) override;
     void process(float* mono, float* left, float* right, int numSamples) noexcept override { processWithInputPeak(mono, left, right, numSamples); }
+    /** Stereo in place: playback inserts and returns keep their image (built-in effects are mono). */
+    void processStereo(float* left, float* right, float* scratch, int numSamples) noexcept override;
     [[nodiscard]] int latencySamples() const override;
     [[nodiscard]] juce::ValueTree currentSettings(const juce::ValueTree& settings) override;
 
@@ -63,7 +67,7 @@ public:
     // Message thread.
     void loadNamAsync(const juce::File& modelFile) { namProcessor.loadAsync(modelFile); }
     [[nodiscard]] juce::String activeNamName() const { return namProcessor.activeModelName(); }
-    void setNamPedal(const juce::String& filePath, bool bypass, float inputDb, float outputDb) { namPedalProcessor.set(filePath, bypass, inputDb, outputDb); }
+    void setNamPedal(const juce::String& filePath, bool bypass, float inputDb, float outputDb) { namPedalProcessor.set(filePath, bypass, inputDb, outputDb); setEngaged("pedal", ! bypass); }
     [[nodiscard]] juce::String activeNamPedalName() const { return namPedalProcessor.name(); }
     [[nodiscard]] juce::String namPedalError() const { return namPedalProcessor.lastError(); }
     juce::Result loadIr(const juce::File& file) { return irProcessor.loadAsync(file); }
@@ -73,29 +77,29 @@ public:
     // Lock-free parameter setters.
     void setInputGainDb(float value) noexcept { inputGainDb.store(juce::jlimit(-24.0f, 24.0f, value), std::memory_order_relaxed); }
     void setOutputGainDb(float value) noexcept { outputGainDb.store(juce::jlimit(-24.0f, 24.0f, value), std::memory_order_relaxed); }
-    void setBassDb(float value) noexcept { eqProcessor.setLowGainDb(value); }
-    void setMidDb(float value) noexcept { eqProcessor.setMidGainDb(value); }
-    void setTrebleDb(float value) noexcept { eqProcessor.setHighGainDb(value); }
-    void setNamBypassed(bool value) noexcept { namBypassRamp.setBypassed(value); }
-    void setDriveBypassed(bool value) noexcept { driveProcessor.setBypassed(value); }
-    void setIrBypassed(bool value) noexcept { irProcessor.setBypassed(value); }
-    void setAutoWahBypassed(bool value) noexcept { autoWahProcessor.setBypassed(value); }
-    void setChorusBypassed(bool value) noexcept { chorusProcessor.setBypassed(value); }
-    void setDelayBypassed(bool value) noexcept { delayProcessor.setBypassed(value); }
-    void setReverbBypassed(bool value) noexcept { reverbProcessor.setBypassed(value); }
-    void setGraphicEqBypassed(bool value) noexcept { graphicEq.setBypassed(value); }
+    void setBassDb(float value) noexcept { eqProcessor.setLowGainDb(value); eqGainsDb[0] = value; }
+    void setMidDb(float value) noexcept { eqProcessor.setMidGainDb(value); eqGainsDb[1] = value; }
+    void setTrebleDb(float value) noexcept { eqProcessor.setHighGainDb(value); eqGainsDb[2] = value; }
+    void setNamBypassed(bool value) noexcept { namBypassRamp.setBypassed(value); setEngaged("amp", ! value); }
+    void setDriveBypassed(bool value) noexcept { driveProcessor.setBypassed(value); setEngaged("drive", ! value); }
+    void setIrBypassed(bool value) noexcept { irProcessor.setBypassed(value); setEngaged("ir", ! value); }
+    void setAutoWahBypassed(bool value) noexcept { autoWahProcessor.setBypassed(value); setEngaged("autoWah", ! value); }
+    void setChorusBypassed(bool value) noexcept { chorusProcessor.setBypassed(value); setEngaged("chorus", ! value); }
+    void setDelayBypassed(bool value) noexcept { delayProcessor.setBypassed(value); setEngaged("delay", ! value); }
+    void setReverbBypassed(bool value) noexcept { reverbProcessor.setBypassed(value); setEngaged("reverb", ! value); }
+    void setGraphicEqBypassed(bool value) noexcept { graphicEq.setBypassed(value); setEngaged("geq", ! value); }
     void setCompressor(bool bypassed, float thresholdDb, float ratio, float attackMs, float releaseMs,
                        float kneeDb, float makeupDb, float mix) noexcept
     {
         compressor.setThresholdDb(thresholdDb); compressor.setRatio(ratio); compressor.setAttackMs(attackMs);
         compressor.setReleaseMs(releaseMs); compressor.setKneeDb(kneeDb); compressor.setMakeupDb(makeupDb);
-        compressor.setMix(mix); compressor.setBypassed(bypassed);
+        compressor.setMix(mix); compressor.setBypassed(bypassed); setEngaged("compressor", ! bypassed);
     }
     [[nodiscard]] float compressorGainReductionDb() const noexcept { return compressor.gainReductionDb(); }
     void setWahPedal(bool bypassed, float position, float heelHz, float toeHz, float q, float mix) noexcept
     {
         wahPedal.setPosition(position); wahPedal.setHeelHz(heelHz); wahPedal.setToeHz(toeHz);
-        wahPedal.setQ(q); wahPedal.setMix(mix); wahPedal.setBypassed(bypassed);
+        wahPedal.setQ(q); wahPedal.setMix(mix); wahPedal.setBypassed(bypassed); setEngaged("wah", ! bypassed);
     }
     /** Lock-free, any rate (e.g. from the mouse): 0 heel ... 1 toe. */
     void setWahPosition(float position) noexcept { wahPedal.setPosition(position); }
@@ -108,12 +112,21 @@ public:
         pitchShifter.setMode(highQuality ? nam::effects::LivePitchShifter::Mode::highQuality : nam::effects::LivePitchShifter::Mode::lowLatency);
         pitchShifter.setAnalogOctave(analogOctave);
         pitchShifter.setBypassed(bypassed);
+        setEngaged("pitch", ! bypassed);
     }
     [[nodiscard]] int pitchLatencySamples() const noexcept { return pitchShifter.latencySamples(); }
 
 private:
+    void runGraph(float* left, float* right, int numSamples, juce::MidiBuffer* keyboard) noexcept;
     /** The processing of one built-in block (bound once, no lookups on the audio thread). */
     chainnodes::Builtin::Process builtinProcess(const juce::String& kind);
+    /** Whether a built-in block changes the sound (switched on, model or IR loaded). */
+    chainnodes::Builtin::Engaged builtinEngaged(const juce::String& kind);
+    void setEngaged(const juce::String& kind, bool value) noexcept
+    {
+        if (const auto index = chain::builtinKinds().indexOf(kind); index >= 0)
+            engaged[static_cast<size_t>(index)].store(value, std::memory_order_relaxed);
+    }
     struct Block
     {
         juce::AudioProcessorGraph::NodeID node;
@@ -143,6 +156,8 @@ private:
     nam::effects::ChorusProcessor chorusProcessor;
     nam::effects::DelayProcessor delayProcessor;
     nam::effects::ReverbProcessor reverbProcessor;
+    std::array<std::atomic<bool>, 13> engaged {};
+    std::array<std::atomic<float>, 3> eqGainsDb {};
     std::atomic<float> inputGainDb { 0.0f };
     std::atomic<float> outputGainDb { 0.0f };
     nam::effects::BypassRamp namBypassRamp;

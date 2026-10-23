@@ -1,5 +1,6 @@
 #include <juce_core/juce_core.h>
 
+#include "audio/ChainNodes.h"
 #include "presets/PresetManager.h"
 
 namespace
@@ -92,6 +93,33 @@ public:
         serial.addChild(unknown, -1, nullptr);
         const auto repaired = chain::Layout::fromValueTree(tree);
         expectEquals(order(repaired).joinIntoString(","), order(standard).joinIntoString(","));
+
+        beginTest("Built-in blocks keep stereo while switched off");
+        {
+            bool on = false;
+            chainnodes::Builtin block([](float* mono, int count) { juce::FloatVectorOperations::multiply(mono, 0.5f, count); },
+                                      [&on] { return on; });
+            juce::AudioBuffer<float> audio(2, 512);
+            juce::MidiBuffer midi;
+            const auto run = [&]
+            {
+                for (int pass = 0; pass < 4; ++pass) // past the side ramp
+                {
+                    juce::FloatVectorOperations::fill(audio.getWritePointer(0), 1.0f, 512);
+                    juce::FloatVectorOperations::fill(audio.getWritePointer(1), -0.5f, 512);
+                    block.processBlock(audio, midi);
+                }
+            };
+            run();
+            // Mid 0.25 * 0.5 = 0.125, side 0.75 passes.
+            expectWithinAbsoluteError(audio.getSample(0, 511), 0.875f, 1.0e-5f);
+            expectWithinAbsoluteError(audio.getSample(1, 511), -0.625f, 1.0e-5f);
+            on = true;
+            run();
+            // Switched on: the mono effect feeds both sides.
+            expectWithinAbsoluteError(audio.getSample(0, 511), 0.125f, 1.0e-5f);
+            expectWithinAbsoluteError(audio.getSample(1, 511), 0.125f, 1.0e-5f);
+        }
 
         beginTest("Sounds saved with the fixed chain become a layout");
         auto old = SoundState().toValueTree();

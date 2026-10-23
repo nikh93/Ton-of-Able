@@ -32,31 +32,50 @@ public:
     void setStateInformation(const void*, int) override {}
 };
 
-/** A built-in effect. The effects are mono: a stereo input is summed, the
-    result goes to both outputs. */
+/** A built-in effect. The effects are mono: they process the sum of a stereo
+    input. While a block is switched off its side signal passes untouched, so
+    stereo material (playback, returns) keeps its image through the chain. */
 class Builtin final : public Base
 {
 public:
     using Process = std::function<void(float* mono, int numSamples)>;
-    explicit Builtin(Process p) : process(std::move(p)) {}
+    using Engaged = std::function<bool()>;
+    Builtin(Process p, Engaged e) : process(std::move(p)), engaged(std::move(e)) {}
     void processBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer&) override
     {
         const auto count = audio.getNumSamples();
         auto* left = audio.getWritePointer(0);
-        if (audio.getNumChannels() > 1)
+        if (audio.getNumChannels() < 2)
         {
-            auto* right = audio.getWritePointer(1);
-            for (int i = 0; i < count; ++i)
-                left[i] = 0.5f * (left[i] + right[i]);
             process(left, count);
-            juce::FloatVectorOperations::copy(right, left, count);
+            return;
         }
-        else
-            process(left, count);
+        auto* right = audio.getWritePointer(1);
+        // Side kept: 1 while off, 0 while on; ramps over 1024 samples to avoid clicks.
+        const auto target = engaged() ? 0.0f : 1.0f;
+        const auto rampDone = sideGain == target;
+        for (int i = 0; i < count; ++i)
+        {
+            const auto mid = 0.5f * (left[i] + right[i]);
+            right[i] = 0.5f * (left[i] - right[i]); // the side, until the effect has run
+            left[i] = mid;
+        }
+        process(left, count);
+        for (int i = 0; i < count; ++i)
+        {
+            if (! rampDone)
+                sideGain = target > sideGain ? std::min(target, sideGain + rampStep) : std::max(target, sideGain - rampStep);
+            const auto side = sideGain * right[i];
+            right[i] = left[i] - side;
+            left[i] += side;
+        }
     }
 
 private:
+    static constexpr float rampStep = 1.0f / 1024.0f;
     Process process;
+    Engaged engaged;
+    float sideGain = 0.0f;
 };
 
 /** A VST3 plugin, hosted by Vst3Slot (crash-safe, latency-compensated bypass). */

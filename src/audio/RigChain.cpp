@@ -63,6 +63,18 @@ chainnodes::Builtin::Process RigChain::builtinProcess(const juce::String& kind)
     return [](float*, int) {};
 }
 
+chainnodes::Builtin::Engaged RigChain::builtinEngaged(const juce::String& kind)
+{
+    if (kind == "ampEq")
+        return [this] { return eqGainsDb[0].load() != 0.0f || eqGainsDb[1].load() != 0.0f || eqGainsDb[2].load() != 0.0f; };
+    const auto index = static_cast<size_t>(juce::jmax(0, chain::builtinKinds().indexOf(kind)));
+    if (kind == "amp")
+        return [this, index] { return engaged[index].load(std::memory_order_relaxed) && namProcessor.hasActiveModel(); };
+    if (kind == "ir")
+        return [this, index] { return engaged[index].load(std::memory_order_relaxed) && irProcessor.currentIrSize() > 0; };
+    return [this, index] { return engaged[index].load(std::memory_order_relaxed); };
+}
+
 namespace
 {
 juce::String pluginKey(const juce::ValueTree& state)
@@ -95,7 +107,7 @@ void RigChain::setLayout(const chain::Layout& layout)
             {
                 std::unique_ptr<juce::AudioProcessor> processor;
                 if (node.isBuiltin())
-                    processor = std::make_unique<chainnodes::Builtin>(builtinProcess(node.kind));
+                    processor = std::make_unique<chainnodes::Builtin>(builtinProcess(node.kind), builtinEngaged(node.kind));
                 else if (node.kind == "vst3")
                 {
                     auto plugin = std::make_unique<chainnodes::Plugin>();
@@ -288,6 +300,7 @@ void RigChain::applyEffectState(const SoundState& state)
 {
     // Path loading is explicit via setNamPedal when selecting/restoring a pedal.
     namPedalProcessor.setControls(state.namPedalBypassed, state.namPedalInputDb, state.namPedalOutputDb);
+    setEngaged("pedal", ! state.namPedalBypassed);
     namInputTrim.set(juce::jlimit(-18.f, 18.f, state.namInputTrimDb));
     setInputGainDb(state.inputGainDb); setOutputGainDb(state.outputGainDb);
     setBassDb(state.bassDb); setMidDb(state.midDb); setTrebleDb(state.trebleDb);
@@ -328,6 +341,31 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
     // The graph runs in stereo; the guitar feeds both sides of its input.
     juce::FloatVectorOperations::copy(left, mono, numSamples);
     juce::FloatVectorOperations::copy(right, mono, numSamples);
+    runGraph(left, right, numSamples, keyboard);
+    return inPeak;
+}
+
+void RigChain::processStereo(float* left, float* right, float*, int numSamples) noexcept
+{
+    if (numSamples > maximumBlock)
+    {
+        juce::FloatVectorOperations::clear(left, numSamples);
+        juce::FloatVectorOperations::clear(right, numSamples);
+        return;
+    }
+    inputGain.setTargetValue(juce::Decibels::decibelsToGain(inputGainDb.load(std::memory_order_relaxed)));
+    outputGain.setTargetValue(juce::Decibels::decibelsToGain(outputGainDb.load(std::memory_order_relaxed)));
+    for (int sample = 0; sample < numSamples; ++sample)
+    {
+        const auto gain = inputGain.getNextValue();
+        left[sample] *= gain;
+        right[sample] *= gain;
+    }
+    runGraph(left, right, numSamples, nullptr);
+}
+
+void RigChain::runGraph(float* left, float* right, int numSamples, juce::MidiBuffer* keyboard) noexcept
+{
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
     graphMidi.clear();
@@ -339,5 +377,4 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
         const float gain = outputGain.getNextValue();
         left[sample] *= gain; right[sample] *= gain;
     }
-    return inPeak;
 }

@@ -45,6 +45,14 @@ struct TrackProcessor
     virtual void prepare(double sampleRate, int maximumBlockSize) = 0;
     /** Audio thread: mono input (may be modified) to stereo output. */
     virtual void process(float* mono, float* left, float* right, int numSamples) noexcept = 0;
+    /** Audio thread: stereo in place (playback, returns). The default sums to
+        mono; chains that keep stereo override it. scratch: numSamples floats. */
+    virtual void processStereo(float* left, float* right, float* scratch, int numSamples) noexcept
+    {
+        for (int sample = 0; sample < numSamples; ++sample)
+            scratch[sample] = 0.5f * (left[sample] + right[sample]);
+        process(scratch, left, right, numSamples);
+    }
     [[nodiscard]] virtual int latencySamples() const = 0;
     /** Message thread: the settings with the current state of hosted plugins
         (edited in their own windows), or an invalid tree if nothing changed. */

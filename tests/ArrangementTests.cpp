@@ -911,6 +911,44 @@ public:
             expect(mix.getMagnitude(0, 4096) > 0.01f);
         }
 
+        beginTest("The track chain also processes the drum instrument");
+        {
+            // A chain that mutes everything: the drums must fall silent with it.
+            struct Silence final : TrackProcessor
+            {
+                void prepare(double, int) override {}
+                void process(float*, float* left, float* right, int numSamples) noexcept override
+                {
+                    juce::FloatVectorOperations::clear(left, numSamples);
+                    juce::FloatVectorOperations::clear(right, numSamples);
+                }
+                int latencySamples() const override { return 0; }
+            };
+            ArrangementState state;
+            state.tracks.push_back(edit::makeDrumTrack(state, "Drums"));
+            state.tracks[0].instrument->instrument = std::make_shared<DrumSynth>();
+            state.tracks[0].instrument->instrument->prepare(48000.0, 256);
+            state.tracks[0].fx->processor = std::make_shared<Silence>();
+            state.tracks[0].fx->enabled = true;
+            edit::insert(state, edit::makePatternClip(0, "A", 0, 96000), 0);
+            ArrangementEngine engine;
+            engine.prepare(48000.0, 256);
+            engine.publish(ArrangementEngine::buildSnapshot(state));
+            engine.play();
+            juce::AudioBuffer<float> out(2, 256);
+            out.clear();
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 256);
+            expectEquals(out.getMagnitude(0, 256), 0.0f);
+
+            auto copy = state.tracks[0].instrument->instrument->createOfflineCopy();
+            copy->prepare(48000.0, 4096);
+            std::vector<TrackInstrument*> instruments { copy.get() };
+            juce::AudioBuffer<float> mix(2, 4096), scratch;
+            ArrangementEngine::renderOffline(*engine.currentSnapshot(), 0, 4096, mix.getWritePointer(0), mix.getWritePointer(1), scratch,
+                                             { .useProcessors = true, .instruments = &instruments });
+            expectEquals(mix.getMagnitude(0, 4096), 0.0f);
+        }
+
         beginTest("Patterns and drum tracks survive the project file");
         {
             ArrangementState state;
