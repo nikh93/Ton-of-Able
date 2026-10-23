@@ -101,6 +101,11 @@ public:
     void stop();
     /** Starts recording on all armed tracks (arming fallbackTrack if none is armed), or stops it. */
     void toggleRecord(int fallbackTrack);
+    /** Loop recording: plays another take of a clip (index into its takes). */
+    void selectTake(const juce::Uuid& clipId, int index);
+    /** Steps through the takes of these clips (+1 next, -1 previous). */
+    void stepTakes(const std::vector<juce::Uuid>& clipIds, int direction);
+    void dropOtherTakes(const juce::Uuid& clipId);
     void locate(juce::int64 position);
     void setLoop(bool enabled, juce::int64 start, juce::int64 end);
     void setTempo(double bpm, int beatsPerBar, int beatUnit);
@@ -168,6 +173,7 @@ private:
     bool countIn = true;
     double latencyOffsetMs = 0.0;
     std::map<juce::Uuid, juce::int64> takeLatency;
+    juce::int64 recordLoopStart = 0, recordLoopEnd = 0; // loop at the start of the recording (empty: none)
     FxFactory fxFactory;
     FxConfigurator fxConfigurator;
     InstrumentFactory instrumentFactory;

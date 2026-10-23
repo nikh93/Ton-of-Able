@@ -104,3 +104,10 @@ Phase 32 abgeschlossen – Editierbare Signalkette mit freiem Routing:
 - Spur-Effekte im Arrangement nutzen dieselbe Kette; Plugin-Zustände werden beim Speichern des Projekts aus den laufenden Plugins übernommen.
 - Migration: Presets und Einstellungen mit den alten VST3-Slots und der Kompressor-Position werden in Blöcke umgewandelt; der Live-Sound samt Kette wird beim Beenden gespeichert.
 - Tests: Layout-Modell (Reihenfolge, Verbindungen, Reparatur, Preset-Format, Migration) und ein Prüfmodus mit echten VST3-Plugins (--chain-routing-test): Gitarre → Test-Tracker → MIDI → −24 Halbtöne → JDrummer → Ausgang, Umverdrahten ohne Neuladen, Ketten-Pegel.
+
+Phase 33 abgeschlossen – Loop-Aufnahme mit Takes:
+- Mit eingeschaltetem Loop läuft die Aufnahme jetzt im Loop weiter (bisher schaltete die Aufnahme den Loop ab). Die Engine schreibt über die Loop-Sprünge hinweg lückenlos in dieselbe Datei; der Vorzähler-Klick kommt nur einmal.
+- Nach dem Stopp zerlegt edit::clipsFromLoopRecording die Aufnahme: ein optionaler Vorlauf-Clip vor dem Loop und ein Clip über dem Loop mit einem Take pro vollständiger Runde (plus einer letzten Runde ab halber Loop-Länge); der zuletzt vollständige Take spielt. Latenzkorrektur wie bisher.
+- Takes sind Positionen in derselben Datei (Clip.takes, activeTake): Wechseln verschiebt nur den Offset, kostet nichts, ist rückgängig machbar und überlebt Teilen, Kopieren, Time-Stretch und Speichern. So entsteht Comping durch Teilen und Wahl pro Teil.
+- Bedienung: Feld „TAKE n/N ▾“ im Clip (Liste zum Anklicken), Clip-Menü „Take wählen“, Tasten ] / [ für nächsten/vorherigen Take der Auswahl (frei belegbar), „Andere Takes verwerfen“.
+- Tests: Zerlegung (volle Runden, kurze/lange letzte Runde, Start vor/im Loop, ohne Wiederholung), Take-Wahl, Comping nach dem Teilen, Speichern, Verwerfen und lückenloses Schreiben der Engine über Loop-Sprünge.

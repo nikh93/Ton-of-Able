@@ -38,6 +38,8 @@ const std::vector<CommandDefinition>& commandDefinitions()
         { selectAll, "Alles auswählen", "Wählt alle Clips aus", "Bearbeiten", { key('A', ctrl) } },
         { deleteSelection, "Löschen", "Löscht die ausgewählten Clips", "Bearbeiten", { key(juce::KeyPress::deleteKey), key(juce::KeyPress::backspaceKey) } },
         { cancel, "Abbrechen", "Bricht das laufende Ziehen ab", "Bearbeiten", { key(juce::KeyPress::escapeKey) } },
+        { nextTake, "Nächster Take", "Spielt in den ausgewählten Clips den nächsten Take einer Loop-Aufnahme", "Bearbeiten", { key(']') } },
+        { previousTake, "Vorheriger Take", "Spielt in den ausgewählten Clips den vorherigen Take einer Loop-Aufnahme", "Bearbeiten", { key('[') } },
         // Werkzeuge
         { pointerTool, "Werkzeug Zeiger", "Verschieben, kürzen, Fades", "Werkzeuge", { key('V') } },
         { splitTool, "Werkzeug Schere", "Klick teilt einen Clip", "Werkzeuge", { key('C') } },

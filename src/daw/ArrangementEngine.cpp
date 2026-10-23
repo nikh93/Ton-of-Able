@@ -324,6 +324,7 @@ juce::Result ArrangementEngine::startRecording(const std::vector<RecordTarget>& 
     }
     slotCount.store(static_cast<int>(targets.size()));
     punchIn.store(punch);
+    punchedIn.store(false);
     recording.store(true);
     return juce::Result::ok();
 }
@@ -404,7 +405,8 @@ void ArrangementEngine::processChunk(const float* const* inputs, int numInputs, 
 
     if (isPlaying)
     {
-        const auto looping = loopEnabled.load() && ! isRecording;
+        // The loop also repeats while recording: every pass becomes a take.
+        const auto looping = loopEnabled.load();
         const auto loopFrom = loopStart.load();
         const auto loopTo = loopEnd.load();
         for (int done = 0; done < numSamples;)
@@ -415,9 +417,11 @@ void ArrangementEngine::processChunk(const float* const* inputs, int numInputs, 
                 length = static_cast<int>(std::min<juce::int64>(length, loopTo - position));
             if (snapshot != nullptr)
                 renderTracks(*snapshot, inputs, numInputs, rigLeft, rigRight, position, offset + done, done, length, true, isRecording, mixLeft, mixRight);
-            const auto countIn = isRecording && position < punchIn.load();
+            const auto countIn = isRecording && ! punchedIn.load() && position < punchIn.load();
             if (metronome.load() || countIn)
                 renderClick(position, mixLeft + done, mixRight + done, length);
+            if (isRecording && position + length > punchIn.load())
+                punchedIn.store(true); // later loop passes record from their start
             position += length;
             done += length;
             if (wraps && position >= loopTo)
@@ -594,9 +598,10 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
 void ArrangementEngine::recordTrack(const juce::Uuid& trackId, const float* left, const float* right, juce::int64 position, int length) noexcept
 {
     const auto punch = punchIn.load();
-    if (position + length <= punch)
+    const auto started = punchedIn.load();
+    if (! started && position + length <= punch)
         return; // still counting in
-    const auto skip = static_cast<int>(std::max<juce::int64>(0, punch - position));
+    const auto skip = started ? 0 : static_cast<int>(std::max<juce::int64>(0, punch - position));
     for (int index = 0; index < slotCount.load(); ++index)
     {
         auto& slot = slots[static_cast<size_t>(index)];

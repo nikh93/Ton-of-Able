@@ -41,6 +41,8 @@ public:
     void selectAll();
     void splitAtPlayhead();
     void deleteSelection();
+    /** Loop recordings: the next (+1) or previous (-1) take of the selected clips. */
+    void stepTakes(int direction);
     void duplicateSelection();
     void copySelection();
     void cutSelection();
@@ -100,6 +102,8 @@ private:
     void paintGrid(juce::Graphics&, juce::Rectangle<int> lanes);
     void paintClip(juce::Graphics&, const daw::Clip&, int track, const daw::Track&);
     void paintPattern(juce::Graphics&, const daw::Clip&, const daw::Track&, juce::Rectangle<float> area);
+    void showTakeMenu(const juce::Uuid& clipId);
+    [[nodiscard]] juce::Rectangle<float> takeBadge(juce::Rectangle<float> clipBounds) const;
     void showClipMenu(const daw::Clip&, juce::int64 at);
     void showLaneMenu(int track, juce::int64 at);
     void showClipProperties(const juce::Uuid& id);

@@ -34,6 +34,17 @@ Rechtsklick auf den Spurkopf: Umbenennen, Farbe, Spur-Effekte, Spur exportieren,
 - Liegen Takes trotzdem leicht daneben: **Projekt → Aufnahme-Latenz feinjustieren**.
 - Neue Takes überschreiben den darunterliegenden Bereich wie in Ableton. **Ctrl+Z** stellt ihn wieder her.
 
+### Loop-Aufnahme mit Takes
+
+Loop einschalten (**Ctrl+L**, Bereich oben im Lineal ziehen) und aufnehmen (**F9**): Der Loop läuft weiter und jede Runde wird ein **Take**. Nach dem Stopp liegt ein Clip über dem Loop-Bereich, der den zuletzt vollständig gespielten Take abspielt.
+
+- Das Feld **TAKE 3/5 ▾** im Clip öffnet die Liste der Takes – einfach den besten anklicken. Während der Loop weiterläuft, hört man den Wechsel sofort.
+- **]** / **[** (frei belegbar): nächster / vorheriger Take der ausgewählten Clips – auf mehreren Spuren zugleich.
+- **Comping:** Clip mit der Schere (oder **Ctrl+E**) teilen, dann für jeden Teil den besten Take wählen – z. B. Takt 1–2 aus Take 2, Takt 3–4 aus Take 5. Fades an den Schnitten glätten die Übergänge.
+- **Andere Takes verwerfen** (im Take-Menü) behält nur den gewählten.
+- Wer vor dem Loop startet, behält den Vorlauf als eigenen Clip; eine angefangene erste Runde (Start mitten im Loop) und eine letzte Runde unter einer halben Loop-Länge werden kein Take.
+- Alle Takes liegen in derselben Aufnahmedatei; Wechseln kostet nichts und ist rückgängig machbar. Takes werden mit dem Projekt gespeichert.
+
 ## Effekte pro Spur (NAM, IR, EQ, Graphic EQ, Effekte, VST3)
 
 **FX** im Spurkopf öffnet die Effektkette der Spur. Jede Spur ist unabhängig einstellbar:

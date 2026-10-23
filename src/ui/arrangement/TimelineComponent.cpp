@@ -620,9 +620,22 @@ void TimelineComponent::paintClip(juce::Graphics& g, const daw::Clip& clip, int 
         label << text("  · lädt …");
     else if (controller.isRendering(clip))
         label << text("  · Rubber Band rechnet …");
+    auto labelArea = header.reduced(5.0f, 0.0f);
+    if (clip.hasTakes())
+    {
+        // "TAKE 3/5 v": click to choose another pass of the loop recording.
+        const auto badge = takeBadge(bounds);
+        labelArea.setRight(badge.getX() - 4.0f);
+        g.setColour(juce::Colour(0xff1a140f).withAlpha(0.85f));
+        g.fillRoundedRectangle(badge, 3.0f);
+        g.setColour(colour.brighter(0.6f));
+        g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+        g.drawText(text("TAKE ") + juce::String(clip.activeTake + 1) + "/" + juce::String(static_cast<int>(clip.takes.size())) + text(" ▾"),
+                   badge, juce::Justification::centred, false);
+    }
     g.setColour(juce::Colour(0xff1a140f));
     g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
-    g.drawText(label, header.reduced(5.0f, 0.0f), juce::Justification::centredLeft, true);
+    g.drawText(label, labelArea, juce::Justification::centredLeft, true);
 
     g.setColour(selected ? Theme::amberBright() : juce::Colours::black.withAlpha(0.6f));
     g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, selected ? 1.8f : 1.0f);
@@ -732,6 +745,14 @@ void TimelineComponent::mouseDown(const juce::MouseEvent& event)
         }
         else
             showLaneMenu(hit.track, snap(at, event.mods));
+        return;
+    }
+
+    if (hit.clip != nullptr && hit.clip->hasTakes() && takeBadge(clipBounds(*hit.clip, hit.track)).contains(event.position))
+    {
+        if (! isSelected(hit.clip->id))
+            selection = { hit.clip->id };
+        showTakeMenu(hit.clip->id);
         return;
     }
 
@@ -1013,6 +1034,46 @@ void TimelineComponent::filesDropped(const juce::StringArray& paths, int x, int 
 }
 
 //==============================================================================
+juce::Rectangle<float> TimelineComponent::takeBadge(juce::Rectangle<float> clipBounds) const
+{
+    const auto header = clipBounds.withHeight(std::min(16.0f, clipBounds.getHeight()));
+    const auto width = std::min(78.0f, std::max(0.0f, header.getWidth() - 8.0f));
+    return header.withLeft(header.getRight() - width - 3.0f).withWidth(width).reduced(0.0f, 1.5f);
+}
+
+void TimelineComponent::stepTakes(int direction)
+{
+    std::vector<juce::Uuid> ids;
+    for (const auto& id : selection)
+        ids.push_back(id);
+    controller.stepTakes(ids, direction);
+}
+
+void TimelineComponent::showTakeMenu(const juce::Uuid& clipId)
+{
+    const auto* clip = controller.state().findClip(clipId);
+    if (clip == nullptr || ! clip->hasTakes())
+        return;
+    juce::PopupMenu menu;
+    menu.addSectionHeader(text("Takes der Loop-Aufnahme"));
+    for (int index = 0; index < static_cast<int>(clip->takes.size()); ++index)
+        menu.addItem(text("Take ") + juce::String(index + 1), true, index == clip->activeTake,
+                     [this, clipId, index] { controller.selectTake(clipId, index); });
+    menu.addSeparator();
+    menu.addItem(text("Nächster Take\t]"), [this] { stepTakes(1); });
+    menu.addItem(text("Vorheriger Take\t["), [this] { stepTakes(-1); });
+    menu.addSeparator();
+    menu.addItem(text("Tipp: Clip teilen (Schere), dann pro Teil den besten Take wählen"), false, false, [] {});
+    menu.addItem(text("Andere Takes verwerfen"), [this, clipId] { controller.dropOtherTakes(clipId); });
+    // Keep the keyboard on the timeline, so [ and ] work right after choosing.
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition(),
+                       [safe = juce::Component::SafePointer<TimelineComponent>(this)](int)
+                       {
+                           if (safe != nullptr)
+                               safe->grabKeyboardFocus();
+                       });
+}
+
 void TimelineComponent::showClipMenu(const daw::Clip& clip, juce::int64 at)
 {
     const auto id = clip.id;
@@ -1057,6 +1118,12 @@ void TimelineComponent::showClipMenu(const daw::Clip& clip, juce::int64 at)
             });
         menu.addItem(text("Drumcomputer öffnen"), [this, trackId = owner.id, pattern = clip.pattern] { if (onOpenDrums) onOpenDrums(trackId, pattern); });
         menu.addSubMenu("Pattern wechseln", patterns);
+        menu.addSeparator();
+    }
+    if (clip.hasTakes())
+    {
+        menu.addItem(text("Take wählen … (") + juce::String(clip.activeTake + 1) + "/" + juce::String(static_cast<int>(clip.takes.size())) + ")",
+                     [this, id] { showTakeMenu(id); });
         menu.addSeparator();
     }
     menu.addItem(text("Hier teilen"), [this, id, at] { controller.perform("Teilen", [&](daw::ArrangementState& s) { daw::edit::split(s, id, at); }); });

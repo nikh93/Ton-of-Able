@@ -289,8 +289,142 @@ public:
             }
             file.deleteFile();
         }
+
+        beginTest("Loop recording keeps writing across the loop jumps");
+        {
+            const auto file = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("ArrangementLoop-" + juce::Uuid().toString() + ".wav");
+            ArrangementEngine engine;
+            engine.prepare(48000.0, block);
+            ArrangementState state;
+            state.tracks.push_back(edit::makeTrack(state, "DI"));
+            state.tracks[0].armed = true;
+            state.tracks[0].inputChannel = 0;
+            engine.publish(ArrangementEngine::buildSnapshot(state));
+            engine.setLoop(true, 1000, 3000);
+            expect(engine.startRecording({ { state.tracks[0].id, 0, file, 1 } }, 48000.0, 1000).wasOk());
+            engine.setPosition(1000 - 512); // count-in before the loop
+            engine.play();
+            juce::AudioBuffer<float> input(1, block);
+            juce::int64 position = 1000 - 512;
+            for (int round = 0; round < 26; ++round) // 512 count-in + 3 passes of 2000 + a little
+            {
+                // The input is the transport position, which wraps at the loop end.
+                for (int sample = 0; sample < block; ++sample)
+                {
+                    input.setSample(0, sample, static_cast<float>(position) / 10000.0f);
+                    if (++position >= 3000)
+                        position = 1000;
+                }
+                const float* inputs[] { input.getReadPointer(0) };
+                out.clear();
+                engine.process(inputs, 1, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), block);
+            }
+            const auto takes = engine.stopRecording();
+            expectEquals(static_cast<int>(takes.size()), 1);
+            expectEquals(takes[0].samples, juce::int64(26 * block - 512));
+            juce::String error;
+            const auto recorded = loadAudioFile(file, 0.0, error);
+            expect(recorded != nullptr, error);
+            if (recorded != nullptr)
+            {
+                // Pass 1 starts at the punch-in, pass 2 right after the jump back.
+                expectWithinAbsoluteError(recorded->samples.getSample(0, 0), 0.1f, 1.0e-5f);
+                expectWithinAbsoluteError(recorded->samples.getSample(0, 1999), 0.2999f, 1.0e-5f);
+                expectWithinAbsoluteError(recorded->samples.getSample(0, 2000), 0.1f, 1.0e-5f);
+                expectWithinAbsoluteError(recorded->samples.getSample(0, 4500), 0.15f, 1.0e-5f);
+            }
+            file.deleteFile();
+        }
     }
 };
+
+class LoopTakeTests final : public juce::UnitTest
+{
+public:
+    LoopTakeTests() : UnitTest("Loop recording takes", "DAW") {}
+
+    void runTest() override
+    {
+        const auto file = juce::File::getCurrentWorkingDirectory().getChildFile("loop.wav");
+        const auto source = makeRamp(10000);
+
+        beginTest("Every full pass becomes a take, the last one plays");
+        {
+            // Loop 1000..3000 (2000 samples), punch at the loop start, 4 passes + 700 samples.
+            const auto clips = edit::clipsFromLoopRecording(file, source, 8700, 1000, 1000, 3000, 100, "Take");
+            expectEquals(static_cast<int>(clips.size()), 1);
+            const auto& clip = clips.front();
+            expectEquals(clip.start, juce::int64(1000));
+            expectEquals(clip.length, juce::int64(2000));
+            expectEquals(static_cast<int>(clip.takes.size()), 4); // 700 < half the loop: no fifth take
+            expectEquals(clip.activeTake, 3);
+            expectWithinAbsoluteError(clip.takes[0], 100.0, 1.0e-9);
+            expectWithinAbsoluteError(clip.takes[3], 6100.0, 1.0e-9);
+            expectWithinAbsoluteError(clip.offset, clip.takes[3], 1.0e-9);
+        }
+
+        beginTest("A long last pass is a take, but the last full one plays");
+        {
+            const auto clips = edit::clipsFromLoopRecording(file, source, 7500, 1000, 1000, 3000, 0, "Take");
+            expectEquals(static_cast<int>(clips.front().takes.size()), 4);
+            expectEquals(clips.front().activeTake, 2);
+        }
+
+        beginTest("A start before the loop keeps the lead-in, a start inside skips the partial pass");
+        {
+            const auto before = edit::clipsFromLoopRecording(file, source, 6600, 400, 1000, 3000, 0, "Take");
+            expectEquals(static_cast<int>(before.size()), 2);
+            expectEquals(before[0].start, juce::int64(400));
+            expectEquals(before[0].length, juce::int64(600));
+            expectEquals(static_cast<int>(before[1].takes.size()), 3);
+            expectWithinAbsoluteError(before[1].takes[0], 600.0, 1.0e-9);
+
+            const auto inside = edit::clipsFromLoopRecording(file, source, 5000, 2000, 1000, 3000, 0, "Take");
+            expectEquals(static_cast<int>(inside.size()), 1);
+            expectEquals(static_cast<int>(inside[0].takes.size()), 2);
+            expectWithinAbsoluteError(inside[0].takes[0], 1000.0, 1.0e-9); // first wrap: file sample 1000
+        }
+
+        beginTest("Without a repeat the recording stays one plain clip");
+        {
+            const auto once = edit::clipsFromLoopRecording(file, source, 1500, 1000, 1000, 3000, 50, "Take");
+            expectEquals(static_cast<int>(once.size()), 1);
+            expect(! once[0].hasTakes());
+            expectWithinAbsoluteError(once[0].offset, 50.0, 1.0e-9);
+            expectEquals(once[0].start, juce::int64(1000));
+            const auto noLoop = edit::clipsFromLoopRecording(file, source, 5000, 1000, 0, 0, 0, "Take");
+            expect(! noLoop[0].hasTakes());
+        }
+
+        beginTest("Choosing a take, comping after a split, flattening and saving");
+        {
+            ArrangementState state;
+            state.tracks.push_back(edit::makeTrack(state, "Gitarre"));
+            const auto clips = edit::clipsFromLoopRecording(file, source, 8000, 1000, 1000, 3000, 0, "Take");
+            const auto id = edit::insert(state, clips.front(), 0);
+            expect(edit::selectTake(state, id, 0));
+            expectWithinAbsoluteError(state.findClip(id)->offset, 0.0, 1.0e-9);
+            const auto right = edit::split(state, id, 2000);
+            expect(right.has_value());
+            if (right)
+            {
+                // Each part chooses its own take and stays aligned on the timeline.
+                expect(edit::selectTake(state, *right, 2));
+                expectWithinAbsoluteError(state.findClip(*right)->sourcePositionAt(2000), 4000.0 + 1000.0, 1.0e-6);
+                expectWithinAbsoluteError(state.findClip(id)->sourcePositionAt(1500), 500.0, 1.0e-6);
+                const auto dir = juce::File::getCurrentWorkingDirectory();
+                const auto restored = fromValueTree(toValueTree(state, dir), dir);
+                const auto* again = restored.findClip(*right);
+                expect(again != nullptr && again->takes == state.findClip(*right)->takes && again->activeTake == 2);
+                expect(edit::dropOtherTakes(state, *right));
+                expect(! state.findClip(*right)->hasTakes());
+                expectWithinAbsoluteError(state.findClip(*right)->sourcePositionAt(2000), 5000.0, 1.0e-6);
+            }
+        }
+    }
+};
+
+LoopTakeTests loopTakeTests;
 
 // Doubles the signal and adds a constant, so tests can tell where it ran.
 struct MarkerProcessor final : TrackProcessor

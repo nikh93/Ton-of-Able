@@ -919,6 +919,10 @@ void ArrangementController::toggleRecord(int fallbackTrack)
                 + (print ? track.fx->processor->latencySamples() : 0);
         }
 
+    // With the loop on, every pass becomes a take.
+    const auto loopValid = current.loopEnabled && current.loopEnd > current.loopStart;
+    recordLoopStart = loopValid ? current.loopStart : 0;
+    recordLoopEnd = loopValid ? current.loopEnd : 0;
     auto punch = ArrangementEngine::punchAtNextBlock;
     if (! audio.isPlaying())
     {
@@ -934,6 +938,42 @@ void ArrangementController::toggleRecord(int fallbackTrack)
     audio.play();
     message(juce::String(static_cast<int>(targets.size())) + text(targets.size() == 1 ? " Spur nimmt auf" : " Spuren nehmen auf"));
     if (onChanged) onChanged();
+}
+
+void ArrangementController::selectTake(const juce::Uuid& clipId, int index)
+{
+    const auto* clip = current.findClip(clipId);
+    if (clip == nullptr || ! clip->hasTakes() || index == clip->activeTake)
+        return;
+    perform(text("Take wählen"), [&](ArrangementState& state) { edit::selectTake(state, clipId, index); });
+}
+
+void ArrangementController::stepTakes(const std::vector<juce::Uuid>& clipIds, int direction)
+{
+    std::vector<std::pair<juce::Uuid, int>> changes;
+    for (const auto& id : clipIds)
+        if (const auto* clip = current.findClip(id); clip != nullptr && clip->hasTakes())
+        {
+            const auto count = static_cast<int>(clip->takes.size());
+            changes.emplace_back(id, (clip->activeTake + direction + count) % count);
+        }
+    if (changes.empty())
+    {
+        message(text("Kein Clip mit Takes ausgewählt (Takes entstehen bei Aufnahme mit Loop)."));
+        return;
+    }
+    perform(text("Take wählen"), [&](ArrangementState& state)
+    {
+        for (const auto& [id, index] : changes)
+            edit::selectTake(state, id, index);
+    });
+    if (const auto* clip = current.findClip(changes.front().first))
+        message(text("Take ") + juce::String(clip->activeTake + 1) + text(" von ") + juce::String(static_cast<int>(clip->takes.size())));
+}
+
+void ArrangementController::dropOtherTakes(const juce::Uuid& clipId)
+{
+    perform(text("Andere Takes verwerfen"), [&](ArrangementState& state) { edit::dropOtherTakes(state, clipId); });
 }
 
 void ArrangementController::finishRecording()
@@ -958,6 +998,7 @@ void ArrangementController::finishRecording()
                 message(error);
             if (--*remaining > 0 || loaded->empty())
                 return;
+            int takeCount = 0;
             perform("Aufnahme", [&](ArrangementState& state)
             {
                 for (const auto& [t, audioData] : *loaded)
@@ -965,18 +1006,21 @@ void ArrangementController::finishRecording()
                     const auto index = state.trackIndex(t.target.trackId);
                     if (index < 0)
                         continue;
-                    auto clip = edit::makeClip(t.target.file, audioData, t.startPosition);
                     // Shift by the round-trip latency: what was played at
                     // transport position p arrives latency samples later.
-                    const auto latency = juce::jlimit<juce::int64>(0, std::max<juce::int64>(0, clip.sourceSamples - 1), takeLatency[t.target.trackId]);
-                    clip.offset = static_cast<double>(latency);
-                    clip.length = clip.sourceSamples - latency;
-                    clip.name = state.tracks[static_cast<size_t>(index)].name + " Take";
-                    if (clip.length > 0)
+                    for (auto& clip : edit::clipsFromLoopRecording(t.target.file, audioData, audioData->length(), t.startPosition,
+                                                                    recordLoopStart, recordLoopEnd, takeLatency[t.target.trackId],
+                                                                    state.tracks[static_cast<size_t>(index)].name + " Take"))
+                    {
+                        takeCount = std::max(takeCount, static_cast<int>(clip.takes.size()));
                         edit::insert(state, std::move(clip), index);
+                    }
                 }
             });
-            message("Aufnahme gespeichert: " + juce::String(static_cast<int>(loaded->size())) + " Take(s)");
+            if (takeCount > 1)
+                message(juce::String(takeCount) + text(" Takes aufgenommen – der letzte spielt. Klick auf „Take“ im Clip wählt einen anderen."));
+            else
+                message("Aufnahme gespeichert: " + juce::String(static_cast<int>(loaded->size())) + " Spur(en)");
         });
     }
 }

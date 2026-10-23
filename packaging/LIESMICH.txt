@@ -55,6 +55,9 @@ Signalkette bearbeiten
 Arrangement (Mehrspur)
 ----------------------
 - Spuren aufnehmen, schneiden, verschieben, kuerzen, Fades, Undo/Redo.
+- Loop-Aufnahme mit Takes: Loop an (Strg+L), aufnehmen - jede Runde ist
+  ein Take. "TAKE 3/5" im Clip anklicken und den besten waehlen, oder
+  [ und ]. Clip teilen, dann pro Teil den besten Take waehlen (Comping).
 - Zoom mit Strg + Mausrad.
 - Time-Stretch und Transponieren mit Rubber Band.
 - Effekte und NAM-Modelle pro Spur: als Insert (nachtraeglich) oder Print

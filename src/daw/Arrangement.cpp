@@ -436,6 +436,88 @@ bool remove(ArrangementState& state, const juce::Uuid& clipId)
     return false;
 }
 
+bool selectTake(ArrangementState& state, const juce::Uuid& clipId, int index)
+{
+    auto* clip = state.findClip(clipId);
+    if (clip == nullptr || ! clip->hasTakes() || ! juce::isPositiveAndBelow(index, static_cast<int>(clip->takes.size())) || index == clip->activeTake)
+        return false;
+    // The takes share the source; only the position in it changes.
+    clip->offset += clip->takes[static_cast<size_t>(index)] - clip->takes[static_cast<size_t>(clip->activeTake)];
+    clip->activeTake = index;
+    return true;
+}
+
+bool dropOtherTakes(ArrangementState& state, const juce::Uuid& clipId)
+{
+    auto* clip = state.findClip(clipId);
+    if (clip == nullptr || ! clip->hasTakes())
+        return false;
+    clip->takes.clear();
+    clip->activeTake = 0;
+    return true;
+}
+
+std::vector<Clip> clipsFromLoopRecording(const juce::File& file, AudioDataPtr source, juce::int64 recorded,
+                                         juce::int64 punch, juce::int64 loopStart, juce::int64 loopEnd,
+                                         juce::int64 latency, const juce::String& name)
+{
+    std::vector<Clip> clips;
+    const auto plain = [&]
+    {
+        auto clip = makeClip(file, source, punch);
+        const auto shift = juce::jlimit<juce::int64>(0, std::max<juce::int64>(0, clip.sourceSamples - 1), latency);
+        clip.offset = static_cast<double>(shift);
+        clip.length = clip.sourceSamples - shift;
+        clip.name = name;
+        if (clip.length > 0)
+            clips.push_back(std::move(clip));
+        return clips;
+    };
+    const auto loopLength = loopEnd - loopStart;
+    const auto firstPass = loopEnd - punch; // file samples until the first wrap
+    if (loopLength <= 0 || punch >= loopEnd || recorded <= firstPass)
+        return plain(); // the loop never repeated
+
+    // Lead-in before the loop (recording started earlier than the loop).
+    if (punch < loopStart)
+    {
+        auto lead = makeClip(file, source, punch);
+        lead.offset = static_cast<double>(latency);
+        lead.length = loopStart - punch;
+        lead.name = name;
+        clips.push_back(std::move(lead));
+    }
+    std::vector<double> takes;
+    if (punch <= loopStart)
+        takes.push_back(static_cast<double>(loopStart - punch + latency)); // the first pass is complete
+    int lastComplete = static_cast<int>(takes.size()) - 1;
+    for (juce::int64 pass = 0;; ++pass)
+    {
+        const auto begin = firstPass + pass * loopLength;
+        const auto covered = recorded - begin;
+        if (covered <= 0)
+            break;
+        if (covered >= loopLength)
+            lastComplete = static_cast<int>(takes.size());
+        else if (covered * 2 < loopLength)
+            break; // a short last pass is no take
+        takes.push_back(static_cast<double>(begin + latency));
+    }
+    if (takes.empty())
+        return plain();
+    auto clip = makeClip(file, source, loopStart);
+    clip.length = loopLength;
+    clip.name = name;
+    clip.activeTake = std::max(0, lastComplete);
+    clip.offset = takes[static_cast<size_t>(clip.activeTake)];
+    if (takes.size() > 1)
+        clip.takes = std::move(takes);
+    else
+        clip.activeTake = 0;
+    clips.push_back(std::move(clip));
+    return clips;
+}
+
 juce::Uuid insert(ArrangementState& state, Clip clip, int trackIndex)
 {
     if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()) || state.tracks[static_cast<size_t>(trackIndex)].isReturn())
@@ -553,6 +635,14 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
             c.setProperty("fadeOut", clip.fadeOut, nullptr);
             if (clip.isPattern())
                 c.setProperty("pattern", clip.pattern, nullptr);
+            if (clip.hasTakes())
+            {
+                juce::StringArray takes;
+                for (const auto take : clip.takes)
+                    takes.add(juce::String(take, 3));
+                c.setProperty("takes", takes.joinIntoString(","), nullptr);
+                c.setProperty("activeTake", clip.activeTake, nullptr);
+            }
             node.addChild(c, -1, nullptr);
         }
         root.addChild(node, -1, nullptr);
@@ -636,6 +726,11 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
             clip.fadeIn = static_cast<juce::int64>(c.getProperty("fadeIn", 0));
             clip.fadeOut = static_cast<juce::int64>(c.getProperty("fadeOut", 0));
             clip.pattern = c.getProperty("pattern", -1);
+            for (const auto& take : juce::StringArray::fromTokens(c.getProperty("takes").toString(), ",", {}))
+                clip.takes.push_back(take.getDoubleValue());
+            clip.activeTake = juce::jlimit(0, std::max(0, static_cast<int>(clip.takes.size()) - 1), static_cast<int>(c.getProperty("activeTake", 0)));
+            if (clip.takes.size() < 2)
+                clip.takes.clear();
             if (clip.isPattern())
             {
                 clip.sourceSamples = Clip::patternSourceSamples;

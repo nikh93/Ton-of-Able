@@ -176,6 +176,7 @@ private:
     std::atomic<juce::int64> playhead { 0 };
     std::atomic<juce::int64> pendingLocate { std::numeric_limits<juce::int64>::min() };
     std::atomic<juce::int64> punchIn { punchAtNextBlock };
+    std::atomic<bool> punchedIn { false }; // recording has passed the punch-in (loop passes record from their start)
     std::atomic<bool> loopEnabled { false };
     std::atomic<juce::int64> loopStart { 0 }, loopEnd { 0 };
     std::atomic<double> bpm { 120.0 };

@@ -598,6 +598,8 @@ bool ArrangementView::performCommand(juce::CommandID id)
         case cmd::redo: controller.redo(); return true;
         case cmd::split: timeline.splitAtPlayhead(); return true;
         case cmd::duplicate: timeline.duplicateSelection(); return true;
+        case cmd::nextTake: timeline.stepTakes(1); return true;
+        case cmd::previousTake: timeline.stepTakes(-1); return true;
         case cmd::copy: timeline.copySelection(); return true;
         case cmd::cut: timeline.cutSelection(); return true;
         case cmd::paste: timeline.paste(); return true;

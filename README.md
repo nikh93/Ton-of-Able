@@ -27,6 +27,8 @@ Ableton-style arrangement. The interface is in German.
 **Arrangement (multitrack)**
 - Record several tracks at once from the processed rig or dry interface inputs,
   with count-in, metronome, punch-in and automatic latency compensation
+- **Loop recording with takes**: every pass of the loop becomes a take; pick the best one
+  per clip (or per part after a split, for comping) with a click or `[` / `]`
 - Move, copy, trim, split, fade, multi-select, snap, undo/redo; Ctrl + mouse wheel zoom
 - Time-stretch and transpose clips with Rubber Band
 - Per-track effect chains as insert (editable later) or printed while recording

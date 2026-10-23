@@ -18,6 +18,7 @@ enum : juce::CommandID
     pointerTool = 0x2201, splitTool, stretchTool,
     zoomIn = 0x2301, zoomOut, zoomFit, follow, toggleView, showShortcuts,
     wahMouse = 0x2601,
+    nextTake = 0x2701, previousTake,
     newTrack = 0x2401, newDrumTrack, newReturnTrack, freezeTrack, unfreezeTrack, flattenTrack, trackFx, trackSends,
     save = 0x2501, saveAs, open, import, exportAudio
 };

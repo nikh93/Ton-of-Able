@@ -106,9 +106,14 @@ struct Clip
     juce::int64 fadeIn = 0;
     juce::int64 fadeOut = 0;
     int pattern = -1;                // >= 0: drum pattern clip (no audio source)
+    // Loop recording: every pass is a take in the same file. takes[i] is the
+    // source position of take i at the clip's start; offset belongs to activeTake.
+    std::vector<double> takes;
+    int activeTake = 0;
 
     static constexpr juce::int64 patternSourceSamples = juce::int64(1) << 40;
     [[nodiscard]] bool isPattern() const noexcept { return pattern >= 0; }
+    [[nodiscard]] bool hasTakes() const noexcept { return takes.size() > 1; }
     [[nodiscard]] juce::int64 end() const noexcept { return start + length; }
     [[nodiscard]] bool needsStretch() const noexcept;
     [[nodiscard]] bool hasCurrentRender() const noexcept;
@@ -217,6 +222,21 @@ bool setStretchRatio(ArrangementState&, const juce::Uuid& clipId, double ratio);
 bool setPitch(ArrangementState&, const juce::Uuid& clipId, double semitones);
 bool setFades(ArrangementState&, const juce::Uuid& clipId, juce::int64 fadeIn, juce::int64 fadeOut);
 bool remove(ArrangementState&, const juce::Uuid& clipId);
+/** Plays take index of a loop recording instead of the current one. */
+bool selectTake(ArrangementState&, const juce::Uuid& clipId, int index);
+/** Keeps only the active take ("flatten"). */
+bool dropOtherTakes(ArrangementState&, const juce::Uuid& clipId);
+
+/** A continuous recording made while the loop [loopStart, loopEnd) repeated:
+    file sample i was played at punch + i until loopEnd, then every pass
+    restarts at loopStart. latency: what was played at transport position p
+    sits at file position + latency. Returns the clips for the timeline: an
+    optional lead-in before the loop and one clip for the loop with a take per
+    full pass (and a last pass if it covers at least half the loop); the last
+    complete take is active. Without a full pass: one plain clip, as before. */
+std::vector<Clip> clipsFromLoopRecording(const juce::File&, AudioDataPtr source, juce::int64 recordedSamples,
+                                         juce::int64 punch, juce::int64 loopStart, juce::int64 loopEnd,
+                                         juce::int64 latency, const juce::String& name);
 /** Inserts a copy (with a fresh id) and lets it overwrite what is below. */
 juce::Uuid insert(ArrangementState&, Clip clip, int trackIndex);
 /** Like insert(), but keeps the clip's id. */
