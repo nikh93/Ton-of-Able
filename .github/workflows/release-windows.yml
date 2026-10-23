@@ -77,34 +77,18 @@ jobs:
           Invoke-WebRequest "https://raw.githubusercontent.com/michaelwillis/dragonfly-reverb/$dragonfly/LICENSE" -OutFile "$pkg/licenses/DragonflyReverb-GPL3.txt"
           Write-Host ("::notice title=Dragonfly Reverb::" + (($bundles | ForEach-Object Name) -join ', '))
 
-          # Valhalla Freq Echo and Space Modulator (freeware) from the vendor's download page.
-          # Best effort: a changed page only costs these two plugins, not the build.
-          try {
-            $links = @()
-            foreach ($page in 'https://valhalladsp.com/demos-downloads/', 'https://valhalladsp.com/?p=599471') {
-              try { $links += (Invoke-WebRequest $page -UseBasicParsing -UserAgent 'Mozilla/5.0').Links.href } catch { Write-Host "::warning::Valhalla page $page : $_" }
-            }
-            $links = $links | Where-Object { $_ } | Sort-Object -Unique
-            Write-Host ("::notice title=Valhalla Windows links::" + (($links | Where-Object { $_ -match '(?i)win' }) -join ' '))
-            choco install innoextract -y --no-progress | Out-Null
-            foreach ($product in 'FreqEcho', 'SpaceModulator') {
-              $url = $links | Where-Object { $_ -match "(?i)$product" -and $_ -match '(?i)win' -and $_ -match '(?i)\.(zip|exe)(\?|$)' } | Select-Object -First 1
-              if (-not $url) { Write-Host "::warning title=Valhalla::No Windows download found for $product"; continue }
-              $dir = "valhalla-$product"
-              New-Item -ItemType Directory -Force $dir | Out-Null
-              $file = Join-Path $dir ([IO.Path]::GetFileName(([Uri]$url).AbsolutePath))
-              Invoke-WebRequest $url -OutFile $file -UserAgent 'Mozilla/5.0'
-              if ($file -match '\.zip$') { 7z x $file "-o$dir/zip" -y | Out-Null }
-              foreach ($exe in Get-ChildItem $dir -Recurse -Filter '*.exe') {
-                innoextract -s -d "$dir/inno" $exe.FullName 2>&1 | Out-Null
-                7z x $exe.FullName "-o$dir/7z" -y 2>&1 | Out-Null
-              }
-              $vst3 = Get-ChildItem $dir -Recurse -Filter '*.vst3' | Where-Object { $_.Name -match "(?i)$product" } | Sort-Object { $_.FullName.Length } | Select-Object -First 1
-              if (-not $vst3) { Write-Host "::warning title=Valhalla::$product downloaded from $url, but no VST3 found inside"; continue }
-              Copy-Item $vst3.FullName (Join-Path $pkg "Valhalla$product.vst3") -Recurse
-              Write-Host "::notice title=Valhalla::$product from $url"
-            }
-          } catch { Write-Host "::warning title=Valhalla::$_" }
+          # Extra plugins that cannot be downloaded automatically (Valhalla's site blocks
+          # scripts): every *.vst3 inside the ZIPs attached to the release "plugin-extras".
+          if (gh release view plugin-extras 2>$null) {
+            gh release download plugin-extras -p '*.zip' -D extras
+            foreach ($archive in Get-ChildItem extras -Filter '*.zip') { 7z x $archive.FullName "-oextras/x" -y | Out-Null }
+            # Top-level plugins only, not the binaries inside a .vst3 bundle.
+            $extras = Get-ChildItem extras/x -Recurse -Filter '*.vst3' | Where-Object { $_.DirectoryName -notmatch '\.vst3(\\|$)' }
+            foreach ($plugin in $extras) { Copy-Item $plugin.FullName $pkg -Recurse -Force }
+            Write-Host ("::notice title=Plugin extras::" + (($extras | ForEach-Object Name) -join ', '))
+          } else {
+            Write-Host "::notice title=Plugin extras::No release 'plugin-extras' - Valhalla Freq Echo/Space Modulator not bundled"
+          }
 
           # FFmpeg (LGPL, static) for AAC, Opus, MP3 export and audio from video files.
           $assets = gh api repos/BtbN/FFmpeg-Builds/releases/tags/latest --jq '.assets[] | .name + " " + .browser_download_url' | ForEach-Object { $_ -split ' ', 2 }
