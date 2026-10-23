@@ -46,7 +46,7 @@ PitchShiftComponent::PitchShiftComponent()
     for (const auto value : { -24, -12, -7, -5, 5, 7, 12 })
     {
         auto* button = quick.add(new juce::TextButton((value > 0 ? "+" : "") + juce::String(value)));
-        button->setTooltip(value == -12 ? text("Eine Oktave tiefer – latenzfrei wie ein analoges Oktavpedal (Flip-Flop), einstimmig") : value == 12 ? text("Eine Oktave höher") : juce::String());
+        button->setTooltip(value == -12 ? text("Eine Oktave tiefer (Modus wählbar: Rubber Band R2/R3 oder latenzfreier Analog-Oktaver)") : value == 12 ? text("Eine Oktave höher") : juce::String());
         button->onClick = [this, value] { semitones.setValue(value, juce::sendNotificationSync); };
         addAndMakeVisible(*button);
     }
@@ -58,11 +58,20 @@ PitchShiftComponent::PitchShiftComponent()
 
     mode.addItem(text("Niedrige Latenz (R2, ca. 30–45 ms)"), 1);
     mode.addItem(text("Hohe Qualität (R3 Live, ca. 90 ms)"), 2);
-    mode.onChange = [this] { current.highQuality = mode.getSelectedId() == 2; publish(); };
+    mode.addItem(text("Analog-Oktaver (Flip-Flop, 0 ms) – nur bei −12"), 3);
+    mode.setTooltip(text("Wie transponiert wird. Der analoge Oktaver arbeitet wie ein Oktavpedal ohne Verzögerung, aber nur eine Oktave tiefer und einstimmig."));
+    mode.onChange = [this]
+    {
+        const auto id = mode.getSelectedId();
+        current.analogOctave = id == 3;
+        if (id != 3)
+            current.highQuality = id == 2;
+        publish();
+    };
     addAndMakeVisible(mode);
 
     refresh();
-    setSize(520, 210);
+    setSize(560, 210);
     startTimerHz(4);
 }
 
@@ -78,7 +87,7 @@ void PitchShiftComponent::refresh()
     semitones.setValue(current.semitones, juce::dontSendNotification);
     mix.setValue(current.mix * 100.0, juce::dontSendNotification);
     formant.setToggleState(current.formantPreserved, juce::dontSendNotification);
-    mode.setSelectedId(current.highQuality ? 2 : 1, juce::dontSendNotification);
+    mode.setSelectedId(current.analogOctave ? 3 : current.highQuality ? 2 : 1, juce::dontSendNotification);
     timerCallback();
 }
 
@@ -91,11 +100,14 @@ void PitchShiftComponent::publish()
 
 void PitchShiftComponent::timerCallback()
 {
-    const auto analog = nam::effects::LivePitchShifter::usesAnalogOctave(current.semitones);
-    mode.setEnabled(! analog);
+    using nam::effects::LivePitchShifter;
+    const auto octaveDown = LivePitchShifter::isOctaveDown(current.semitones);
+    mode.setItemEnabled(3, octaveDown);
     juce::String line = text("Dry und transponiertes Signal laufen zeitgleich; Aufnahmen werden ausgeglichen.");
-    if (analog)
-        line = text("−12: analoger Oktaver (Flip-Flop-Teiler) – keine Verzögerung. Einstimmig spielen, Akkorde verzerren.");
+    if (LivePitchShifter::usesAnalogOctave(current.analogOctave, current.semitones))
+        line = text("Analoger Oktaver (Flip-Flop-Teiler) – keine Verzögerung. Einstimmig spielen, Akkorde verzerren.");
+    else if (current.analogOctave)
+        line = text("Der analoge Oktaver geht nur bei −12 – bei diesem Intervall läuft Rubber Band (niedrige Latenz).");
     else if (latencyMs && ! current.bypassed)
         if (const auto ms = latencyMs(); ms > 0.0)
             line = text("Aktuelle Verzögerung: ") + juce::String(ms, 1) + " ms. " + line;
@@ -112,7 +124,7 @@ void PitchShiftComponent::resized()
 {
     auto area = getLocalBounds().reduced(10);
     auto top = area.removeFromTop(24);
-    mode.setBounds(top.removeFromRight(260));
+    mode.setBounds(top.removeFromRight(310));
     power.setBounds(top);
     area.removeFromTop(8);
     auto row = area.removeFromTop(24);

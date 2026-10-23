@@ -44,10 +44,9 @@ Arrangement (Mehrspur)
 
 PITCH (Live-Transponieren)
 --------------------------
-- Genau -12 (eine Oktave tiefer) laeuft latenzfrei wie ein analoges
-  Oktavpedal (Flip-Flop). Nur einstimmig spielen, Akkorde verzerren.
-- Alle anderen Intervalle laufen ueber Rubber Band (ca. 30-45 ms bzw.
-  ca. 90 ms im Qualitaetsmodus).
+- Modus waehlbar: Rubber Band mit niedriger Latenz (ca. 30-45 ms) oder
+  hoher Qualitaet (ca. 90 ms). Bei genau -12 gibt es zusaetzlich den
+  Analog-Oktaver (Flip-Flop, ohne Verzoegerung, nur einstimmig).
 
 NAM-Modelle
 -----------

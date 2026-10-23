@@ -1379,7 +1379,7 @@ void MainComponent::showPitchShifter()
 {
     auto editor = std::make_unique<nam::ui::PitchShiftComponent>();
     editor->setSettings({ currentSound.pitchBypassed, currentSound.pitchSemitones, currentSound.pitchMix,
-                          currentSound.pitchFormantPreserved, currentSound.pitchHighQuality });
+                          currentSound.pitchFormantPreserved, currentSound.pitchHighQuality, currentSound.pitchAnalogOctave });
     const juce::Component::SafePointer<MainComponent> self(this);
     editor->onChange = [self](const nam::ui::PitchShiftComponent::Settings& settings)
     {
@@ -1391,7 +1391,8 @@ void MainComponent::showPitchShifter()
         sound.pitchMix = settings.mix;
         sound.pitchFormantPreserved = settings.formantPreserved;
         sound.pitchHighQuality = settings.highQuality;
-        self->audioEngine.setPitch(settings.bypassed, settings.semitones, settings.mix, settings.formantPreserved, settings.highQuality);
+        sound.pitchAnalogOctave = settings.analogOctave;
+        self->audioEngine.setPitch(settings.bypassed, settings.semitones, settings.mix, settings.formantPreserved, settings.highQuality, settings.analogOctave);
     };
     editor->latencyMs = [self]
     {

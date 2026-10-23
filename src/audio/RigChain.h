@@ -78,12 +78,13 @@ public:
     /** Lock-free, any rate (e.g. from the mouse): 0 heel ... 1 toe. */
     void setWahPosition(float position) noexcept { wahPedal.setPosition(position); }
     void setGraphicEqBandDb(int band, float db) noexcept { graphicEq.setBandGainDb(band, db); }
-    void setPitch(bool bypassed, float semitones, float mix, bool formantPreserved, bool highQuality) noexcept
+    void setPitch(bool bypassed, float semitones, float mix, bool formantPreserved, bool highQuality, bool analogOctave) noexcept
     {
         pitchShifter.setSemitones(semitones);
         pitchShifter.setMix(mix);
         pitchShifter.setFormantPreserved(formantPreserved);
         pitchShifter.setMode(highQuality ? nam::effects::LivePitchShifter::Mode::highQuality : nam::effects::LivePitchShifter::Mode::lowLatency);
+        pitchShifter.setAnalogOctave(analogOctave);
         pitchShifter.setBypassed(bypassed);
     }
     [[nodiscard]] int pitchLatencySamples() const noexcept { return pitchShifter.latencySamples(); }

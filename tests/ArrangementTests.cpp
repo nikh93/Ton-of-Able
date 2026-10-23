@@ -516,17 +516,31 @@ public:
 
         for (const auto block : { 32, 256, 1024 })
         {
-            beginTest("-12 uses the latency-free flip-flop octaver, block " + juce::String(block));
+            beginTest("-12 offers the latency-free flip-flop octaver as a choice, block " + juce::String(block));
             for (const auto mode : { LivePitchShifter::Mode::lowLatency, LivePitchShifter::Mode::highQuality })
+                for (const auto analog : { false, true })
+                {
+                    LivePitchShifter shifter;
+                    shifter.setMode(mode);
+                    shifter.setAnalogOctave(analog);
+                    shifter.setSemitones(-12.0f);
+                    shifter.setBypassed(false);
+                    shifter.prepare(rate, block);
+                    std::vector<float> first(static_cast<size_t>(block), 0.0f);
+                    shifter.process(first.data(), block);
+                    // Without the analog choice -12 runs through Rubber Band like every other interval.
+                    expect(analog ? shifter.latencySamples() == 0 : shifter.latencySamples() > 0, juce::String(shifter.latencySamples()));
+                }
             {
+                // The analog choice has no effect on other intervals.
                 LivePitchShifter shifter;
-                shifter.setMode(mode);
-                shifter.setSemitones(-12.0f);
+                shifter.setAnalogOctave(true);
+                shifter.setSemitones(-7.0f);
                 shifter.setBypassed(false);
                 shifter.prepare(rate, block);
                 std::vector<float> first(static_cast<size_t>(block), 0.0f);
                 shifter.process(first.data(), block);
-                expectEquals(shifter.latencySamples(), 0);
+                expect(shifter.latencySamples() > 0);
             }
 
             // Plucked guitar notes (Karplus-Strong, rich in overtones) from low E to a high A.
@@ -534,6 +548,7 @@ public:
             {
                 LivePitchShifter shifter;
                 shifter.setSemitones(-12.0f);
+                shifter.setAnalogOctave(true);
                 shifter.setBypassed(false);
                 shifter.prepare(rate, block);
                 const int total = 48000;
@@ -577,6 +592,7 @@ public:
         {
             LivePitchShifter shifter;
             shifter.setSemitones(-12.0f);
+            shifter.setAnalogOctave(true);
             shifter.setBypassed(false);
             shifter.prepare(rate, 128);
             const double notes[] { 82.41, 880.0, 110.0, 659.3, 146.8, 1174.7, 196.0, 329.6, 82.41, 98.0 };
@@ -626,6 +642,7 @@ public:
         {
             LivePitchShifter shifter;
             shifter.setSemitones(-12.0f);
+            shifter.setAnalogOctave(true);
             shifter.setBypassed(false);
             shifter.prepare(rate, 256);
             std::vector<float> buffer(48000, 0.0f);

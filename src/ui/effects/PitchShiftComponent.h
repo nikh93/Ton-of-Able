@@ -18,6 +18,7 @@ public:
         float mix = 1.0f;
         bool formantPreserved = false;
         bool highQuality = false;
+        bool analogOctave = false; // only takes effect at exactly -12
     };
 
     PitchShiftComponent();

@@ -57,7 +57,7 @@ void RigChain::applyEffectState(const SoundState& state)
     setGraphicEqBypassed(state.graphicEqBypassed);
     for (int band = 0; band < static_cast<int>(state.graphicEqDb.size()); ++band)
         setGraphicEqBandDb(band, state.graphicEqDb[static_cast<size_t>(band)]);
-    setPitch(state.pitchBypassed, state.pitchSemitones, state.pitchMix, state.pitchFormantPreserved, state.pitchHighQuality);
+    setPitch(state.pitchBypassed, state.pitchSemitones, state.pitchMix, state.pitchFormantPreserved, state.pitchHighQuality, state.pitchAnalogOctave);
     setWahPedal(state.pedalWahBypassed, state.pedalWahPosition, state.pedalWahHeelHz, state.pedalWahToeHz, state.pedalWahQ, state.pedalWahMix);
     setCompressor(state.compressorBypassed, state.compressorPreAmp, state.compressorThresholdDb, state.compressorRatio, state.compressorAttackMs,
                   state.compressorReleaseMs, state.compressorKneeDb, state.compressorMakeupDb, state.compressorMix);

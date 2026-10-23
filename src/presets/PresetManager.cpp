@@ -64,6 +64,7 @@ juce::ValueTree SoundState::toValueTree() const
     tree.setProperty("pitchMix", pitchMix, nullptr);
     tree.setProperty("pitchFormantPreserved", pitchFormantPreserved, nullptr);
     tree.setProperty("pitchHighQuality", pitchHighQuality, nullptr);
+    tree.setProperty("pitchAnalogOctave", pitchAnalogOctave, nullptr);
     tree.setProperty("driveBypassed", driveBypassed, nullptr); tree.setProperty("driveType", driveType, nullptr);
     tree.setProperty("driveAmount", driveAmount, nullptr); tree.setProperty("driveTone", driveTone, nullptr); tree.setProperty("driveWarmth", driveWarmth, nullptr); tree.setProperty("drivePresence", drivePresence, nullptr); tree.setProperty("driveSustain", driveSustain, nullptr); tree.setProperty("driveBias", driveBias, nullptr); tree.setProperty("driveLevel", driveLevel, nullptr); tree.setProperty("driveMix", driveMix, nullptr);
     return tree;
@@ -120,6 +121,7 @@ std::optional<SoundState> SoundState::fromValueTree(const juce::ValueTree& tree,
     result.pitchMix = juce::jlimit(0.0f, 1.0f, static_cast<float>(tree.getProperty("pitchMix", 1.0f)));
     result.pitchFormantPreserved = static_cast<bool>(tree.getProperty("pitchFormantPreserved", false));
     result.pitchHighQuality = static_cast<bool>(tree.getProperty("pitchHighQuality", false));
+    result.pitchAnalogOctave = static_cast<bool>(tree.getProperty("pitchAnalogOctave", false));
     result.preVst3State = tree.getChildWithName("preVst3").getChild(0).createCopy();
     result.postVst3State = tree.getChildWithName("postVst3").getChild(0).createCopy();
     result.driveAmount = static_cast<float>(tree.getProperty("driveAmount", .35f)); result.driveTone = static_cast<float>(tree.getProperty("driveTone", .5f)); result.driveWarmth = static_cast<float>(tree.getProperty("driveWarmth", .5f)); result.drivePresence = static_cast<float>(tree.getProperty("drivePresence", .5f)); result.driveSustain = static_cast<float>(tree.getProperty("driveSustain", .5f)); result.driveBias = static_cast<float>(tree.getProperty("driveBias", .35f)); result.driveLevel = static_cast<float>(tree.getProperty("driveLevel", .8f)); result.driveMix = static_cast<float>(tree.getProperty("driveMix", 1.f));

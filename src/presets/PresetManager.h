@@ -44,6 +44,7 @@ struct SoundState
     bool pitchBypassed = true;
     float pitchSemitones = -12.0f, pitchMix = 1.0f;
     bool pitchFormantPreserved = false, pitchHighQuality = false;
+    bool pitchAnalogOctave = false; // at -12: flip-flop octaver instead of Rubber Band
 
     juce::ValueTree toValueTree() const;
     static std::optional<SoundState> fromValueTree(const juce::ValueTree&, juce::String* error = nullptr);
@@ -62,6 +63,7 @@ struct SoundState
         graphicEqBypassed = live.graphicEqBypassed; graphicEqDb = live.graphicEqDb;
         pitchBypassed = live.pitchBypassed; pitchSemitones = live.pitchSemitones; pitchMix = live.pitchMix;
         pitchFormantPreserved = live.pitchFormantPreserved; pitchHighQuality = live.pitchHighQuality;
+        pitchAnalogOctave = live.pitchAnalogOctave;
     }
 };
 

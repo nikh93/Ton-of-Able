@@ -55,3 +55,5 @@ Phase 25 abgeschlossen – Fehlerbehebungen aus dem ersten Test von v0.2.0:
 - Einstellungen: Das Audio-Fenster ist jetzt ein normales DocumentWindow wie die übrigen Fenster (statt DialogWindow mit eigener Skalierung) und behält seine Größe; das Gerätepanel scrollt, statt das Fenster von innen zu verändern. Ursache der vertikal versetzten Klicks.
 - Mute und Solo zeigen ihren Zustand sofort nach dem Klick (Mute gelb, Solo blau); das Theme berücksichtigt jetzt eigene „An“-Farben von Buttons.
 - Drumcomputer: Vorhören stoppt, sobald das Fenster geschlossen wird.
+
+Phase 26 abgeschlossen – PITCH: Bei −12 läuft nicht mehr automatisch der analoge Oktaver. Er ist jetzt eine dritte Modus-Option neben Rubber Band R2 und R3 („Analog-Oktaver (Flip-Flop, 0 ms) – nur bei −12“), wird in Presets und Spurketten gespeichert (pitchAnalogOctave) und gilt nur bei genau −12; sonst läuft R2.

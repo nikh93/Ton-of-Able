@@ -62,7 +62,7 @@ public:
     void setReverbBypassed(bool value) noexcept { rig.setReverbBypassed(value); }
     void setGraphicEqBypassed(bool value) noexcept { rig.setGraphicEqBypassed(value); }
     void setGraphicEqBandDb(int band, float db) noexcept { rig.setGraphicEqBandDb(band, db); }
-    void setPitch(bool bypassed, float semitones, float mix, bool formant, bool highQuality) noexcept { rig.setPitch(bypassed, semitones, mix, formant, highQuality); }
+    void setPitch(bool bypassed, float semitones, float mix, bool formant, bool highQuality, bool analogOctave) noexcept { rig.setPitch(bypassed, semitones, mix, formant, highQuality, analogOctave); }
     int pitchLatencySamples() const noexcept { return rig.pitchLatencySamples(); }
     void applyEffectState(const SoundState& state) { rig.applyEffectState(state); }
     void setWahPosition(float position) noexcept { rig.setWahPosition(position); }

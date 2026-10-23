@@ -14,7 +14,7 @@ Ableton-style arrangement. The interface is in German.
 - Drive, Auto-Wah, a **wah pedal you play with the mouse** (vertical position = pedal, key W),
   **compressor** (pedal or studio position), Chorus, Delay, Reverb
 - Live pitch shifting with the [Rubber Band Library](https://breakfastquay.com/rubberband/);
-  exactly one octave down runs **latency-free** like an analog flip-flop octave pedal
+  for exactly one octave down an analog-style flip-flop octaver is available as a **latency-free** mode
 - Two VST3 slots (bundled: BYOD, Valhalla Supermassive), presets with A/B, complete rigs
 - ASIO first, WASAPI exclusive as fallback; meters, latency and CPU diagnostics
 

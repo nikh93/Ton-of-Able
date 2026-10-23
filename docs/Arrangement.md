@@ -179,12 +179,12 @@ Für JDrummer oder jedes andere VST3-Drum-Instrument gibt es einen eigenen Test,
 
 - Die Stufe sitzt am Anfang der Kette, vor Drive und NAM-Amp, wie ein Pitch-Pedal vor dem Verstärker.
 - Einstellbar sind **Mix** (Original ↔ transponiert), **Formanten erhalten** und der Modus.
-- **Genau −12 (eine Oktave tiefer) läuft automatisch latenzfrei** über einen analogen Oktaver nach dem Vorbild klassischer Oktavpedale (Flip-Flop-Teiler), nicht über Rubber Band. Der Modus ist dann ausgegraut.
-  - Arbeitsweise: Das Signal wird auf den Grundton gefiltert, ein Schmitt-Trigger macht daraus ein Rechteck, ein Flip-Flop teilt es durch zwei. Das Ergebnis folgt der Anschlagsdynamik und wird über ein Tonfilter abgerundet.
+- **Modus** wählbar wie bei jedem Intervall: **Niedrige Latenz (R2)**, **Hohe Qualität (R3)** und, nur bei genau −12, zusätzlich **Analog-Oktaver (Flip-Flop, 0 ms)**. Steht der Analog-Oktaver auf einem anderen Intervall, läuft dort Rubber Band mit niedriger Latenz, und die Infozeile sagt es.
+  - Analog-Oktaver: Nachbau klassischer Oktavpedale (Flip-Flop-Teiler). Das Signal wird auf den Grundton gefiltert, ein Schmitt-Trigger macht daraus ein Rechteck, ein Flip-Flop teilt es durch zwei. Das Ergebnis folgt der Anschlagsdynamik und wird über ein Tonfilter abgerundet.
   - Grundton-Erkennung: Fünf parallele Tiefpässe im Oktavabstand laufen gleichzeitig. Der Trigger hört auf das tiefste Band, das noch Signal führt. So wird vom tiefen E bis zum 22. Bund der hohen E-Saite sauber geteilt, ohne dass Obertöne doppelt schalten.
   - Es wird nichts gepuffert, also keine Latenz außer der Phasenverschiebung der Filter (1–2 ms), und es gibt keinen Latenzausgleich.
-  - Wie beim Pedal einstimmig: Einzelnoten und Riffs funktionieren, Akkorde zerfallen in Störgeräusche. Der Klang ist synthartiger als Rubber Band, der Mix-Regler mischt das Original dazu.
-- **Niedrige Latenz** (R2-Echtzeit-Engine, kurzes Fenster), für alle anderen Intervalle: gemessen eine Oktave tiefer bei 48 kHz etwa **28 ms** mit Interface-Puffern von 32/64 Samples, **37 ms** bei 128 und **43–46 ms** bei 256–1024 Samples.
+  - Wie beim Pedal einstimmig: Einzelnoten und Riffs funktionieren, Akkorde zerfallen. Der Klang ist synthartiger als Rubber Band, der Mix-Regler mischt das Original dazu.
+- **Niedrige Latenz** (R2-Echtzeit-Engine, kurzes Fenster): gemessen eine Oktave tiefer bei 48 kHz etwa **28 ms** mit Interface-Puffern von 32/64 Samples, **37 ms** bei 128 und **43–46 ms** bei 256–1024 Samples.
 - **Hohe Qualität** (R3 `RubberBandLiveShifter`): sauberer, aber etwa **87 ms**.
 - Originalsignal und transponiertes Signal laufen zeitgleich, es gibt also kein Doppeln oder Flammen im Mix. Aufnahmen werden um die Verzögerung ausgeglichen.
 - Die Verzögerung ist dennoch hörbar. Für knackiges Live-Spielen eher kleine Interface-Puffer verwenden, gut geeignet ist es z. B. für Bass-Oktaven zum Schichten.

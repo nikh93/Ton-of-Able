@@ -56,7 +56,7 @@ void LivePitchShifter::prepare(double sampleRate, int maximumBlockSize)
     runningMode = -1;
     active = false;
     underruns = 0;
-    restartEngine(usesAnalogOctave(semitones.load()) ? analogEngine : mode.load());
+    restartEngine(usesAnalogOctave(analogOctave.load(), semitones.load()) ? analogEngine : mode.load());
 }
 
 int LivePitchShifter::latencySamples() const noexcept
@@ -184,7 +184,7 @@ void LivePitchShifter::process(float* mono, int numSamples) noexcept
     bypassRamp.setBypassed(isBypassed);
     if (isBypassed && ! active)
         return; // fully off: no CPU, no latency
-    const auto wantedMode = usesAnalogOctave(semitones.load()) ? analogEngine : mode.load();
+    const auto wantedMode = usesAnalogOctave(analogOctave.load(), semitones.load()) ? analogEngine : mode.load();
     if (! active)
     {
         active = true;

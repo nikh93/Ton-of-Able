@@ -98,6 +98,7 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
         sound.pitchMix = settings.mix;
         sound.pitchFormantPreserved = settings.formantPreserved;
         sound.pitchHighQuality = settings.highQuality;
+        sound.pitchAnalogOctave = settings.analogOctave;
         if (! settings.bypassed)
             enabled = true;
         publish();
@@ -183,7 +184,7 @@ void TrackFxComponent::showState()
     treble.setValue(sound.trebleDb, juce::dontSendNotification);
     outputGain.setValue(sound.outputGainDb, juce::dontSendNotification);
     graphicEq.setValues(sound.graphicEqBypassed, sound.graphicEqDb);
-    pitch.setSettings({ sound.pitchBypassed, sound.pitchSemitones, sound.pitchMix, sound.pitchFormantPreserved, sound.pitchHighQuality });
+    pitch.setSettings({ sound.pitchBypassed, sound.pitchSemitones, sound.pitchMix, sound.pitchFormantPreserved, sound.pitchHighQuality, sound.pitchAnalogOctave });
     effects.setState(sound);
     const auto vst = (sound.preVst3State.isValid() ? 1 : 0) + (sound.postVst3State.isValid() ? 1 : 0);
     vstInfo.setText(vst > 0 ? juce::String(vst) + text(" VST3-Slot(s) vom Live-Rig übernommen") : text("Keine VST3-Plugins (über \"Live-Rig übernehmen\" kopierbar)"), juce::dontSendNotification);

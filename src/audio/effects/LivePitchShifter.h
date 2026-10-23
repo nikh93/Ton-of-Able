@@ -24,8 +24,8 @@ namespace nam::effects
 //    short window; measured about 20-36 ms an octave down at 48 kHz,
 //    depending on the device block size - the playable default;
 //  - highQuality: RubberBandLiveShifter (R3), cleaner but about 87 ms late.
-// Exactly one octave down (-12) always uses the analog-style flip-flop
-// octaver instead: no latency, monophonic, like an octave pedal.
+// For exactly one octave down (-12) the analog-style flip-flop octaver can be
+// chosen as a third option: no latency, monophonic, like an octave pedal.
 // The dry signal is delayed by the same amount, so blending never flams.
 class LivePitchShifter final
 {
@@ -43,9 +43,13 @@ public:
     void setMix(float value) noexcept { mix.store(juce::jlimit(0.0f, 1.0f, value)); }
     void setFormantPreserved(bool value) noexcept { formant.store(value); }
     void setMode(Mode value) noexcept { mode.store(static_cast<int>(value)); }
+    /** Use the flip-flop octaver instead of Rubber Band while the shift is exactly -12. */
+    void setAnalogOctave(bool value) noexcept { analogOctave.store(value); }
 
-    /** True when -12 is set and the latency-free flip-flop octaver runs instead of Rubber Band. */
-    [[nodiscard]] static bool usesAnalogOctave(float semitoneValue) noexcept { return std::abs(semitoneValue + 12.0f) < 1.0e-3f; }
+    /** The flip-flop octaver can only do exactly one octave down. */
+    [[nodiscard]] static bool isOctaveDown(float semitoneValue) noexcept { return std::abs(semitoneValue + 12.0f) < 1.0e-3f; }
+    /** True when the latency-free flip-flop octaver runs instead of Rubber Band. */
+    [[nodiscard]] static bool usesAnalogOctave(bool analogChosen, float semitoneValue) noexcept { return analogChosen && isOctaveDown(semitoneValue); }
 
     /** Processing delay in samples while active (0 when bypassed or for -12). */
     [[nodiscard]] int latencySamples() const noexcept;
@@ -73,7 +77,7 @@ private:
     std::unique_ptr<RubberBand::RubberBandLiveShifter> liveShifter;
     FlipFlopOctaver octaver;
     static constexpr int analogEngine = 2;
-    std::atomic<bool> bypassed { true }, formant { false };
+    std::atomic<bool> bypassed { true }, formant { false }, analogOctave { false };
     std::atomic<float> semitones { -12.0f }, mix { 1.0f };
     std::atomic<int> mode { 0 };
 
