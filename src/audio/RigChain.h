@@ -8,6 +8,7 @@
 #include "NamPedalProcessor.h"
 #include "IRProcessor.h"
 #include "plugins/Vst3Slot.h"
+#include "plugins/GuitarSynth.h"
 #include "audio/effects/Effects.h"
 #include "audio/effects/GraphicEQProcessor.h"
 #include "audio/effects/LivePitchShifter.h"
@@ -89,6 +90,9 @@ public:
     }
     [[nodiscard]] int pitchLatencySamples() const noexcept { return pitchShifter.latencySamples(); }
 
+    /** Live rig only: guitar-to-MIDI synth, mixed in before the post-VST3. Set before prepare(). */
+    void setGuitarSynth(GuitarSynth* synth) noexcept { guitarSynth = synth; }
+
     Vst3Slot& prePlugin() noexcept { return preVst3; }
     Vst3Slot& postPlugin() noexcept { return postVst3; }
 
@@ -97,7 +101,8 @@ private:
     NamPedalProcessor namPedalProcessor;
     IRProcessor irProcessor;
     Vst3Slot preVst3, postVst3;
-    juce::AudioBuffer<float> namDryBuffer;
+    juce::AudioBuffer<float> namDryBuffer, guitarDryBuffer;
+    GuitarSynth* guitarSynth = nullptr;
     nam::effects::EQProcessor eqProcessor;
     nam::effects::GraphicEQProcessor graphicEq;
     nam::effects::LivePitchShifter pitchShifter;

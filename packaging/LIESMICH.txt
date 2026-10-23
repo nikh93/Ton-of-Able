@@ -35,6 +35,18 @@ Bedienung
   (Pitch, Wah, Drive, VST3, NAM-Pedal, Amp, Box/IR, EQ, Effekte).
   Klick auf den Punkt: an/aus. Klick auf den Block: bearbeiten.
 
+Gitarre -> MIDI -> Synth
+------------------------
+- Block SYNTH in der Signalkette anklicken.
+- 1. Erkennung: ein VST3, das aus der Gitarre MIDI macht (z. B. TONIQ,
+  MIDI Guitar, Transkr, MiGiC). 2. Synth: ein Instrument-VST3 (z. B. Vital).
+- "VST3-Plugins suchen" findet die Plugins in den Standardordnern
+  (C:\Program Files\Common Files\VST3).
+- Pegel fuer Synth und Gitarre (Gitarre ganz links = nur Synth), Transponieren.
+- MIDI-Keyboards spielen mit. Programme ohne VST3 koennen ueber einen
+  virtuellen MIDI-Port (z. B. loopMIDI) senden.
+- Fuer schnelle Erkennung eine kleine Puffergroesse (64-128) einstellen.
+
 Arrangement (Mehrspur)
 ----------------------
 - Spuren aufnehmen, schneiden, verschieben, kuerzen, Fades, Undo/Redo.

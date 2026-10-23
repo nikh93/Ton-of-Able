@@ -17,6 +17,9 @@ Ableton-style arrangement. The interface is in German.
 - Live pitch shifting with the [Rubber Band Library](https://breakfastquay.com/rubberband/);
   for exactly one octave down an analog-style flip-flop octaver is available as a **latency-free** mode
 - Two VST3 slots (bundled: BYOD, Valhalla Supermassive), presets with A/B, complete rigs
+- **Guitar to MIDI to synth**: an audio-to-MIDI VST3 (e.g. TONIQ, MIDI Guitar, Transkr, MiGiC)
+  listens to the guitar in real time and plays an instrument VST3 such as Vital, mixed with the
+  guitar (own levels, transpose); MIDI keyboards and virtual MIDI ports (e.g. loopMIDI) play along
 - ASIO first, WASAPI exclusive as fallback; meters, latency and CPU diagnostics
 
 **Arrangement (multitrack)**

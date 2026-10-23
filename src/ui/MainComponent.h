@@ -27,6 +27,7 @@
 #include "daw/ArrangementController.h"
 #include "ui/shortcuts/Shortcuts.h"
 #include "ui/rig/SignalChainStrip.h"
+#include "ui/plugins/GuitarSynthPanel.h"
 
 class MainComponent final : public juce::Component, public juce::FileDragAndDropTarget, public juce::ApplicationCommandTarget,
                             private juce::Timer, private juce::ChangeListener
@@ -91,6 +92,7 @@ private:
     void applyGraphicEq(bool bypassed, const std::array<float, 10>& bands);
     void showPitchShifter(juce::Rectangle<int> anchor);
     void showPluginRack();
+    void showGuitarSynth();
     // The signal chain strip: blocks in processing order, LED = on/off, click = editor.
     void updateChainStrip();
     void toggleChainBlock(const juce::String& id);
@@ -118,6 +120,9 @@ private:
     juce::File modelFolderRoot;
     std::shared_ptr<juce::FileChooser> modelChooser;
     juce::Array<juce::PluginDescription> drumInstruments;
+    juce::Array<juce::PluginDescription> vst3Catalog; // every scanned VST3 (guitar synth)
+    std::unique_ptr<juce::DocumentWindow> guitarSynthWindow;
+    nam::ui::GuitarSynthPanel* guitarSynthPanel = nullptr;
     juce::ThreadPool instrumentScanPool { juce::ThreadPoolOptions {}.withThreadName("Instrument scan").withNumberOfThreads(1) };
     bool scanningInstruments = false;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> instrumentEditors;

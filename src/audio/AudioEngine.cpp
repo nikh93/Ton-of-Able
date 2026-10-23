@@ -6,6 +6,7 @@
 
 AudioEngine::AudioEngine()
 {
+    rig.setGuitarSynth(&guitarSynthHost);
     const auto dataDirectory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
         .getChildFile("Ton of Able");
     dataDirectory.createDirectory();
@@ -46,11 +47,14 @@ AudioEngine::AudioEngine()
         }
     }
     manager.addAudioCallback(this);
+    manager.addMidiInputDeviceCallback({}, &guitarSynthHost);
+    enableMidiInputs();
 }
 
 AudioEngine::~AudioEngine()
 {
     manager.removeAudioCallback(this);
+    manager.removeMidiInputDeviceCallback({}, &guitarSynthHost);
     if (const auto state = manager.createStateXml())
         settings.saveAudioDeviceState(*state);
     manager.closeAudioDevice();
@@ -58,6 +62,13 @@ AudioEngine::~AudioEngine()
     recorder.finaliseStoppedRecordings();
     logger.stop();
     settings.flush();
+}
+
+void AudioEngine::enableMidiInputs()
+{
+    for (const auto& device : juce::MidiInput::getAvailableDevices())
+        if (! manager.isMidiInputDeviceEnabled(device.identifier))
+            manager.setMidiInputDeviceEnabled(device.identifier, true);
 }
 
 juce::Result AudioEngine::startRecording(const juce::File& target)

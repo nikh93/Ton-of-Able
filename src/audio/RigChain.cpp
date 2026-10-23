@@ -13,6 +13,9 @@ void RigChain::prepare(double sampleRate, int maximumBlockSize)
     namProcessor.setProcessingFormat(sampleRate, maximumBlock);
     namPedalProcessor.prepare(sampleRate, maximumBlock);
     namDryBuffer.setSize(1, maximumBlock, false, false, true);
+    guitarDryBuffer.setSize(1, maximumBlock, false, false, true);
+    if (guitarSynth != nullptr)
+        guitarSynth->prepare(sampleRate, maximumBlock);
     preVst3.prepare(sampleRate, maximumBlock);
     postVst3.prepare(sampleRate, maximumBlock);
     const juce::dsp::ProcessSpec spec { sampleRate, static_cast<juce::uint32>(maximumBlock), 1 };
@@ -82,6 +85,9 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
         inPeak = std::max(inPeak, std::abs(mono[sample]));
     }
 
+    // The guitar-to-MIDI tracker hears the plain guitar, before any effect.
+    if (guitarSynth != nullptr && guitarSynth->isEnabled())
+        juce::FloatVectorOperations::copy(guitarDryBuffer.getWritePointer(0), mono, numSamples);
     // Like a pitch pedal in front of the amp: shift first, then drive and NAM.
     pitchShifter.process(mono, numSamples);
     // Stack-backed channel view: process exactly the current callback length.
@@ -120,6 +126,8 @@ float RigChain::processWithInputPeak(float* mono, float* left, float* right, int
     juce::FloatVectorOperations::copy(right, mono, numSamples);
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
+    if (guitarSynth != nullptr)
+        guitarSynth->process(guitarDryBuffer.getReadPointer(0), left, right, numSamples);
     postVst3.process(stereoView);
     for (int sample = 0; sample < numSamples; ++sample)
     {

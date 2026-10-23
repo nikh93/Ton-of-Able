@@ -53,6 +53,14 @@ public:
             report.writeTo(juce::File(args[2]));
             quit(); return;
         }
+        if (args.size()==3 && args[0]=="--scan-vst3-all")
+        {
+            juce::XmlElement report("plugins");
+            for (const auto& description : GuitarSynth::scanFile(juce::File(args[1])))
+                report.addChildElement(description.createXml().release());
+            report.writeTo(juce::File(args[2]));
+            quit(); return;
+        }
         if (args.size()==3 && args[0]=="--scan-vst3")
         {
             juce::XmlElement report("plugins");

@@ -75,9 +75,13 @@ target_sources(NamTestProgram PRIVATE
     src/audio/RigChain.cpp
     src/audio/RigChain.h
     src/audio/effects/GraphicEQProcessor.h
+    src/audio/plugins/GuitarSynth.cpp
+    src/audio/plugins/GuitarSynth.h
     src/audio/plugins/PluginInstrument.cpp
     src/audio/plugins/PluginInstrument.h
     src/audio/plugins/Vst3Slot.cpp
+    src/ui/plugins/GuitarSynthPanel.cpp
+    src/ui/plugins/GuitarSynthPanel.h
     src/ui/plugins/PluginRackPanel.cpp
     src/ui/plugins/NamPedalPanel.cpp
     src/audio/NamPedalProcessor.cpp
@@ -202,6 +206,8 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/BundledModelTests.cpp
         tests/MixingTests.cpp
         tests/DrumKitTests.cpp
+        tests/GuitarSynthTests.cpp
+        src/audio/plugins/GuitarSynth.cpp
         src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}
@@ -212,6 +218,8 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
     target_compile_definitions(NamTestProgramTests PRIVATE JUCE_USE_CURL=0 NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST NOMINMAX WIN32_LEAN_AND_MEAN
         TON_OF_ABLE_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
     target_link_libraries(NamTestProgramTests PRIVATE
+        juce::juce_audio_devices
+        juce::juce_audio_processors
         juce::juce_audio_formats
         juce::juce_data_structures
         juce::juce_dsp

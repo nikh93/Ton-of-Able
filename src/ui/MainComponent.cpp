@@ -314,6 +314,13 @@ MainComponent::MainComponent()
         else
             audioEngine.appSettings().clearLastPreset();
     if (savedRack.isValid()) pluginRack.restoreRack(savedRack);
+    if (const auto savedSynth = audioEngine.appSettings().loadUiState().getChildWithName("GuitarSynth"); savedSynth.isValid())
+    {
+        juce::StringArray errors;
+        audioEngine.guitarSynth().restoreState(savedSynth, errors);
+        if (! errors.isEmpty())
+            status.setText(uiText("Gitarren-Synth: ") + errors.joinIntoString(", "), juce::dontSendNotification);
+    }
     if (!audioEngine.appSettings().loadLastPreset())
         if (const auto saved=audioEngine.appSettings().loadUiState().getChildWithName("lastRigSound").getChild(0); saved.isValid())
             if (auto sound=SoundState::fromValueTree(saved); sound && rigLibrary.find(sound->rigId))
@@ -335,6 +342,8 @@ MainComponent::~MainComponent()
     commandManager.getKeyMappings()->removeChangeListener(this);
     removeKeyListener(commandManager.getKeyMappings());
     instrumentEditors.clear();
+    if (guitarSynthPanel != nullptr)
+        guitarSynthPanel->closeEditors();
     instrumentScanPool.removeAllJobs(true, 5000);
     pluginWindow.reset();
     pluginRack.closeEditors();
@@ -350,6 +359,10 @@ MainComponent::~MainComponent()
     auto arrangementState = arrangementView.saveState();
     arrangementState.setProperty("visible", arrangementVisible, nullptr);
     uiState.addChild(arrangementState,-1,nullptr);
+    uiState.removeChild(uiState.getChildWithName("GuitarSynth"),nullptr);
+    uiState.addChild(audioEngine.guitarSynth().saveState(),-1,nullptr);
+    guitarSynthWindow.reset(); // editors close before the plugins go away with the engine
+    guitarSynthPanel = nullptr;
     uiState.removeChild(uiState.getChildWithName("lastRigSound"),nullptr);
     if (currentSound.rigId.isNotEmpty())
     {
@@ -1153,6 +1166,13 @@ void MainComponent::configureArrangement()
         return sound.toValueTree();
     });
 
+    for (const auto& item : audioEngine.appSettings().loadUiState().getChildWithName("vst3Catalog"))
+        if (const auto xml = item.createXml())
+        {
+            juce::PluginDescription description;
+            if (description.loadFromXml(*xml))
+                vst3Catalog.add(description);
+        }
     for (const auto& item : audioEngine.appSettings().loadUiState().getChildWithName("drumInstruments"))
         if (const auto xml = item.createXml())
         {
@@ -1252,6 +1272,15 @@ void MainComponent::updateChainStrip()
     add("chorus", "CHORUS", juce::String(sound.chorusRateHz, 1) + uiText(" Hz · ") + percent(sound.chorusMix), ! sound.chorusBypassed, "Chorus");
     add("delay", "DELAY", juce::String(sound.delayTimeMs, 0) + uiText(" ms · ") + percent(sound.delayMix), ! sound.delayBypassed, "Delay");
     add("reverb", "REVERB", juce::String(sound.reverbDecay, 1) + uiText(" s · ") + percent(sound.reverbMix), ! sound.reverbBypassed, "Hall");
+    {
+        auto& guitarSynth = audioEngine.guitarSynth();
+        const auto synthName = guitarSynth.name(GuitarSynth::Slot::synth);
+        const auto trackerName = guitarSynth.name(GuitarSynth::Slot::tracker);
+        add("synth", "SYNTH", synthName.isNotEmpty() ? synthName + (trackerName.isNotEmpty() ? uiText(" ← ") + trackerName : juce::String()) : uiText("leer"),
+            guitarSynth.isEnabled() && synthName.isNotEmpty(),
+            uiText("Gitarre → MIDI → Synth: ein Erkennungs-Plugin (z. B. TONIQ) macht aus der Gitarre Noten, ein Instrument (z. B. Vital) spielt sie"),
+            synthName.isEmpty());
+    }
     const auto postName = pluginRack.slotName(1);
     add("vstPost", "VST3 NACH", postName.isNotEmpty() ? postName : uiText("leer"), pluginRack.isSlotActive(1),
         uiText("VST3-Plugin nach dem Amp (Stereo)"), postName.isEmpty());
@@ -1282,6 +1311,7 @@ void MainComponent::toggleChainBlock(const juce::String& id)
     else if (id == "geq") applyGraphicEq(! sound.graphicEqBypassed, sound.graphicEqDb);
     else if (id == "vstPre") pluginRack.setSlotActive(0, ! pluginRack.isSlotActive(0));
     else if (id == "vstPost") pluginRack.setSlotActive(1, ! pluginRack.isSlotActive(1));
+    else if (id == "synth") audioEngine.guitarSynth().setEnabled(! audioEngine.guitarSynth().isEnabled());
     else if (id == "pedal") pluginRack.setPedalActive(! pluginRack.isPedalActive());
     else if (id == "amp")
     {
@@ -1314,6 +1344,7 @@ void MainComponent::openChainBlock(const juce::String& id)
     if (id == "pitch") showPitchShifter(anchor);
     else if (id == "geq") showGraphicEq(anchor);
     else if (id == "vstPre" || id == "vstPost" || id == "pedal") showPluginRack();
+    else if (id == "synth") showGuitarSynth();
     else if (id == "amp") ampSelector.showPopup();
     else if (id == "ir") setView(View::library);
 }
@@ -1542,7 +1573,7 @@ void MainComponent::scanDrumInstruments(std::function<void()> done)
             const auto report = juce::File::getSpecialLocation(juce::File::tempDirectory).getNonexistentChildFile("ton-instrument-scan", ".xml");
             juce::ChildProcess child;
             const juce::StringArray args { juce::File::getSpecialLocation(juce::File::currentExecutableFile).getFullPathName(),
-                                           "--scan-vst3-instruments", file, report.getFullPathName() };
+                                           "--scan-vst3-all", file, report.getFullPathName() };
             if (child.start(args) && child.waitForProcessToFinish(30000))
                 if (const auto xml = juce::XmlDocument::parse(report))
                     for (auto* item = xml->getFirstChildElement(); item != nullptr; item = item->getNextElement())
@@ -1559,22 +1590,68 @@ void MainComponent::scanDrumInstruments(std::function<void()> done)
             if (self == nullptr)
                 return;
             self->scanningInstruments = false;
-            self->drumInstruments = found;
+            self->vst3Catalog = found;
+            self->drumInstruments.clear();
+            for (const auto& description : found)
+                if (description.isInstrument)
+                    self->drumInstruments.add(description);
             auto uiState = self->audioEngine.appSettings().loadUiState();
             if (! uiState.isValid())
                 uiState = juce::ValueTree("uiState");
             uiState.removeChild(uiState.getChildWithName("drumInstruments"), nullptr);
-            juce::ValueTree list("drumInstruments");
+            uiState.removeChild(uiState.getChildWithName("vst3Catalog"), nullptr);
+            juce::ValueTree list("drumInstruments"), catalog("vst3Catalog");
             for (const auto& description : found)
                 if (const auto xml = description.createXml())
-                    list.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
+                {
+                    if (description.isInstrument)
+                        list.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
+                    catalog.addChild(juce::ValueTree::fromXml(*xml), -1, nullptr);
+                }
             uiState.addChild(list, -1, nullptr);
+            uiState.addChild(catalog, -1, nullptr);
             self->audioEngine.appSettings().saveUiState(uiState);
-            self->status.setText(juce::String(found.size()) + uiText(" VST3-Instrument(e) gefunden."), juce::dontSendNotification);
+            self->status.setText(juce::String(self->drumInstruments.size()) + uiText(" VST3-Instrument(e), ")
+                                     + juce::String(found.size()) + uiText(" VST3-Plugins insgesamt gefunden."), juce::dontSendNotification);
             if (done)
                 done();
         });
     });
+}
+
+void MainComponent::showGuitarSynth()
+{
+    if (guitarSynthWindow == nullptr)
+    {
+        nam::ui::GuitarSynthPanel::Host host;
+        host.plugins = [this] { return vst3Catalog; };
+        host.rescan = [this](std::function<void()> done) { scanDrumInstruments(std::move(done)); };
+        host.status = [this](const juce::String& message) { status.setText(message, juce::dontSendNotification); };
+        host.changed = [this] { updateChainStrip(); };
+        auto panel = std::make_unique<nam::ui::GuitarSynthPanel>(audioEngine.guitarSynth(), std::move(host));
+        guitarSynthPanel = panel.get();
+        struct Window final : juce::DocumentWindow
+        {
+            Window() : DocumentWindow(uiText("Gitarre → MIDI → Synth"), nam::ui::AmberTheme::panel(), closeButton) {}
+            void closeButtonPressed() override { setVisible(false); }
+        };
+        guitarSynthWindow = std::make_unique<Window>();
+        guitarSynthWindow->setUsingNativeTitleBar(true);
+        guitarSynthWindow->setContentOwned(panel.release(), true);
+        guitarSynthWindow->setResizable(true, false);
+        guitarSynthWindow->setResizeLimits(560, 440, 1200, 900);
+        guitarSynthWindow->centreWithSize(guitarSynthWindow->getWidth(), guitarSynthWindow->getHeight());
+        if (vst3Catalog.isEmpty())
+            scanDrumInstruments([self = juce::Component::SafePointer<MainComponent>(this)]
+            {
+                if (self != nullptr && self->guitarSynthPanel != nullptr)
+                    self->guitarSynthPanel->refresh();
+            });
+    }
+    else if (guitarSynthPanel != nullptr)
+        guitarSynthPanel->refresh();
+    guitarSynthWindow->setVisible(true);
+    guitarSynthWindow->toFront(true);
 }
 
 void MainComponent::showPitchShifter(juce::Rectangle<int> anchor)

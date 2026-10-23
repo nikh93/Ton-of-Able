@@ -87,3 +87,12 @@ Phase 30 abgeschlossen – Echte Drum-Samples:
 - Mitgeliefert: SM Drums (Stereo-Raummix, bis zu 16 Anschlagstufen, 3-4 Round-Robins pro Trommel, 38 MB, mit tools/drums/convert_smdrums.py aus dem frei verfügbaren SFZ-Kit verdichtet) als Standard für neue Drum-Spuren, dazu AVL Drumkits Black Pearl und Red Zeppelin (5 Anschlagstufen). Das bisherige Synth-Kit bleibt als elektronische Option.
 - Toms werden pro Kit auf die passenden Trommeln gelegt (AVL nutzt 48/50 für HiHat-Swish und Crash-Choke).
 - Ältere Projekte behalten ihre Klangquelle; im Drumcomputer oben rechts umschaltbar.
+
+Phase 31 abgeschlossen – Gitarre → MIDI → Synth (VST3):
+- Neuer Block SYNTH in der Signalkette mit eigenem Fenster. Ein Erkennungs-Plugin (jedes VST3 mit Audio-Eingang, z. B. TONIQ, MIDI Guitar, Transkr, MiGiC) bekommt das trockene Gitarrensignal nach dem Input-Regler und liefert MIDI; die Noten spielen in Echtzeit ein Instrument-VST3 (z. B. Vital).
+- Bisher verwarf der Host das MIDI, das Plugins ausgeben, und ließ MIDI-erzeugende Plugins in den Effekt-Slots gar nicht zu. GuitarSynth reicht den MIDI-Ausgang des Erkenners an den Synth weiter.
+- Mix: Synth- und Gitarrenpegel (Gitarre aus = nur Synth), Transponieren (±2 Oktaven, Quarte, Quinte), MIDI-Keyboards und virtuelle MIDI-Ports (loopMIDI) spielen mit; alle MIDI-Eingänge werden beim Start geöffnet.
+- Der Synth wird vor dem VST3 hinter dem Amp eingemischt, läuft also durch Supermassive & Co. und landet in Rig-Aufnahmen und Arrangement-Spuren, die das Rig aufnehmen.
+- Plugin-Editoren beider Plugins, Live-Notenanzeige, Zustand (Plugins samt Einstellungen, Pegel) wird beim Beenden gespeichert und beim Start geladen.
+- Der VST3-Scan (in Kindprozessen) erfasst jetzt alle Plugins, nicht nur Instrumente.
+- Tests mit Ersatz-Plugins: Erkennung → Synth, Pegel, nur Synth, Note-Off, Transponieren, MIDI-Keyboard, Zustand.

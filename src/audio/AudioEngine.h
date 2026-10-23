@@ -74,6 +74,10 @@ public:
     const std::atomic<float>& outputPeakSource() const noexcept { return outputPeak; }
     juce::String lastError() const;
     Vst3Slot& prePlugin() noexcept { return rig.prePlugin(); }
+    /** Guitar to MIDI to synth (live rig). */
+    GuitarSynth& guitarSynth() noexcept { return guitarSynthHost; }
+    /** Opens every MIDI input so keyboards can play the synth. Message thread. */
+    void enableMidiInputs();
     Vst3Slot& postPlugin() noexcept { return rig.postPlugin(); }
     /** Processing latency of the live rig (IR, drive oversampling, VST3). */
     int rigLatencySamples() const { return rig.latencySamples(); }
@@ -95,6 +99,7 @@ private:
     juce::AudioDeviceManager manager;
     std::atomic<float> inputPeak { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
+    GuitarSynth guitarSynthHost; // before rig: the rig points to it
     RigChain rig;
     juce::AudioBuffer<float> monoBuffer;
     juce::AudioBuffer<float> stereoBuffer;
