@@ -10,15 +10,23 @@
 
 namespace nam::ui
 {
+/** Background of one effect card: flat, with an accent bar while the effect is on. */
 class GlassEffectSurface final : public juce::Component
 {
 public:
+    void setActive(bool shouldBeActive) { if (active != shouldBeActive) { active = shouldBeActive; repaint(); } }
     void paint(juce::Graphics&) override;
+
+private:
+    bool active = false;
 };
+/** Card headers (left-aligned title with an expand chevron) and on/off switches. */
 class GlassHeaderLook final : public juce::LookAndFeel_V4
 {
 public:
     void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour&, bool, bool) override;
+    void drawButtonText(juce::Graphics&, juce::TextButton&, bool, bool) override;
+    void drawToggleButton(juce::Graphics&, juce::ToggleButton&, bool, bool) override;
 };
 /** GUI editor for pre-NAM Drive, the post-amp effect rack, the compressor and the wah pedal. */
 class EffectParameterPanel final : public juce::Component, private juce::Timer

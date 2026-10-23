@@ -47,8 +47,8 @@ EffectParameterPanel::EffectParameterPanel()
         effectPresets[i].setTooltip(juce::String(juce::CharPointer_UTF8("Vorgabe ausw\xc3\xa4hlen \xe2\x80\x93 schaltet den Effekt dabei ein")));
         surfaces[i].addAndMakeVisible(effectPresets[i]);
         effectPresets[i].onChange = [this, i] { if (effectPresets[i].getSelectedId() > 0) applyEffectPreset(i, effectPresets[i].getSelectedId()); };
-        power[i].setButtonText("AN");
         power[i].setTooltip("Effekt an/aus");
+        power[i].setLookAndFeel(&headerLook);
         surfaces[i].addAndMakeVisible(power[i]);
         power[i].onClick = [this, i]
         {
@@ -114,6 +114,7 @@ EffectParameterPanel::~EffectParameterPanel()
 {
     stopTimer();
     for (auto* c : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard }) c->setLookAndFeel(nullptr);
+    for (auto& button : power) button.setLookAndFeel(nullptr);
 }
 
 void EffectParameterPanel::previewExpanded(int index)
@@ -152,28 +153,78 @@ void EffectParameterPanel::timerCallback()
 
 void GlassEffectSurface::paint(juce::Graphics& g)
 {
-    auto r = getLocalBounds().toFloat().reduced(1, 2);
-    g.setColour(juce::Colours::black.withAlpha(.28f));
-    g.fillRoundedRectangle(r.translated(0, 2), 12);
-    juce::ColourGradient glass(juce::Colour(0xff788a87).withAlpha(.54f), r.getX(), r.getY(),
-        juce::Colour(0xff172321).withAlpha(.85f), r.getRight(), r.getBottom(), false);
-    glass.addColour(.35, juce::Colour(0xff3d514e).withAlpha(.65f));
-    g.setGradientFill(glass); g.fillRoundedRectangle(r, 12);
-    g.setGradientFill(juce::ColourGradient(juce::Colours::white.withAlpha(.22f), 0, r.getY(),
-        juce::Colours::white.withAlpha(0.f), 0, r.getY()+48, false));
-    g.fillRoundedRectangle(r.withHeight(juce::jmin(48.f,r.getHeight())), 12);
-    g.setColour(juce::Colours::white.withAlpha(.22f)); g.drawRoundedRectangle(r.reduced(.5f), 12, 1);
-    g.setColour(juce::Colours::white.withAlpha(.24f));
-    g.drawHorizontalLine(juce::roundToInt(r.getY()+2), r.getX()+12, r.getRight()-12);
+    auto r = getLocalBounds().toFloat().reduced(1.0f, 3.0f);
+    g.setColour(active ? juce::Colour(0xff2e261e) : juce::Colour(0xff25201b));
+    g.fillRoundedRectangle(r, 10.0f);
+    g.setColour(active ? AmberTheme::amber().withAlpha(0.35f) : juce::Colours::white.withAlpha(0.06f));
+    g.drawRoundedRectangle(r.reduced(0.5f), 10.0f, 1.0f);
+    if (active)
+    {
+        g.setColour(AmberTheme::amber());
+        g.fillRoundedRectangle(r.getX() + 1.0f, r.getY() + 12.0f, 3.0f, 24.0f, 1.5f);
+    }
 }
 
 void GlassHeaderLook::drawButtonBackground(juce::Graphics& g, juce::Button& b, const juce::Colour&, bool hover, bool down)
 {
     if (hover || down)
     {
-        g.setColour(juce::Colours::white.withAlpha(down ? .14f : .07f));
-        g.fillRoundedRectangle(b.getLocalBounds().toFloat().reduced(2), 10);
+        g.setColour(juce::Colours::white.withAlpha(down ? .08f : .04f));
+        g.fillRoundedRectangle(b.getLocalBounds().toFloat().reduced(2), 8);
     }
+}
+
+void GlassHeaderLook::drawButtonText(juce::Graphics& g, juce::TextButton& b, bool hover, bool)
+{
+    auto area = b.getLocalBounds().toFloat().reduced(10.0f, 0.0f);
+    const auto expanded = static_cast<bool>(b.getProperties().getWithDefault("expanded", false));
+    const auto chevronArea = area.removeFromRight(16.0f).withSizeKeepingCentre(10.0f, 10.0f);
+    juce::Path chevron;
+    if (expanded)
+    {
+        chevron.startNewSubPath(chevronArea.getX(), chevronArea.getBottom() - 3.0f);
+        chevron.lineTo(chevronArea.getCentreX(), chevronArea.getY() + 2.0f);
+        chevron.lineTo(chevronArea.getRight(), chevronArea.getBottom() - 3.0f);
+    }
+    else
+    {
+        chevron.startNewSubPath(chevronArea.getX(), chevronArea.getY() + 3.0f);
+        chevron.lineTo(chevronArea.getCentreX(), chevronArea.getBottom() - 2.0f);
+        chevron.lineTo(chevronArea.getRight(), chevronArea.getY() + 3.0f);
+    }
+    g.setColour(AmberTheme::subduedText().withAlpha(hover ? 1.0f : 0.7f));
+    g.strokePath(chevron, juce::PathStrokeType(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // "NAME · detail": the name bold, the detail quieter.
+    const auto textValue = b.getButtonText();
+    const auto split = textValue.indexOf(juce::String(juce::CharPointer_UTF8(" \xc2\xb7 ")));
+    const auto name = split < 0 ? textValue : textValue.substring(0, split);
+    const auto detail = split < 0 ? juce::String() : textValue.substring(split + 3);
+    const juce::Font bold(juce::FontOptions(13.5f, juce::Font::bold));
+    g.setFont(bold);
+    g.setColour(b.findColour(juce::TextButton::textColourOffId));
+    const auto nameWidth = std::min(area.getWidth(), juce::GlyphArrangement::getStringWidth(bold, name) + 2.0f);
+    g.drawText(name, area.removeFromLeft(nameWidth), juce::Justification::centredLeft, true);
+    if (detail.isNotEmpty())
+    {
+        g.setFont(juce::FontOptions(12.5f));
+        g.setColour(AmberTheme::subduedText());
+        g.drawFittedText(detail, area.withTrimmedLeft(8.0f).toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
+    }
+}
+
+void GlassHeaderLook::drawToggleButton(juce::Graphics& g, juce::ToggleButton& b, bool hover, bool)
+{
+    // A pill switch: knob right and amber when on.
+    const auto on = b.getToggleState();
+    const auto track = b.getLocalBounds().toFloat().withSizeKeepingCentre(36.0f, 20.0f);
+    g.setColour(on ? AmberTheme::amber() : AmberTheme::well());
+    g.fillRoundedRectangle(track, 10.0f);
+    g.setColour(on ? AmberTheme::amber().brighter(0.3f) : juce::Colours::white.withAlpha(hover ? 0.3f : 0.16f));
+    g.drawRoundedRectangle(track.reduced(0.5f), 10.0f, 1.0f);
+    const auto knob = juce::Rectangle<float>(14.0f, 14.0f).withCentre({ on ? track.getRight() - 10.0f : track.getX() + 10.0f, track.getCentreY() });
+    g.setColour(on ? AmberTheme::onText() : AmberTheme::subduedText());
+    g.fillEllipse(knob);
 }
 
 void EffectParameterPanel::configureControls()
@@ -301,15 +352,22 @@ void EffectParameterPanel::updateCardLabels()
     for (int i=0; i<numCards; ++i) power[i].setToggleState(!bypass[i], juce::dontSendNotification);
     const juce::String driveNames[] { "CRUNCH", "WARM OVERDRIVE", "SINGING LEAD", "FUZZ" };
     const auto driveName = driveNames[juce::jlimit(0, 3, currentState.driveType)];
-    driveCard.setButtonText("DRIVE / " + driveName + "  " + (currentState.driveBypassed ? "AUS" : "AN") + "  " + (expandedCard == 0 ? "-" : "+"));
-    wahCard.setButtonText("AUTO-WAH  " + juce::String(currentState.autoWahBypassed ? "AUS" : "AN") + "  " + (expandedCard == 1 ? "-" : "+"));
-    chorusCard.setButtonText("CHORUS  " + juce::String(currentState.chorusBypassed ? "AUS" : "AN") + "  " + (expandedCard == 2 ? "-" : "+"));
-    delayCard.setButtonText("DELAY  " + juce::String(currentState.delayBypassed ? "AUS" : "AN") + "  " + (expandedCard == 3 ? "-" : "+"));
-    reverbCard.setButtonText("REVERB  " + juce::String(currentState.reverbBypassed ? "AUS" : "AN") + "  " + (expandedCard == 4 ? "-" : "+"));
-    compressorCard.setButtonText("KOMPRESSOR " + juce::String(currentState.compressorPreAmp ? "(VOR AMP)" : "(NACH AMP)") + "  "
-                                 + (currentState.compressorBypassed ? "AUS" : "AN") + "  " + (expandedCard == 5 ? "-" : "+"));
-    wahPedalCard.setButtonText("WAH-PEDAL " + juce::String(currentState.pedalWahMouse ? "(MAUS)" : "") + "  "
-                               + (currentState.pedalWahBypassed ? "AUS" : "AN") + "  " + (expandedCard == 6 ? "-" : "+"));
+    const auto dot = juce::String(juce::CharPointer_UTF8(" \xc2\xb7 "));
+    const auto driveLabels = juce::StringArray { "Crunch", "Warm Overdrive", "Singing Lead", "Fuzz" };
+    driveCard.setButtonText("DRIVE" + dot + driveLabels[juce::jlimit(0, 3, currentState.driveType)]);
+    wahCard.setButtonText("AUTO-WAH" + (currentState.autoWahUpward ? juce::String() : dot + juce::String(juce::CharPointer_UTF8("abw\xc3\xa4rts"))));
+    chorusCard.setButtonText("CHORUS");
+    delayCard.setButtonText("DELAY" + dot + juce::String(juce::roundToInt(currentState.delayTimeMs)) + " ms");
+    reverbCard.setButtonText("REVERB");
+    compressorCard.setButtonText("KOMPRESSOR" + dot + (currentState.compressorPreAmp ? "vor dem Amp" : "nach dem Amp"));
+    wahPedalCard.setButtonText("WAH-PEDAL" + (currentState.pedalWahMouse ? dot + "Maus" : juce::String()));
+    juce::TextButton* cards[numCards] = { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard };
+    for (int i = 0; i < numCards; ++i)
+    {
+        cards[i]->getProperties().set("expanded", expandedCard == i);
+        cards[i]->setTooltip(juce::String(juce::CharPointer_UTF8("Klick: Einstellungen auf- oder zuklappen")));
+        surfaces[i].setActive(! bypass[i]);
+    }
     driveAmount.setName(currentState.driveType == 2 ? "GAIN" : currentState.driveType == 3 ? "FUZZ" : "DRIVE");
     driveCharacter.setName(currentState.driveType == 1 ? "WARMTH" : currentState.driveType == 2 ? "PRESENCE" : "BIAS");
 }
@@ -429,14 +487,13 @@ void EffectParameterPanel::layoutEffect(juce::Rectangle<int> area,
 
 void EffectParameterPanel::paint(juce::Graphics& g)
 {
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff41483f), 0, 0,
-        juce::Colour(0xff202620), float(getWidth()), float(getHeight()), false));
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 8.0f);
-    g.setColour(AmberTheme::amber().withAlpha(0.35f));
-    g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), 8.0f, 1.0f);
-    g.setColour(AmberTheme::amber());
-    g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-    g.drawText("OPTIONALE EFFEKTE", 18, 13, 210, 18, juce::Justification::left);
+    g.setColour(AmberTheme::panel());
+    g.fillRoundedRectangle(getLocalBounds().toFloat(), 10.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.07f));
+    g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), 10.0f, 1.0f);
+    g.setColour(AmberTheme::subduedText());
+    g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+    g.drawText("EFFEKTE", 18, 13, 210, 18, juce::Justification::left);
 }
 
 void EffectParameterPanel::resized()
@@ -475,7 +532,7 @@ void EffectParameterPanel::resized()
         surfaces[i].setBounds(area.removeFromTop(82+height));
         auto header = surfaces[i].getLocalBounds().removeFromTop(48).reduced(8,0);
         surfaces[i].addAndMakeVisible(*cards[i]);
-        power[i].setBounds(header.removeFromRight(60));
+        power[i].setBounds(header.removeFromRight(48));
         cards[i]->setBounds(header);
         cards[i]->setColour(juce::TextButton::textColourOffId, power[i].getToggleState() ? AmberTheme::amberBright() : AmberTheme::text());
         effectPresets[i].setBounds(12, 46, surfaces[i].getWidth()-24, 28);

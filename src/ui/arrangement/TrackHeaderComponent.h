@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "daw/ArrangementController.h"
+#include "ui/components/Icons.h"
 
 namespace nam::ui
 {
@@ -45,8 +46,9 @@ private:
     float meterLevel = 0.0f;
     std::shared_ptr<daw::TrackMixer> mixer;
     juce::Label name;
-    juce::TextButton arm { juce::String(juce::CharPointer_UTF8("\xe2\x97\x8f")) }, mute { "M" }, solo { "S" }, monitor { "IN" }, fx { "FX" }, drums { "DRUMCOMPUTER" };
-    juce::TextButton send { "SEND" }, frozenBadge { juce::String(juce::CharPointer_UTF8("\xe2\x9d\x84")) };
+    IconButton arm { Icon::record }, monitor { Icon::headphones }, frozenBadge { Icon::snowflake };
+    juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" }, send { "SEND" };
+    IconButton drums { Icon::sliders, "Drumcomputer" };
     juce::Label role;
     juce::ComboBox input;
     juce::Slider volume { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };

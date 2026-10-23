@@ -73,3 +73,11 @@ Phase 28 abgeschlossen – Neue Bedienstruktur:
 - Signalkette als zentrale Rig-Bedienung: alle Blöcke in Verarbeitungsreihenfolge (Pitch, Kompressor vor dem Amp, Wah, Drive, VST3 vor, NAM-Pedal, Amp, Box/IR, Graphic EQ, Kompressor danach, Auto-Wah, Chorus, Delay, Reverb, VST3 nach) mit Zustand und aktueller Einstellung. Klick auf die LED schaltet an/aus, Klick auf den Block öffnet den passenden Editor (Effektkarte aufklappen, Pitch/EQ als Call-out am Block, VST3/Pedal-Rack, Amp-Auswahl, Bibliothek). Leere Plätze werden gestrichelt gezeigt.
 - Die Bibliotheken (NAM und IR) haben eine eigene Ansicht nebeneinander in voller Höhe statt eines Overlays.
 - Entfallen, weil die Signalkette sie ersetzt: die Buttons NAM/IR an/aus, GRAPHIC EQ, PITCH, VST3/Pedale, Bibliotheken und Arrangement/Live-Rig.
+
+Phase 29 abgeschlossen – Modernes Bedienkonzept und Arrangement-Überarbeitung:
+- Neues Button-Design für die ganze App: flach, abgerundet, ohne Verlauf und Schlagschatten; Hover/Druck dezent, aktive Buttons in Bernstein (eigene Farben für Aufnahme rot, Mute gelb, Solo blau). Zusammengehörige Buttons bilden Segmentgruppen (Reiter, Transport, Werkzeuge, Zoom, Undo/Redo, Insert/Print, A/B, Live/WAV, Patterns).
+- Eigene Vektor-Icons (Play, Stop, Aufnahme, Anfang, Loop, Metronom, Vorzähler, Zeiger, Schere, Stretch, Zoom, Undo/Redo, Import/Export, Ordner, Tastatur, Kopfhörer, Schneeflocke …), damit die Symbole unter Windows nicht von Schriftarten abhängen.
+- Moderne Slider (schlanke Spur, runder Knopf, bipolar ab Null), Comboboxen, Menüs, Scrollbars, Tooltips, Checkboxen und Textfelder.
+- Arrangement: Transportleiste mit Projekt-Button (Name, • = ungespeichert), Transport-Gruppe, Display (Takt, Zeit, Tempo, Taktart) und Loop/Metronom/Vorzähler; Bearbeitungsleiste mit Werkzeugen, Raster, Zoom, Undo/Redo, Import/Export. „+ Spur“ sitzt jetzt mit vollem Menü in der Spurspalte. Arrangement und Bibliothek nutzen die ganze Fensterfläche.
+- Spurköpfe: breiter (250 px), Spurfarbe als Leiste, ausgewählte Spur hervorgehoben, Aufnahme/Mute/Solo als kompakte Gruppe, Abhören als Kopfhörer-Symbol, FX|SEND als Segment, Pegelanzeige mit Farbverlauf.
+- Effektkarten: flache Karten mit Akzentleiste bei aktivem Effekt, Titel mit aktueller Einstellung (z. B. „DELAY · 380 ms“), Schalter statt „AN“-Checkbox, Pfeil zum Auf-/Zuklappen.

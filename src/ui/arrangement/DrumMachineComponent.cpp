@@ -64,6 +64,7 @@ DrumMachineComponent::DrumMachineComponent(daw::ArrangementController& c, const 
         auto* button = patternButtons.add(new juce::TextButton(juce::String::charToString(static_cast<juce::juce_wchar>('A' + index))));
         button->setClickingTogglesState(true);
         button->setRadioGroupId(9001);
+        button->setConnectedEdges((index > 0 ? juce::Button::ConnectedOnLeft : 0) | (index < 7 ? juce::Button::ConnectedOnRight : 0));
         button->onClick = [this, index] { selectPattern(index); };
         addAndMakeVisible(button);
     }
@@ -424,14 +425,13 @@ void DrumMachineComponent::resized()
     auto controls = area.removeFromTop(30);
     for (auto* button : patternButtons)
     {
-        button->setBounds(controls.removeFromLeft(34));
-        controls.removeFromLeft(3);
+        button->setBounds(controls.removeFromLeft(32));
     }
     controls.removeFromLeft(12);
     length.setBounds(controls.removeFromLeft(130));
     controls.removeFromLeft(12);
     swingLabel.setBounds(controls.removeFromLeft(48));
-    swing.setBounds(controls.removeFromLeft(170));
+    swing.setBounds(controls.removeFromLeft(juce::jlimit(90, 170, controls.getWidth() - 470)));
     controls.removeFromLeft(12);
     audition.setBounds(controls.removeFromLeft(110));
     controls.removeFromLeft(6);

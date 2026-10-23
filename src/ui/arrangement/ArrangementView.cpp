@@ -30,25 +30,35 @@ class ArrangementView::HeaderColumn final : public juce::Component
 public:
     explicit HeaderColumn(ArrangementView& v) : view(v)
     {
-        addTrackButton.setTooltip(text("Neue Audiospur (Ctrl+T)"));
-        addTrackButton.onClick = [this] { view.controller.addTrack({}, -1); };
+        addTrackButton.setTooltip(text("Spur hinzufügen: Audio, Drums, Eingang oder Return (Ctrl+T = Audiospur)"));
+        addTrackButton.onClick = [this] { view.showAddTrackMenu(addTrackButton); };
         addAndMakeVisible(addTrackButton);
     }
 
     void paint(juce::Graphics& g) override
     {
-        g.fillAll(juce::Colour(0xff201a15));
+        g.fillAll(Theme::panel().darker(0.15f));
         auto top = getLocalBounds().removeFromTop(TimelineComponent::rulerHeight);
-        g.setColour(juce::Colour(0xff2b231c));
+        g.setColour(Theme::panel());
         g.fillRect(top);
+        g.setColour(juce::Colours::black.withAlpha(0.4f));
+        g.drawHorizontalLine(top.getBottom() - 1, 0.0f, static_cast<float>(getWidth()));
         g.setColour(Theme::subduedText());
         g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
-        g.drawText("SPUREN", top.reduced(10, 0), juce::Justification::centredLeft);
+        g.drawText("SPUREN  " + juce::String(view.controller.state().tracks.size()), top.reduced(12, 0), juce::Justification::centredLeft);
+        if (view.controller.state().tracks.empty())
+        {
+            g.setColour(Theme::subduedText().withAlpha(0.6f));
+            g.setFont(juce::FontOptions(12.0f));
+            g.drawFittedText(text("Doppelklick hier oder „+ Spur“\nlegt eine Spur an."),
+                             getLocalBounds().withTrimmedTop(TimelineComponent::rulerHeight + 16).reduced(12, 0).removeFromTop(40),
+                             juce::Justification::centredTop, 2);
+        }
     }
 
     void resized() override
     {
-        addTrackButton.setBounds(getLocalBounds().removeFromTop(TimelineComponent::rulerHeight).removeFromRight(34).reduced(4, 6));
+        addTrackButton.setBounds(getLocalBounds().removeFromTop(TimelineComponent::rulerHeight).removeFromRight(84).reduced(6, 4));
     }
 
     void mouseDoubleClick(const juce::MouseEvent& event) override
@@ -64,7 +74,7 @@ public:
 
 private:
     ArrangementView& view;
-    juce::TextButton addTrackButton { "+" };
+    IconButton addTrackButton { Icon::plus, "Spur" };
 };
 
 ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
@@ -75,23 +85,23 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     for (auto* bar : { &horizontal, &vertical })
     {
         bar->setAutoHide(false);
-        bar->setColour(juce::ScrollBar::thumbColourId, Theme::amber().withAlpha(0.45f));
-        bar->setColour(juce::ScrollBar::trackColourId, juce::Colour(0xff15110d));
+        bar->setColour(juce::ScrollBar::thumbColourId, Theme::amber().withAlpha(0.4f));
+        bar->setColour(juce::ScrollBar::trackColourId, Theme::panel().darker(0.2f));
         bar->addListener(this);
         addAndMakeVisible(*bar);
     }
 
-    toStart.setButtonText(juce::String(juce::CharPointer_UTF8("\xe2\x8f\xae")));
-    play.setButtonText(juce::String(juce::CharPointer_UTF8("\xe2\x96\xb6 Play")));
-    record.setButtonText(juce::String(juce::CharPointer_UTF8("\xe2\x97\x8f REC")));
-    undo.setButtonText(text("↶ Undo"));
-    redo.setButtonText(text("↷ Redo"));
+    record.setIconColour(Theme::record());
+    record.setColour(juce::TextButton::buttonOnColourId, Theme::record());
+    record.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    play.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff6fbf73));
+    play.setIconColour(juce::Colour(0xff8fd694));
     toStart.setTooltip("Zum Anfang (Pos1)");
     play.setTooltip("Abspielen / Stoppen (Leertaste)");
     stopButton.setTooltip(text("Stopp – zweimal: zurück zum Anfang"));
     record.setTooltip(text("Aufnahme auf allen scharfen Spuren (F9). Ohne scharfe Spur wird die ausgewählte Spur verwendet."));
     loop.setTooltip(text("Loop an/aus (Ctrl+L). Loop-Bereich oben im Lineal ziehen."));
-    metronome.setTooltip("Metronom");
+    metronome.setTooltip("Metronom (Klick)");
     countIn.setTooltip(text("Ein Takt Vorzähler vor der Aufnahme"));
     undo.setTooltip(text("Rückgängig (Ctrl+Z)"));
     redo.setTooltip("Wiederholen (Ctrl+Y / Ctrl+Shift+Z)");
@@ -100,12 +110,14 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     stretchTool.setTooltip(text("Stretch (T): Kanten ziehen = Time-Stretch mit Rubber Band"));
     zoomIn.setTooltip("Hineinzoomen (Ctrl+Mausrad / Ctrl++)");
     zoomOut.setTooltip("Herauszoomen (Ctrl+Mausrad / Ctrl+-)");
-    zoomFit.setTooltip(text("Alles zeigen"));
+    zoomFit.setTooltip(text("Ganzes Projekt zeigen"));
     importButton.setTooltip(text("Audio oder Video importieren (Ctrl+I) – auch per Drag & Drop auf die Timeline"));
-    exportButton.setTooltip("Mix oder einzelne Spuren exportieren");
+    exportButton.setTooltip("Mix, Loop-Bereich oder einzelne Spuren exportieren");
+    projectButton.setTooltip(text("Projekt: Neu, Öffnen, Speichern, Speichern unter …"));
+    shortcutsButton.setTooltip(text("Tastenkürzel ansehen und frei belegen (F1)"));
 
     for (auto* button : { &toStart, &play, &stopButton, &record, &loop, &metronome, &countIn, &pointerTool, &splitTool, &stretchTool,
-                          &zoomOut, &zoomIn, &zoomFit, &undo, &redo, &addTrack, &importButton, &exportButton, &projectButton, &shortcutsButton })
+                          &zoomOut, &zoomIn, &zoomFit, &undo, &redo, &importButton, &exportButton, &projectButton, &shortcutsButton })
     {
         button->setWantsKeyboardFocus(false);
         addAndMakeVisible(*button);
@@ -116,6 +128,22 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
         button->setRadioGroupId(4711);
     }
     pointerTool.setToggleState(true, juce::dontSendNotification);
+    // Related buttons join into segmented groups.
+    const auto group = [](std::initializer_list<juce::Button*> buttons)
+    {
+        const auto count = static_cast<int>(buttons.size());
+        int index = 0;
+        for (auto* button : buttons)
+        {
+            button->setConnectedEdges((index > 0 ? juce::Button::ConnectedOnLeft : 0) | (index < count - 1 ? juce::Button::ConnectedOnRight : 0));
+            ++index;
+        }
+    };
+    group({ &toStart, &play, &stopButton, &record });
+    group({ &loop, &metronome, &countIn });
+    group({ &pointerTool, &splitTool, &stretchTool });
+    group({ &zoomOut, &zoomIn, &zoomFit });
+    group({ &undo, &redo });
 
     toStart.onClick = [this] { controller.locate(0); };
     play.onClick = [this] { controller.togglePlay(); };
@@ -143,34 +171,27 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     zoomFit.onClick = [this] { timeline.zoomToFit(); };
     undo.onClick = [this] { controller.undo(); };
     redo.onClick = [this] { controller.redo(); };
-    addTrack.onClick = [this]
-    {
-        juce::PopupMenu menu;
-        menu.addItem("Spur mit NAM-Rig (bearbeitet)", [this] { controller.addTrack({}, -1); });
-        menu.addItem("Drum-Spur (Drumcomputer)", [this] { openDrumMachine(controller.addDrumTrack(), 0); });
-        for (const auto& input : controller.availableInputs())
-            if (input.channel >= 0)
-                menu.addItem("Spur mit " + input.name, [this, channel = input.channel] { controller.addTrack({}, channel); });
-        menu.addSeparator();
-        menu.addItem(text("Return-Spur (Send-Effekt: Hall, Delay …)"), daw::edit::makeReturnTrack(controller.state()).has_value(), false,
-                     [this] { controller.addReturnTrack(); });
-        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&addTrack));
-    };
     importButton.onClick = [this] { chooseImport(); };
     exportButton.onClick = [this] { showExportMenu(); };
     projectButton.onClick = [this] { showProjectMenu(); };
-    shortcutsButton.setButtonText(text("Tasten"));
-    shortcutsButton.setTooltip(text("Tastenkürzel ansehen und frei belegen (F1)"));
     shortcutsButton.onClick = [this] { if (onShowShortcuts) onShowShortcuts(); };
 
-    position.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 15.0f, juce::Font::bold));
+    position.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 19.0f, juce::Font::bold));
     position.setColour(juce::Label::textColourId, Theme::amberBright());
-    position.setColour(juce::Label::backgroundColourId, juce::Colour(0xff15110d));
     position.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(position);
+    position.setTooltip("Position in Takt.Schlag.Sechzehntel");
+    clock.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+    clock.setColour(juce::Label::textColourId, Theme::subduedText());
+    clock.setJustificationType(juce::Justification::centred);
+    clock.setTooltip("Position in Minuten:Sekunden");
+    for (auto* label : { &position, &clock })
+    {
+        label->setInterceptsMouseClicks(false, false);
+        addAndMakeVisible(*label);
+    }
 
     bpm.setEditable(false, true, false);
-    bpm.setColour(juce::Label::backgroundColourId, juce::Colour(0xff15110d));
+    bpm.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 17.0f, juce::Font::bold));
     bpm.setColour(juce::Label::textColourId, Theme::text());
     bpm.setJustificationType(juce::Justification::centred);
     bpm.setTooltip(text("Tempo – Doppelklick zum Ändern"));
@@ -185,7 +206,8 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     for (auto* label : { &bpmLabel, &masterLabel })
     {
         label->setColour(juce::Label::textColourId, Theme::subduedText());
-        label->setFont(juce::FontOptions(11.0f, juce::Font::bold));
+        label->setFont(juce::FontOptions(10.5f, juce::Font::bold));
+        label->setJustificationType(juce::Justification::centredLeft);
         addAndMakeVisible(*label);
     }
     addAndMakeVisible(bpm);
@@ -193,6 +215,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     for (size_t index = 0; index < std::size(signatures); ++index)
         signature.addItem(juce::String(signatures[index].beats) + "/" + juce::String(signatures[index].unit), static_cast<int>(index) + 1);
     signature.setTooltip("Taktart");
+    signature.setColour(juce::ComboBox::backgroundColourId, Theme::well());
     signature.onChange = [this]
     {
         const auto index = signature.getSelectedItemIndex();
@@ -217,9 +240,6 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     master.onValueChange = [this] { controller.engine().setMasterGainDb(static_cast<float>(master.getValue())); controller.markDirty(); };
     addAndMakeVisible(master);
 
-    projectName.setColour(juce::Label::textColourId, Theme::subduedText());
-    projectName.setJustificationType(juce::Justification::centredRight);
-    addAndMakeVisible(projectName);
 
     timeline.onViewChanged = [this] { layoutHeaders(); updateScrollBars(); };
     timeline.onOpenDrums = [this](const juce::Uuid& id, int pattern) { openDrumMachine(id, pattern); };
@@ -348,7 +368,13 @@ void ArrangementView::stateChanged()
     undo.setEnabled(controller.canUndo());
     redo.setEnabled(controller.canRedo());
     undo.setTooltip(controller.canUndo() ? text("Rückgängig: ") + controller.undoDescription() + " (Ctrl+Z)" : text("Rückgängig (Ctrl+Z)"));
-    projectName.setText(controller.projectFile().getFileNameWithoutExtension() + (controller.hasUnsavedChanges() ? " *" : ""), juce::dontSendNotification);
+    {
+        auto name = controller.projectFile().getFileNameWithoutExtension();
+        if (name.isEmpty())
+            name = text("Neues Projekt");
+        projectButton.setButtonText(name + (controller.hasUnsavedChanges() ? text(" \xe2\x80\xa2") : juce::String()));
+        headerColumn->repaint();
+    }
     updateTransportButtons();
     updateScrollBars();
 }
@@ -424,7 +450,6 @@ void ArrangementView::updateTransportButtons()
     auto& engine = controller.engine();
     play.setToggleState(engine.isPlaying(), juce::dontSendNotification);
     record.setToggleState(engine.isRecording(), juce::dontSendNotification);
-    record.setColour(juce::TextButton::textColourOffId, Theme::danger());
     loop.setToggleState(controller.state().loopEnabled, juce::dontSendNotification);
     metronome.setToggleState(engine.isMetronomeOn(), juce::dontSendNotification);
     countIn.setToggleState(controller.isCountInEnabled(), juce::dontSendNotification);
@@ -434,7 +459,8 @@ void ArrangementView::timerCallback()
 {
     auto& engine = controller.engine();
     const auto grid = controller.grid();
-    position.setText(grid.formatPosition(engine.position()) + "   " + formatTime(engine.position(), grid.sampleRate), juce::dontSendNotification);
+    position.setText(grid.formatPosition(engine.position()), juce::dontSendNotification);
+    clock.setText(formatTime(engine.position(), grid.sampleRate), juce::dontSendNotification);
     updateTransportButtons();
     for (auto& header : headers)
         header->updateMeter();
@@ -454,59 +480,89 @@ void ArrangementView::timerCallback()
 //==============================================================================
 void ArrangementView::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff17130f));
-    auto bars = getLocalBounds().removeFromTop(84);
-    g.setColour(juce::Colour(0xff2a221b));
-    g.fillRoundedRectangle(bars.toFloat().reduced(0.0f, 2.0f), 8.0f);
+    g.fillAll(Theme::background());
+    const auto bar = getLocalBounds().removeFromTop(toolbarHeight);
+    g.setColour(Theme::panel());
+    g.fillRect(bar);
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.drawHorizontalLine(bar.getBottom() - 1, 0.0f, static_cast<float>(getWidth()));
+    // Thin divider between the transport row and the edit row.
+    g.setColour(juce::Colours::white.withAlpha(0.04f));
+    g.drawHorizontalLine(bar.getY() + 48, 8.0f, static_cast<float>(getWidth() - 8));
+
+    if (! displayArea.isEmpty())
+    {
+        const auto display = displayArea.toFloat();
+        g.setColour(Theme::well());
+        g.fillRoundedRectangle(display, 7.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.07f));
+        g.drawRoundedRectangle(display.reduced(0.5f), 7.0f, 1.0f);
+        // Separators between position, tempo and time signature.
+        g.setColour(juce::Colours::white.withAlpha(0.08f));
+        for (auto* component : { static_cast<juce::Component*>(&bpmLabel), static_cast<juce::Component*>(&signature) })
+            g.drawVerticalLine(component->getX() - 7, display.getY() + 7.0f, display.getBottom() - 7.0f);
+    }
 }
 
 void ArrangementView::resized()
 {
     auto area = getLocalBounds();
-    auto bars = area.removeFromTop(84).reduced(8, 6);
-    auto row = bars.removeFromTop(32);
-    const auto place = [&row](juce::Component& component, int width, int gap = 4)
+    auto bar = area.removeFromTop(toolbarHeight).reduced(10, 0);
+    auto row = bar.removeFromTop(48).withSizeKeepingCentre(bar.getWidth(), 36);
+    const auto place = [&row](juce::Component& component, int width, int gap = 0)
     {
         component.setBounds(row.removeFromLeft(width));
         row.removeFromLeft(gap);
     };
-    place(toStart, 36);
-    place(play, 72);
-    place(stopButton, 52);
-    place(record, 66, 10);
-    place(loop, 54);
-    place(metronome, 52);
-    place(countIn, 74, 12);
-    place(position, 210, 12);
-    place(bpmLabel, 30, 2);
-    place(bpm, 58, 6);
-    place(signature, 62, 12);
-    projectButton.setBounds(row.removeFromRight(80));
-    row.removeFromRight(10);
-    master.setBounds(row.removeFromRight(juce::jmin(140, std::max(60, row.getWidth() - 46))));
-    masterLabel.setBounds(row.removeFromRight(46));
 
-    bars.removeFromTop(6);
-    row = bars.removeFromTop(28);
-    place(pointerTool, 66, 2);
-    place(splitTool, 66, 2);
-    place(stretchTool, 66, 12);
-    place(snap, 108, 12);
-    place(zoomOut, 28, 2);
-    place(zoomIn, 28, 2);
-    place(zoomFit, 52, 12);
-    place(undo, 74, 2);
-    place(redo, 74, 12);
-    place(addTrack, 66, 4);
-    place(importButton, 66, 4);
-    place(exportButton, 66, 4);
-    place(shortcutsButton, 60, 8);
-    projectName.setBounds(row);
+    // Transport row: project | transport | display | loop, click, count-in ... master | shortcuts
+    const auto compact = getWidth() < 1180;
+    place(projectButton, compact ? 128 : 180, 14);
+    place(toStart, 40);
+    place(play, 46);
+    place(stopButton, 40);
+    place(record, 46, 14);
 
-    area.removeFromTop(6);
-    horizontal.setBounds(area.removeFromBottom(14).withTrimmedLeft(220).withTrimmedRight(14));
-    vertical.setBounds(area.removeFromRight(14).withTrimmedTop(TimelineComponent::rulerHeight));
-    headerColumn->setBounds(area.removeFromLeft(220));
+    displayArea = row.removeFromLeft(compact ? 330 : 370);
+    row.removeFromLeft(14);
+    {
+        auto display = displayArea.reduced(10, 3);
+        position.setBounds(display.removeFromLeft(compact ? 70 : 84));
+        clock.setBounds(display.removeFromLeft(compact ? 78 : 90).translated(0, 1));
+        display.removeFromLeft(14);
+        auto tempo = display.removeFromLeft(compact ? 62 : 76);
+        bpmLabel.setBounds(tempo.removeFromLeft(28));
+        bpm.setBounds(tempo);
+        display.removeFromLeft(14);
+        signature.setBounds(display.withSizeKeepingCentre(display.getWidth(), 26));
+    }
+    place(loop, 40);
+    place(metronome, 40);
+    place(countIn, 40, 14);
+
+    shortcutsButton.setBounds(row.removeFromRight(40));
+    row.removeFromRight(14);
+    master.setBounds(row.removeFromRight(juce::jlimit(60, 160, row.getWidth() - 52)));
+    masterLabel.setBounds(row.removeFromRight(52));
+
+    // Edit row: tools | snap | zoom | undo, redo ... import, export
+    row = bar.withSizeKeepingCentre(bar.getWidth(), 30);
+    place(pointerTool, 40);
+    place(splitTool, 40);
+    place(stretchTool, 40, 14);
+    place(snap, 116, 14);
+    place(zoomOut, 36);
+    place(zoomIn, 36);
+    place(zoomFit, 36, 14);
+    place(undo, 38);
+    place(redo, 38, 14);
+    exportButton.setBounds(row.removeFromRight(96));
+    row.removeFromRight(6);
+    importButton.setBounds(row.removeFromRight(96));
+
+    horizontal.setBounds(area.removeFromBottom(12).withTrimmedLeft(headerWidth).withTrimmedRight(12));
+    vertical.setBounds(area.removeFromRight(12).withTrimmedTop(TimelineComponent::rulerHeight));
+    headerColumn->setBounds(area.removeFromLeft(headerWidth));
     timeline.setBounds(area);
     layoutHeaders();
     updateScrollBars();
@@ -663,6 +719,21 @@ void ArrangementView::showProjectMenu()
     menu.addItem(ffmpeg.existsAsFile() ? text("FFmpeg: ") + ffmpeg.getFullPathName() : text("FFmpeg auswählen … (für AAC, Opus, Video usw.)"), [this] { chooseFfmpeg(); });
     menu.addItem(text("Projektordner öffnen"), [this] { controller.projectFile().getParentDirectory().startAsProcess(); });
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&projectButton));
+}
+
+void ArrangementView::showAddTrackMenu(juce::Component& target)
+{
+    juce::PopupMenu menu;
+    menu.addSectionHeader(text("Neue Spur"));
+    menu.addItem(text("Audiospur mit NAM-Rig (bearbeitet)\tCtrl+T"), [this] { controller.addTrack({}, -1); });
+    for (const auto& input : controller.availableInputs())
+        if (input.channel >= 0)
+            menu.addItem(text("Audiospur mit ") + input.name + text(" (trocken)"), [this, channel = input.channel] { controller.addTrack({}, channel); });
+    menu.addItem(text("Drum-Spur (Drumcomputer)"), [this] { openDrumMachine(controller.addDrumTrack(), 0); });
+    menu.addSeparator();
+    menu.addItem(text("Return-Spur (Send-Effekt: Hall, Delay …)"), daw::edit::makeReturnTrack(controller.state()).has_value(), false,
+                 [this] { controller.addReturnTrack(); });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&target));
 }
 
 void ArrangementView::openProject()

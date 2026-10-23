@@ -7,6 +7,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "TimelineComponent.h"
+#include "ui/components/Icons.h"
 #include "TrackHeaderComponent.h"
 
 namespace nam::ui
@@ -45,6 +46,8 @@ public:
 
 private:
     class HeaderColumn;
+    static constexpr int headerWidth = 250;
+    static constexpr int toolbarHeight = 88;
 
     void timerCallback() override;
     void scrollBarMoved(juce::ScrollBar*, double newRangeStart) override;
@@ -59,6 +62,7 @@ private:
     void showExportMenu();
     void exportTo(bool stems, bool loopOnly, const juce::Uuid& singleTrack = juce::Uuid::null());
     void showProjectMenu();
+    void showAddTrackMenu(juce::Component& target);
     void openProject();
     void saveProject(bool forceChooser);
     void chooseFfmpeg();
@@ -70,14 +74,17 @@ private:
     std::vector<std::unique_ptr<TrackHeaderComponent>> headers;
     juce::ScrollBar horizontal { false }, vertical { true };
 
-    juce::TextButton toStart, play, stopButton { "Stop" }, record { "REC" }, loop { "Loop" }, metronome { "Click" }, countIn { "Count-In" };
-    juce::Label position, bpmLabel { {}, "BPM" }, bpm, masterLabel { {}, "Master" };
+    IconButton toStart { Icon::toStart }, play { Icon::play }, stopButton { Icon::stop }, record { Icon::record };
+    IconButton loop { Icon::loop }, metronome { Icon::metronome }, countIn { Icon::countIn };
+    juce::Label position, clock, bpmLabel { {}, "BPM" }, bpm, masterLabel { {}, "MASTER" };
     juce::ComboBox signature, snap;
     juce::Slider master { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
-    juce::TextButton pointerTool { "Zeiger" }, splitTool { "Schere" }, stretchTool { "Stretch" };
-    juce::TextButton zoomOut { "-" }, zoomIn { "+" }, zoomFit { "Alles" };
-    juce::TextButton undo, redo, addTrack { "+ Spur" }, importButton { "Import" }, exportButton { "Export" }, projectButton { "Projekt" }, shortcutsButton;
-    juce::Label projectName;
+    IconButton pointerTool { Icon::pointer }, splitTool { Icon::scissors }, stretchTool { Icon::stretch };
+    IconButton zoomOut { Icon::zoomOut }, zoomIn { Icon::zoomIn }, zoomFit { Icon::zoomFit };
+    IconButton undo { Icon::undo }, redo { Icon::redo };
+    IconButton importButton { Icon::importFile, "Import" }, exportButton { Icon::exportFile, "Export" };
+    IconButton projectButton { Icon::folder }, shortcutsButton { Icon::keyboard };
+    juce::Rectangle<int> displayArea; // the dark "LCD" behind position, tempo and time signature
 
     daw::codecs::ExportFormat exportFormat = daw::codecs::ExportFormat::wav24;
     juce::File lastExportDirectory;

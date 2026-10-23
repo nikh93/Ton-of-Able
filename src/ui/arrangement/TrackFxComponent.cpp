@@ -19,6 +19,8 @@ TrackFxComponent::TrackFxComponent(daw::ArrangementController& c, const juce::Uu
     fromLiveRig.setTooltip(text("Kopiert Amp, IR, Pedal, EQs, Effekte und VST3-Zustände vom Live-Rig in diese Spur"));
     for (auto* button : { &insertMode, &printMode })
         button->setRadioGroupId(8123);
+    insertMode.setConnectedEdges(juce::Button::ConnectedOnRight);
+    printMode.setConnectedEdges(juce::Button::ConnectedOnLeft);
 
     title.setFont(juce::FontOptions(18.0f, juce::Font::bold));
     title.setColour(juce::Label::textColourId, Theme::text());
@@ -219,7 +221,6 @@ void TrackFxComponent::resized()
     fromLiveRig.setBounds(top.removeFromRight(170));
     top.removeFromRight(10);
     printMode.setBounds(top.removeFromRight(160));
-    top.removeFromRight(4);
     insertMode.setBounds(top.removeFromRight(160));
     top.removeFromRight(10);
     active.setBounds(top);

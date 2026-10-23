@@ -131,7 +131,9 @@ MainComponent::MainComponent()
     pluginsButton.onClick = [this] { showPluginRack(); };
     openWav.setButtonText(uiText("Datei öffnen"));
     chooseWavFolder.setButtonText(uiText("Ordner öffnen"));
-    record.setButtonText(uiText("● REC"));
+    record.setIconColour(nam::ui::AmberTheme::record());
+    liveMode.setConnectedEdges(juce::Button::ConnectedOnRight);
+    wavMode.setConnectedEdges(juce::Button::ConnectedOnLeft);
     configureAudio.setButtonText(uiText("Einstellungen"));
     configureAudio.setTooltip(uiText("Audio-Interface, Ein-/Ausgänge, Samplerate und Puffergröße"));
     audioSummaryLabel.onClick = [this] { showAudioSettings(); };
@@ -172,7 +174,7 @@ MainComponent::MainComponent()
     status.setText(uiText("Bereit"), juce::dontSendNotification); status.setColour(juce::Label::textColourId, Theme::subduedText()); addAndMakeVisible(status);
     latency.setColour(juce::Label::textColourId, Theme::amber()); latency.setJustificationType(juce::Justification::centredRight); addAndMakeVisible(latency);
     audioSummaryLabel.setColour(juce::Label::textColourId, Theme::subduedText()); audioSummaryLabel.setJustificationType(juce::Justification::centredRight); addAndMakeVisible(audioSummaryLabel);
-    for (auto* b : { &configureAudio, &selectNam, &selectIr, &liveMode, &wavMode, &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &record, &savePreset, &toggleAB }) addAndMakeVisible(*b);
+    for (juce::TextButton* b : std::initializer_list<juce::TextButton*> { &configureAudio, &selectNam, &selectIr, &liveMode, &wavMode, &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &record, &savePreset, &toggleAB }) addAndMakeVisible(*b);
     ampSelector.setTextWhenNothingSelected("AMP");
     ampSelector.setTextWhenNoChoicesAvailable("AMP");
     configurationSelector.setTextWhenNothingSelected("KONFIGURATION");
@@ -218,7 +220,7 @@ MainComponent::MainComponent()
     namEnabled.setToggleState(true, juce::dontSendNotification); irEnabled.setToggleState(true, juce::dontSendNotification);
     namEnabled.onClick = [this] { currentSound.namBypassed = !namEnabled.getToggleState(); audioEngine.setNamBypassed(currentSound.namBypassed); };
     irEnabled.onClick = [this] { currentSound.irBypassed = !irEnabled.getToggleState(); audioEngine.setIrBypassed(currentSound.irBypassed); };
-    record.onClick = [this] { if (audioEngine.isRecording()) { audioEngine.stopRecording(); record.setButtonText(uiText("● REC")); status.setText(uiText("Aufnahme beendet"), juce::dontSendNotification); } else chooseRecordingTarget(); };
+    record.onClick = [this] { if (audioEngine.isRecording()) { audioEngine.stopRecording(); record.setButtonText("REC"); record.setIcon(nam::ui::Icon::record); status.setText(uiText("Aufnahme beendet"), juce::dontSendNotification); } else chooseRecordingTarget(); };
     wahEnabled.onClick = [this] { audioEngine.setAutoWahBypassed(!wahEnabled.getToggleState()); currentSound.autoWahBypassed = !wahEnabled.getToggleState(); };
     chorusEnabled.onClick = [this] { audioEngine.setChorusBypassed(!chorusEnabled.getToggleState()); currentSound.chorusBypassed = !chorusEnabled.getToggleState(); };
     delayEnabled.onClick = [this] { audioEngine.setDelayBypassed(!delayEnabled.getToggleState()); currentSound.delayBypassed = !delayEnabled.getToggleState(); };
@@ -1054,7 +1056,7 @@ void MainComponent::loadAndPlayWav(const juce::File& file)
 void MainComponent::chooseRecordingTarget()
 {
     recordChooser = std::make_shared<juce::FileChooser>("Verarbeitete WAV-Aufnahme speichern", juce::File {}, "*.wav"); const juce::Component::SafePointer<MainComponent> self(this);
-    recordChooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [self](const juce::FileChooser& chooser) { if (self == nullptr) return; auto file = chooser.getResult(); if (file.getFileName().isNotEmpty()) { if (!file.hasFileExtension("wav")) file = file.withFileExtension(".wav"); const auto result = self->audioEngine.startRecording(file); if (result.wasOk()) { self->record.setButtonText(uiText("■ STOP")); self->status.setText(uiText("Aufnahme läuft: ") + file.getFileName(), juce::dontSendNotification); } else self->status.setText(result.getErrorMessage(), juce::dontSendNotification); } self->recordChooser.reset(); });
+    recordChooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting, [self](const juce::FileChooser& chooser) { if (self == nullptr) return; auto file = chooser.getResult(); if (file.getFileName().isNotEmpty()) { if (!file.hasFileExtension("wav")) file = file.withFileExtension(".wav"); const auto result = self->audioEngine.startRecording(file); if (result.wasOk()) { self->record.setButtonText("STOP"); self->record.setIcon(nam::ui::Icon::stop); self->status.setText(uiText("Aufnahme läuft: ") + file.getFileName(), juce::dontSendNotification); } else self->status.setText(result.getErrorMessage(), juce::dontSendNotification); } self->recordChooser.reset(); });
 }
 
 std::vector<juce::Component*> MainComponent::rigComponents()
@@ -1746,7 +1748,9 @@ void MainComponent::paint(juce::Graphics& g)
 
 void MainComponent::resized()
 {
-    auto area = getLocalBounds().withSizeKeepingCentre(juce::jmin(1440, getWidth()), juce::jmin(900, getHeight())).reduced(24);
+    // The rig keeps a centred, fixed-size layout; arrangement and library use the whole window.
+    auto area = view == View::rig ? getLocalBounds().withSizeKeepingCentre(juce::jmin(1440, getWidth()), juce::jmin(900, getHeight())).reduced(24)
+                                  : getLocalBounds().reduced(16, 10);
     auto header = area.removeFromTop(42);
     title.setBounds(header.removeFromLeft(220));
     // Main navigation: RIG | ARRANGEMENT | BIBLIOTHEK.
@@ -1818,7 +1822,7 @@ void MainComponent::resized()
     transportPanel = area;
     auto transport = area.reduced(18); transport.removeFromTop(26);
     auto row = transport.removeFromTop(30);
-    liveMode.setBounds(row.removeFromLeft(62)); row.removeFromLeft(6);
+    liveMode.setBounds(row.removeFromLeft(62));
     wavMode.setBounds(row.removeFromLeft(62)); row.removeFromLeft(12);
     record.setBounds(row.removeFromRight(90));
     chooseWavFolder.setBounds(row.removeFromLeft(120)); row.removeFromLeft(6);

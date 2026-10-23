@@ -40,6 +40,8 @@ PresetManagementComponent::PresetManagementComponent()
             requestName("Preset umbenennen", preset->name, [this] (juce::String name) { if (onRename) onRename(selectedPreset, std::move(name)); });
     };
     deleteButton.onClick = [this] { requestDeleteConfirmation(); };
+    aButton.setConnectedEdges(juce::Button::ConnectedOnRight);
+    bButton.setConnectedEdges(juce::Button::ConnectedOnLeft);
     aButton.onClick = [this] { setUsingA(true, juce::sendNotificationSync); };
     bButton.onClick = [this] { setUsingA(false, juce::sendNotificationSync); };
     updateControlState();
@@ -80,10 +82,6 @@ void PresetManagementComponent::setUsingA(bool shouldUseA, juce::NotificationTyp
     usingA = shouldUseA;
     aButton.setToggleState(usingA, juce::dontSendNotification);
     bButton.setToggleState(!usingA, juce::dontSendNotification);
-    aButton.setColour(juce::TextButton::textColourOnId, AmberTheme::amberBright());
-    bButton.setColour(juce::TextButton::textColourOnId, AmberTheme::amberBright());
-    aButton.setColour(juce::TextButton::buttonColourId, usingA ? AmberTheme::amber() : AmberTheme::surfaceRaised());
-    bButton.setColour(juce::TextButton::buttonColourId, usingA ? AmberTheme::surfaceRaised() : AmberTheme::amber());
     aButton.setColour(juce::TextButton::textColourOffId, usingA ? AmberTheme::background() : AmberTheme::text());
     bButton.setColour(juce::TextButton::textColourOffId, usingA ? AmberTheme::text() : AmberTheme::background());
     if (changed && notification != juce::dontSendNotification && onABSelectionChanged)
@@ -168,6 +166,6 @@ void PresetManagementComponent::resized()
     renameButton.setBounds(bottom.removeFromLeft(100)); bottom.removeFromLeft(4);
     deleteButton.setBounds(bottom.removeFromLeft(74));
     bottom.removeFromLeft(juce::jmax(4, bottom.getWidth() - 58));
-    aButton.setBounds(bottom.removeFromLeft(27)); bottom.removeFromLeft(4); bButton.setBounds(bottom.removeFromLeft(27));
+    aButton.setBounds(bottom.removeFromLeft(29)); bButton.setBounds(bottom.removeFromLeft(29));
 }
 } // namespace nam::ui

@@ -4,6 +4,11 @@ Das Arrangement ist die Mehrspur-Ansicht von Ton of Able, angelehnt an die Arran
 Umschalten über die Reiter **RIG / ARRANGEMENT / BIBLIOTHEK** oben oder **Tab** (Rig ↔ Arrangement).
 Das Live-Rig (NAM, IR, Effekte, VST3) läuft in beiden Ansichten weiter.
 
+Aufbau der Oberfläche:
+- **Transportleiste** (oben): Projekt-Button mit Projektname (• = ungespeichert; Neu, Öffnen, Speichern), Transport (Anfang, Play, Stop, Aufnahme), Display mit Position in Takten und Zeit, Tempo (Doppelklick zum Ändern) und Taktart, dann Loop, Metronom und Vorzähler, rechts Master-Lautstärke und Tastenkürzel.
+- **Bearbeitungsleiste**: Werkzeuge Zeiger, Schere, Stretch, Raster, Zoom, Rückgängig/Wiederholen, rechts Import und Export.
+- **Spurspalte**: „+ Spur“ legt Audio-, Drum- oder Return-Spuren an. Jeder Spurkopf zeigt Name, Aufnahme-Scharfschaltung, Mute, Solo, Quelle mit Abhören (Kopfhörer), FX und SEND, Lautstärke, Panorama und Pegel. Alle Buttons erklären sich per Tooltip.
+
 ## Spuren und Eingänge
 
 Jede Spur hat eine Aufnahmequelle (Auswahlfeld im Spurkopf):
@@ -44,7 +49,7 @@ Rig-Spuren nehmen das Live-Rig auf. Ihre eigene Kette wirkt dort zusätzlich als
 
 Statt jeder Spur einen eigenen Hall zu geben, teilen sich mehrere Spuren einen Effekt. Das klingt zusammenhängender und spart Rechenleistung.
 
-- **+ Spur → Return-Spur (Send-Effekt)** oder **Strg+Umschalt+R** legt bis zu vier Return-Spuren an. Sie stehen immer unten.
+- **+ Spur** (oben in der Spurspalte) **→ Return-Spur (Send-Effekt)** oder **Strg+Umschalt+R** legt bis zu vier Return-Spuren an. Sie stehen immer unten.
 - Die Effektvorgabe ist 100 % nass: A = Hall, B = Delay, C = Plate, D = Slapback. Über **FX** lässt sich jede Kette wie eine Spurkette bearbeiten, inklusive NAM, IR, EQ und Kompressor.
 - **SEND** im Spurkopf (oder Rechtsklick → **Sends …**) öffnet je Return einen Regler (aus … +6 dB). Der Button leuchtet, sobald ein Send aktiv ist.
 - Sends sind **post-Fader**: Lautstärke, Panorama und Mute der Spur gelten auch für den Send.
@@ -83,7 +88,7 @@ Im Effekt-Rack gibt es die Karte **WAH-PEDAL**: ein klassisches Wah wie Cry Baby
 
 ## Tastenkürzel
 
-**Tasten** in der Werkzeugleiste oder **F1** öffnet die Übersicht aller Befehle, nach Bereich sortiert.
+Das Tastatur-Symbol rechts in der Transportleiste oder **F1** öffnet die Übersicht aller Befehle, nach Bereich sortiert.
 
 - **Klick auf eine Taste**: ändern oder entfernen. **+**: weitere Taste für denselben Befehl.
 - Ist eine Taste schon belegt, fragt das Programm, ob sie umgelegt werden soll.
@@ -113,7 +118,7 @@ Beides rechnet die Rubber Band Library (R3-Engine, Offline-Modus) im Hintergrund
 
 ## Zoom, Navigation, Loop
 
-- **Ctrl + Mausrad**: horizontal zoomen um die Mausposition, auch per Touchpad-Pinch, **Ctrl + / Ctrl -** oder die Buttons **+ / -**. **Alles** bzw. **Z** zeigt das ganze Arrangement.
+- **Ctrl + Mausrad**: horizontal zoomen um die Mausposition, auch per Touchpad-Pinch, **Ctrl + / Ctrl -** oder die Lupen-Buttons. Der dritte Zoom-Button bzw. **Z** zeigt das ganze Arrangement.
 - **Mausrad**: Spuren scrollen · **Shift + Mausrad**: horizontal scrollen · **Alt + Mausrad**: Spurhöhe.
 - Klick ins Lineal oder in eine freie Fläche setzt die Abspielposition. **Pos1** springt zum Anfang. **Stop** zweimal = zurück zum Anfang. **F** schaltet das Mitlaufen der Ansicht an/aus.
 - **Loop**: oberen Lineal-Streifen ziehen, Klick auf den Streifen bzw. **Ctrl+L** schaltet an/aus. Während einer Aufnahme läuft der Transport linear weiter.
@@ -150,7 +155,7 @@ Die Effektketten der Spuren (Insert) und der Return-Spuren werden mitgerendert. 
 
 ## Drumcomputer
 
-**+ Spur → Drum-Spur (Drumcomputer)** legt eine Drum-Spur an und öffnet den Step-Sequencer (später über den Button **DRUMCOMPUTER** im Spurkopf oder per Doppelklick auf einen Pattern-Clip).
+**+ Spur → Drum-Spur (Drumcomputer)** legt eine Drum-Spur an und öffnet den Step-Sequencer (später über den Button **Drumcomputer** im Spurkopf oder per Doppelklick auf einen Pattern-Clip).
 
 - **8 Patterns (A–H)** mit Startvorlagen: Rock, Rock-Fill, Half-Time, Four on the Floor, Metal (Double Bass), Shuffle, Funk, leer.
 - **12 Instrumente** in General-MIDI-Belegung: Kick 36, Snare 38, Rimshot 37, Clap 39, HiHat zu/Pedal/offen 42/44/46, Toms 45/47/50, Crash 49, Ride 51.

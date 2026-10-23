@@ -4,6 +4,7 @@
 
 #include "audio/AudioEngine.h"
 #include "ui/components/AmberTheme.h"
+#include "ui/components/Icons.h"
 #include "ui/components/AudioMeter.h"
 #include "ui/components/RotaryParameterControl.h"
 #include "ui/diagnostics/DiagnosticsPanel.h"
@@ -175,7 +176,7 @@ private:
     juce::Slider wavTimeline;
     juce::ToggleButton namEnabled { "NAM" };
     juce::ToggleButton irEnabled { "IR" };
-    juce::TextButton record { "● REC" };
+    nam::ui::IconButton record { nam::ui::Icon::record, "REC" };
     juce::TextButton savePreset { "Save" };
     juce::TextButton toggleAB { "A" };
     juce::ToggleButton diagnosticsToggle { "Diagnose" };

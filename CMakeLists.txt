@@ -107,6 +107,7 @@ target_sources(NamTestProgram PRIVATE
     src/ui/presets/PresetManagementComponent.cpp
     src/ui/presets/PresetManagementComponent.h
     src/ui/components/AmberTheme.cpp
+    src/ui/components/Icons.cpp
     src/ui/components/AmberTheme.h
     src/ui/components/RotaryParameterControl.cpp
     src/ui/components/RotaryParameterControl.h

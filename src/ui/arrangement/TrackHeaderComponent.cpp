@@ -12,7 +12,8 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     : controller(c), id(trackId)
 {
     name.setEditable(false, true, false);
-    name.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    name.setFont(juce::FontOptions(13.5f, juce::Font::bold));
+    name.setMinimumHorizontalScale(0.8f);
     name.setColour(juce::Label::textColourId, Theme::text());
     name.setTooltip("Doppelklick zum Umbenennen");
     name.onTextChange = [this]
@@ -31,7 +32,8 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
 
     arm.setClickingTogglesState(false);
     arm.setTooltip(text("Aufnahme scharf schalten"));
-    arm.setColour(juce::TextButton::textColourOffId, Theme::danger().withAlpha(0.7f));
+    arm.setIconColour(Theme::record().withAlpha(0.8f));
+    arm.setColour(juce::TextButton::buttonOnColourId, Theme::record());
     arm.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
     arm.onClick = [this]
     {
@@ -63,7 +65,8 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     mute.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe8b33c));
     solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff5aa9e6));
     for (auto* button : { &mute, &solo })
-        button->setColour(juce::TextButton::textColourOnId, juce::Colour(0xff1a1612));
+        button->setColour(juce::TextButton::textColourOnId, Theme::onText());
+    monitor.setIconColour(Theme::subduedText());
     monitor.setTooltip(text("Eingang abhören, solange die Spur scharf ist (nur dry-Eingänge; das Rig ist immer hörbar)"));
     monitor.onClick = [this]
     {
@@ -78,16 +81,17 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     drums.setTooltip(text("Step-Sequencer und Klangquelle dieser Drum-Spur öffnen"));
     drums.onClick = [this] { if (onOpenDrums) onOpenDrums(id); };
     addChildComponent(drums);
-    for (auto* button : { &arm, &mute, &solo, &monitor, &fx })
+    for (juce::Button* button : std::initializer_list<juce::Button*> { &arm, &mute, &solo, &monitor, &fx })
         addAndMakeVisible(*button);
     send.setTooltip(text("Sends: wie viel dieser Spur in die Return-Spuren (Hall, Delay …) geht"));
     send.onClick = [this] { showSends(); };
     addAndMakeVisible(send);
     frozenBadge.setTooltip(text("Eingefroren: spielt eine vorberechnete Datei statt Effekten und Instrument. Klick zum Auftauen."));
-    frozenBadge.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff9fd8ff));
+    frozenBadge.setIconColour(juce::Colour(0xff9fd8ff));
+    frozenBadge.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff23323d));
     frozenBadge.onClick = [this] { if (frozen) controller.unfreezeTrack(id); };
     addChildComponent(frozenBadge);
-    role.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    role.setFont(juce::FontOptions(11.5f, juce::Font::bold));
     role.setColour(juce::Label::textColourId, Theme::subduedText());
     role.setInterceptsMouseClicks(false, false);
     addChildComponent(role);
@@ -141,7 +145,7 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
         freezing = nowFreezing;
         resized();
     }
-    frozenBadge.setButtonText(freezing ? juce::String(juce::CharPointer_UTF8("\xe2\x80\xa6")) : juce::String(juce::CharPointer_UTF8("\xe2\x9d\x84")));
+    frozenBadge.setAlpha(freezing ? 0.5f + 0.5f * static_cast<float>((juce::Time::getMillisecondCounter() / 300) % 2) : 1.0f);
     arm.setEnabled(! frozen);
     if (isReturnTrack)
         role.setText(text("RETURN ") + daw::returnName(track.returnSlot) + text(" · Send-Effekt"), juce::dontSendNotification);
@@ -153,11 +157,11 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
     if (! name.isBeingEdited())
         name.setText(track.name, juce::dontSendNotification);
     arm.setToggleState(track.armed, juce::dontSendNotification);
-    arm.setColour(juce::TextButton::buttonOnColourId, Theme::danger());
     monitor.setToggleState(track.monitorInput, juce::dontSendNotification);
     monitor.setEnabled(track.inputChannel >= 0);
     fx.setToggleState(track.fx->enabled.load(), juce::dontSendNotification);
     fx.setButtonText(track.fx->enabled.load() && track.fx->printWhileRecording.load() && track.inputChannel >= 0 ? "FX P" : "FX");
+    name.setColour(juce::Label::textColourId, selected ? Theme::amberBright() : Theme::text());
     mute.setToggleState(track.mixer->muted.load(), juce::dontSendNotification);
     solo.setToggleState(track.mixer->soloed.load(), juce::dontSendNotification);
     if (! volume.isMouseButtonDown())
@@ -200,38 +204,51 @@ void TrackHeaderComponent::updateMeter()
 void TrackHeaderComponent::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
-    g.setColour(isSelected ? Theme::surfaceRaised().brighter(0.08f) : Theme::surface());
+    g.setColour(isSelected ? juce::Colour(0xff2b241e) : Theme::panel());
     g.fillRect(bounds);
+    if (isSelected)
+    {
+        g.setColour(Theme::amber().withAlpha(0.06f));
+        g.fillRect(bounds);
+    }
+    // Track colour as a slim bar on the left, wider when selected.
     g.setColour(colour);
-    g.fillRect(bounds.removeFromLeft(5.0f));
-    g.setColour(juce::Colours::black.withAlpha(0.45f));
+    g.fillRect(bounds.removeFromLeft(isSelected ? 5.0f : 3.0f));
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
     g.drawHorizontalLine(getHeight() - 1, 0.0f, static_cast<float>(getWidth()));
 
-    auto meter = getLocalBounds().removeFromRight(8).reduced(2, 4).toFloat();
-    g.setColour(juce::Colour(0xff15110d));
-    g.fillRect(meter);
+    // Level meter: a slim rounded bar along the right edge.
+    auto meter = getLocalBounds().removeFromRight(9).reduced(3, 6).toFloat();
+    g.setColour(Theme::well());
+    g.fillRoundedRectangle(meter, 1.5f);
     const auto height = meter.getHeight() * meterLevel;
-    g.setColour(meterLevel > 0.97f ? Theme::danger() : Theme::amber());
-    g.fillRect(meter.removeFromBottom(height));
+    if (height > 0.5f)
+    {
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff6fbf73), 0.0f, meter.getBottom(), Theme::amber(), 0.0f, meter.getY(), false));
+        if (meterLevel > 0.97f)
+            g.setColour(Theme::record());
+        g.fillRoundedRectangle(meter.withTop(meter.getBottom() - height), 1.5f);
+    }
 }
 
 void TrackHeaderComponent::resized()
 {
-    auto area = getLocalBounds().withTrimmedLeft(10).withTrimmedRight(10).reduced(0, 4);
+    auto area = getLocalBounds().withTrimmedLeft(12).withTrimmedRight(12).reduced(0, 5);
     auto top = area.removeFromTop(22);
-    solo.setBounds(top.removeFromRight(24));
-    top.removeFromRight(2);
-    mute.setBounds(top.removeFromRight(24));
-    top.removeFromRight(2);
-    arm.setBounds(top.removeFromRight(26));
-    top.removeFromRight(4);
+    const auto square = [&top](juce::Component& component, int width = 24)
+    {
+        component.setBounds(top.removeFromRight(width));
+        top.removeFromRight(3);
+    };
+    square(solo);
+    square(mute);
+    if (! isDrumTrack && ! isReturnTrack)
+        square(arm, 26);
     frozenBadge.setVisible(frozen || freezing);
     if (frozen || freezing)
-    {
-        frozenBadge.setBounds(top.removeFromRight(24));
-        top.removeFromRight(2);
-    }
-    name.setBounds(top);
+        square(frozenBadge, 26);
+    top.removeFromRight(3);
+    name.setBounds(top.withTrimmedLeft(-4));
 
     const auto roomy = area.getHeight() >= 46;
     arm.setVisible(! isDrumTrack && ! isReturnTrack);
@@ -245,28 +262,36 @@ void TrackHeaderComponent::resized()
     pan.setVisible(roomy);
     if (! roomy)
         return;
-    area.removeFromTop(4);
-    auto second = area.removeFromTop(20);
+    area.removeFromTop(6);
+    auto second = area.removeFromTop(22);
+    // FX and SEND form one group, the source (input, drum editor or return role) fills the rest.
     if (! isReturnTrack)
     {
-        monitor.setBounds(second.removeFromRight(30));
-        second.removeFromRight(2);
+        send.setBounds(second.removeFromRight(46));
+        send.setConnectedEdges(juce::Button::ConnectedOnLeft);
+        fx.setBounds(second.removeFromRight(38));
+        fx.setConnectedEdges(juce::Button::ConnectedOnRight);
     }
-    fx.setBounds(second.removeFromRight(36));
-    second.removeFromRight(2);
-    if (! isReturnTrack)
+    else
     {
-        send.setBounds(second.removeFromRight(44));
-        second.removeFromRight(4);
+        fx.setBounds(second.removeFromRight(46));
+        fx.setConnectedEdges(0);
     }
-    input.setBounds(second);
+    second.removeFromRight(6);
+    if (! isDrumTrack && ! isReturnTrack)
+    {
+        monitor.setBounds(second.removeFromRight(28));
+        second.removeFromRight(3);
+        input.setBounds(second);
+    }
     role.setBounds(second);
     if (isDrumTrack)
         drums.setBounds(second);
-    area.removeFromTop(2);
-    auto third = area.removeFromTop(22);
+    area.removeFromTop(4);
+    auto third = area.removeFromTop(24);
     pan.setBounds(third.removeFromRight(26));
-    volume.setBounds(third);
+    third.removeFromRight(6);
+    volume.setBounds(third.withTrimmedLeft(-6));
 }
 
 void TrackHeaderComponent::mouseDown(const juce::MouseEvent& event)
