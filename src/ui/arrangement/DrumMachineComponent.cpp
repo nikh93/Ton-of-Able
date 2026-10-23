@@ -196,7 +196,9 @@ void DrumMachineComponent::refreshSources()
     }
     editor.setEnabled(isPlugin);
     info.setText(isPlugin ? text("Gesendet wird General MIDI (Kanal 10) – das Kit wählst du im Plugin-Editor.")
-                 : isKit ? text("Echte Drum-Samples mit 5 Anschlagstufen: AVL Drumkits von Glen MacArthur (bandshed.net), CC-BY-SA 3.0.")
+                 : isKit ? (settings.getProperty("kit").toString() == "sm-drums"
+                                ? text("Echte Stereo-Drum-Samples mit bis zu 16 Anschlagstufen und wechselnden Schlägen: SM Drums (Scott McLean, Tod Stillwell, Suleiman Ali).")
+                                : text("Echte Drum-Samples mit 5 Anschlagstufen: AVL Drumkits von Glen MacArthur (bandshed.net), CC-BY-SA 3.0."))
                          : text("Synthetisiertes Kit im 808/909-Stil. Für echte Drums oben ein Akustik-Kit wählen."),
                  juce::dontSendNotification);
 }

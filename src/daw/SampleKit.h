@@ -10,8 +10,9 @@
 namespace daw
 {
 /** A sampled drum kit read from an SFZ file: velocity layers, panning and
-    choke groups (group / off_by). Only the opcodes drum kits need are read:
-    key, lokey/hikey, lovel/hivel, sample, pan, volume, group, off_by.
+    choke groups (group / off_by) and random round robins (lorand / hirand).
+    Only the opcodes drum kits need are read: key, lokey/hikey, lovel/hivel,
+    lorand/hirand, sample, pan, volume, group, off_by. Samples may be mono or stereo.
 
     The decoded samples are shared between all tracks (and export copies)
     that use the same kit at the same sample rate. */
@@ -21,6 +22,7 @@ public:
     struct Region
     {
         int loKey = 0, hiKey = 127, loVel = 1, hiVel = 127;
+        float loRand = 0.0f, hiRand = 1.0f;
         juce::String sample;
         float pan = 0.0f;     // -100 .. 100
         float volumeDb = 0.0f;
@@ -44,7 +46,7 @@ public:
     /** Instrument settings that select a bundled kit. */
     [[nodiscard]] static juce::ValueTree settingsFor(const juce::String& kitId);
     /** The kit new drum tracks start with. */
-    [[nodiscard]] static juce::String defaultKitId() { return "avl-black-pearl"; }
+    [[nodiscard]] static juce::String defaultKitId() { return "sm-drums"; }
 
     /** Loads the kit; returns null (and sets error) if the SFZ or a sample is missing. */
     [[nodiscard]] static std::shared_ptr<SampleKit> load(const juce::File& kitsDirectory, const juce::String& kitId, juce::String& error);
@@ -56,12 +58,13 @@ public:
 
     struct Sample
     {
-        std::vector<float> data;
+        std::vector<float> left, right; // right is empty for mono samples
         double sampleRate = 44100.0;
     };
     struct Layer
     {
         int loVel = 1, hiVel = 127;
+        float loRand = 0.0f, hiRand = 1.0f;
         std::shared_ptr<const Sample> sample;
         float gainLeft = 1.0f, gainRight = 1.0f;
         int group = 0, offBy = 0;

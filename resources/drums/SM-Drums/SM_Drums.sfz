@@ -1,0 +1,458 @@
+// SM Drums (Scott McLean, Tod Stillwell, Suleiman Ali), condensed for Ton of Able:
+// evenly spaced velocity layers and round robins, decays trimmed below -70 dBFS.
+
+// Level matched to the other bundled kits.
+<global> volume=4
+
+// Kick
+<group> key=36
+<region> sample=Samples/Kick_v01_rr1.flac lovel=1 hivel=5 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v02_rr1.flac lovel=6 hivel=13 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v03_rr1.flac lovel=14 hivel=21 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v04_rr1.flac lovel=22 hivel=29 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v05_rr1.flac lovel=30 hivel=37 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v06_rr1.flac lovel=38 hivel=45 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v07_rr1.flac lovel=46 hivel=53 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v08_rr1.flac lovel=54 hivel=63 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v09_rr1.flac lovel=64 hivel=73 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v10_rr1.flac lovel=74 hivel=81 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v11_rr1.flac lovel=82 hivel=89 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v12_rr1.flac lovel=90 hivel=97 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v13_rr1.flac lovel=98 hivel=105 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v14_rr1.flac lovel=106 hivel=113 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v15_rr1.flac lovel=114 hivel=121 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v16_rr1.flac lovel=122 hivel=127 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Kick_v01_rr2.flac lovel=1 hivel=5 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v02_rr2.flac lovel=6 hivel=13 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v03_rr2.flac lovel=14 hivel=21 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v04_rr2.flac lovel=22 hivel=29 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v05_rr2.flac lovel=30 hivel=37 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v06_rr2.flac lovel=38 hivel=45 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v07_rr2.flac lovel=46 hivel=53 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v08_rr2.flac lovel=54 hivel=63 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v09_rr2.flac lovel=64 hivel=73 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v10_rr2.flac lovel=74 hivel=81 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v11_rr2.flac lovel=82 hivel=89 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v12_rr2.flac lovel=90 hivel=97 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v13_rr2.flac lovel=98 hivel=105 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v14_rr2.flac lovel=106 hivel=113 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v15_rr2.flac lovel=114 hivel=121 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v16_rr2.flac lovel=122 hivel=127 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Kick_v01_rr3.flac lovel=1 hivel=5 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v02_rr3.flac lovel=6 hivel=13 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v03_rr3.flac lovel=14 hivel=21 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v04_rr3.flac lovel=22 hivel=29 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v05_rr3.flac lovel=30 hivel=37 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v06_rr3.flac lovel=38 hivel=45 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v07_rr3.flac lovel=46 hivel=53 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v08_rr3.flac lovel=54 hivel=63 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v09_rr3.flac lovel=64 hivel=73 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v10_rr3.flac lovel=74 hivel=81 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v11_rr3.flac lovel=82 hivel=89 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v12_rr3.flac lovel=90 hivel=97 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v13_rr3.flac lovel=98 hivel=105 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v14_rr3.flac lovel=106 hivel=113 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v15_rr3.flac lovel=114 hivel=121 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v16_rr3.flac lovel=122 hivel=127 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Kick_v01_rr4.flac lovel=1 hivel=5 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v02_rr4.flac lovel=6 hivel=13 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v03_rr4.flac lovel=14 hivel=21 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v04_rr4.flac lovel=22 hivel=29 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v05_rr4.flac lovel=30 hivel=37 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v06_rr4.flac lovel=38 hivel=45 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v07_rr4.flac lovel=46 hivel=53 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v08_rr4.flac lovel=54 hivel=63 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v09_rr4.flac lovel=64 hivel=73 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v10_rr4.flac lovel=74 hivel=81 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v11_rr4.flac lovel=82 hivel=89 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v12_rr4.flac lovel=90 hivel=97 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v13_rr4.flac lovel=98 hivel=105 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v14_rr4.flac lovel=106 hivel=113 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v15_rr4.flac lovel=114 hivel=121 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Kick_v16_rr4.flac lovel=122 hivel=127 lorand=0.7500 hirand=1.0000
+
+// Snare
+<group> key=38
+<region> sample=Samples/Snare_v01_rr1.flac lovel=1 hivel=5 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v02_rr1.flac lovel=6 hivel=13 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v03_rr1.flac lovel=14 hivel=22 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v04_rr1.flac lovel=23 hivel=31 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v05_rr1.flac lovel=32 hivel=39 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v06_rr1.flac lovel=40 hivel=46 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v07_rr1.flac lovel=47 hivel=54 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v08_rr1.flac lovel=55 hivel=63 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v09_rr1.flac lovel=64 hivel=72 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v10_rr1.flac lovel=73 hivel=80 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v11_rr1.flac lovel=81 hivel=87 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v12_rr1.flac lovel=88 hivel=94 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v13_rr1.flac lovel=95 hivel=104 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v14_rr1.flac lovel=105 hivel=113 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v15_rr1.flac lovel=114 hivel=121 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v16_rr1.flac lovel=122 hivel=127 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/Snare_v01_rr2.flac lovel=1 hivel=5 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v02_rr2.flac lovel=6 hivel=13 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v03_rr2.flac lovel=14 hivel=22 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v04_rr2.flac lovel=23 hivel=31 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v05_rr2.flac lovel=32 hivel=39 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v06_rr2.flac lovel=40 hivel=46 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v07_rr2.flac lovel=47 hivel=54 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v08_rr2.flac lovel=55 hivel=63 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v09_rr2.flac lovel=64 hivel=72 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v10_rr2.flac lovel=73 hivel=80 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v11_rr2.flac lovel=81 hivel=87 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v12_rr2.flac lovel=88 hivel=94 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v13_rr2.flac lovel=95 hivel=104 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v14_rr2.flac lovel=105 hivel=113 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v15_rr2.flac lovel=114 hivel=121 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v16_rr2.flac lovel=122 hivel=127 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/Snare_v01_rr3.flac lovel=1 hivel=5 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v02_rr3.flac lovel=6 hivel=13 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v03_rr3.flac lovel=14 hivel=22 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v04_rr3.flac lovel=23 hivel=31 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v05_rr3.flac lovel=32 hivel=39 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v06_rr3.flac lovel=40 hivel=46 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v07_rr3.flac lovel=47 hivel=54 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v08_rr3.flac lovel=55 hivel=63 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v09_rr3.flac lovel=64 hivel=72 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v10_rr3.flac lovel=73 hivel=80 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v11_rr3.flac lovel=81 hivel=87 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v12_rr3.flac lovel=88 hivel=94 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v13_rr3.flac lovel=95 hivel=104 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v14_rr3.flac lovel=105 hivel=113 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v15_rr3.flac lovel=114 hivel=121 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v16_rr3.flac lovel=122 hivel=127 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/Snare_v01_rr4.flac lovel=1 hivel=5 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v02_rr4.flac lovel=6 hivel=13 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v03_rr4.flac lovel=14 hivel=22 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v04_rr4.flac lovel=23 hivel=31 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v05_rr4.flac lovel=32 hivel=39 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v06_rr4.flac lovel=40 hivel=46 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v07_rr4.flac lovel=47 hivel=54 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v08_rr4.flac lovel=55 hivel=63 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v09_rr4.flac lovel=64 hivel=72 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v10_rr4.flac lovel=73 hivel=80 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v11_rr4.flac lovel=81 hivel=87 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v12_rr4.flac lovel=88 hivel=94 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v13_rr4.flac lovel=95 hivel=104 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v14_rr4.flac lovel=105 hivel=113 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v15_rr4.flac lovel=114 hivel=121 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/Snare_v16_rr4.flac lovel=122 hivel=127 lorand=0.7500 hirand=1.0000
+
+// Sidestick
+<group> key=37
+<region> sample=Samples/Sidestick_v01_rr1.flac lovel=1 hivel=11 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v02_rr1.flac lovel=12 hivel=28 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v03_rr1.flac lovel=29 hivel=46 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v04_rr1.flac lovel=47 hivel=64 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v05_rr1.flac lovel=65 hivel=82 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v06_rr1.flac lovel=83 hivel=99 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v07_rr1.flac lovel=100 hivel=116 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v08_rr1.flac lovel=117 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Sidestick_v01_rr2.flac lovel=1 hivel=11 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v02_rr2.flac lovel=12 hivel=28 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v03_rr2.flac lovel=29 hivel=46 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v04_rr2.flac lovel=47 hivel=64 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v05_rr2.flac lovel=65 hivel=82 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v06_rr2.flac lovel=83 hivel=99 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v07_rr2.flac lovel=100 hivel=116 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v08_rr2.flac lovel=117 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Sidestick_v01_rr3.flac lovel=1 hivel=11 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v02_rr3.flac lovel=12 hivel=28 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v03_rr3.flac lovel=29 hivel=46 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v04_rr3.flac lovel=47 hivel=64 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v05_rr3.flac lovel=65 hivel=82 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v06_rr3.flac lovel=83 hivel=99 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v07_rr3.flac lovel=100 hivel=116 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Sidestick_v08_rr3.flac lovel=117 hivel=127 lorand=0.6667 hirand=1.0000
+
+// HatClosed
+<group> key=42 group=1
+<region> sample=Samples/HatClosed_v01_rr1.flac lovel=1 hivel=6 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v02_rr1.flac lovel=7 hivel=18 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v03_rr1.flac lovel=19 hivel=30 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v04_rr1.flac lovel=31 hivel=40 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v05_rr1.flac lovel=41 hivel=51 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v06_rr1.flac lovel=52 hivel=63 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v07_rr1.flac lovel=64 hivel=75 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v08_rr1.flac lovel=76 hivel=87 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v09_rr1.flac lovel=88 hivel=97 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v10_rr1.flac lovel=98 hivel=109 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v11_rr1.flac lovel=110 hivel=121 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v12_rr1.flac lovel=122 hivel=127 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatClosed_v01_rr2.flac lovel=1 hivel=6 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v02_rr2.flac lovel=7 hivel=18 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v03_rr2.flac lovel=19 hivel=30 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v04_rr2.flac lovel=31 hivel=40 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v05_rr2.flac lovel=41 hivel=51 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v06_rr2.flac lovel=52 hivel=63 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v07_rr2.flac lovel=64 hivel=75 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v08_rr2.flac lovel=76 hivel=87 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v09_rr2.flac lovel=88 hivel=97 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v10_rr2.flac lovel=98 hivel=109 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v11_rr2.flac lovel=110 hivel=121 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v12_rr2.flac lovel=122 hivel=127 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatClosed_v01_rr3.flac lovel=1 hivel=6 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v02_rr3.flac lovel=7 hivel=18 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v03_rr3.flac lovel=19 hivel=30 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v04_rr3.flac lovel=31 hivel=40 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v05_rr3.flac lovel=41 hivel=51 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v06_rr3.flac lovel=52 hivel=63 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v07_rr3.flac lovel=64 hivel=75 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v08_rr3.flac lovel=76 hivel=87 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v09_rr3.flac lovel=88 hivel=97 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v10_rr3.flac lovel=98 hivel=109 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v11_rr3.flac lovel=110 hivel=121 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v12_rr3.flac lovel=122 hivel=127 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatClosed_v01_rr4.flac lovel=1 hivel=6 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v02_rr4.flac lovel=7 hivel=18 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v03_rr4.flac lovel=19 hivel=30 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v04_rr4.flac lovel=31 hivel=40 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v05_rr4.flac lovel=41 hivel=51 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v06_rr4.flac lovel=52 hivel=63 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v07_rr4.flac lovel=64 hivel=75 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v08_rr4.flac lovel=76 hivel=87 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v09_rr4.flac lovel=88 hivel=97 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v10_rr4.flac lovel=98 hivel=109 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v11_rr4.flac lovel=110 hivel=121 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatClosed_v12_rr4.flac lovel=122 hivel=127 lorand=0.7500 hirand=1.0000
+
+// HatFoot
+<group> key=44 group=1
+<region> sample=Samples/HatFoot_v01_rr1.flac lovel=1 hivel=10 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v02_rr1.flac lovel=11 hivel=29 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v03_rr1.flac lovel=30 hivel=47 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v04_rr1.flac lovel=48 hivel=64 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v05_rr1.flac lovel=65 hivel=80 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v06_rr1.flac lovel=81 hivel=99 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v07_rr1.flac lovel=100 hivel=117 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v08_rr1.flac lovel=118 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/HatFoot_v01_rr2.flac lovel=1 hivel=10 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v02_rr2.flac lovel=11 hivel=29 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v03_rr2.flac lovel=30 hivel=47 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v04_rr2.flac lovel=48 hivel=64 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v05_rr2.flac lovel=65 hivel=80 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v06_rr2.flac lovel=81 hivel=99 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v07_rr2.flac lovel=100 hivel=117 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v08_rr2.flac lovel=118 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/HatFoot_v01_rr3.flac lovel=1 hivel=10 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v02_rr3.flac lovel=11 hivel=29 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v03_rr3.flac lovel=30 hivel=47 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v04_rr3.flac lovel=48 hivel=64 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v05_rr3.flac lovel=65 hivel=80 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v06_rr3.flac lovel=81 hivel=99 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v07_rr3.flac lovel=100 hivel=117 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/HatFoot_v08_rr3.flac lovel=118 hivel=127 lorand=0.6667 hirand=1.0000
+
+// HatOpen
+<group> key=46 group=2 off_by=1
+<region> sample=Samples/HatOpen_v01_rr1.flac lovel=1 hivel=14 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v02_rr1.flac lovel=15 hivel=32 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v03_rr1.flac lovel=33 hivel=50 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v04_rr1.flac lovel=51 hivel=63 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v05_rr1.flac lovel=64 hivel=77 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v06_rr1.flac lovel=78 hivel=95 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v07_rr1.flac lovel=96 hivel=113 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v08_rr1.flac lovel=114 hivel=127 lorand=0.0000 hirand=0.2500
+<region> sample=Samples/HatOpen_v01_rr2.flac lovel=1 hivel=14 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v02_rr2.flac lovel=15 hivel=32 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v03_rr2.flac lovel=33 hivel=50 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v04_rr2.flac lovel=51 hivel=63 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v05_rr2.flac lovel=64 hivel=77 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v06_rr2.flac lovel=78 hivel=95 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v07_rr2.flac lovel=96 hivel=113 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v08_rr2.flac lovel=114 hivel=127 lorand=0.2500 hirand=0.5000
+<region> sample=Samples/HatOpen_v01_rr3.flac lovel=1 hivel=14 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v02_rr3.flac lovel=15 hivel=32 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v03_rr3.flac lovel=33 hivel=50 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v04_rr3.flac lovel=51 hivel=63 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v05_rr3.flac lovel=64 hivel=77 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v06_rr3.flac lovel=78 hivel=95 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v07_rr3.flac lovel=96 hivel=113 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v08_rr3.flac lovel=114 hivel=127 lorand=0.5000 hirand=0.7500
+<region> sample=Samples/HatOpen_v01_rr4.flac lovel=1 hivel=14 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v02_rr4.flac lovel=15 hivel=32 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v03_rr4.flac lovel=33 hivel=50 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v04_rr4.flac lovel=51 hivel=63 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v05_rr4.flac lovel=64 hivel=77 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v06_rr4.flac lovel=78 hivel=95 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v07_rr4.flac lovel=96 hivel=113 lorand=0.7500 hirand=1.0000
+<region> sample=Samples/HatOpen_v08_rr4.flac lovel=114 hivel=127 lorand=0.7500 hirand=1.0000
+
+// TomFloor
+<group> key=45
+<region> sample=Samples/TomFloor_v01_rr1.flac lovel=1 hivel=8 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v02_rr1.flac lovel=9 hivel=20 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v03_rr1.flac lovel=21 hivel=32 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v04_rr1.flac lovel=33 hivel=42 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v05_rr1.flac lovel=43 hivel=52 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v06_rr1.flac lovel=53 hivel=64 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v07_rr1.flac lovel=65 hivel=76 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v08_rr1.flac lovel=77 hivel=86 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v09_rr1.flac lovel=87 hivel=95 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v10_rr1.flac lovel=96 hivel=107 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v11_rr1.flac lovel=108 hivel=120 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v12_rr1.flac lovel=121 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomFloor_v01_rr2.flac lovel=1 hivel=8 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v02_rr2.flac lovel=9 hivel=20 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v03_rr2.flac lovel=21 hivel=32 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v04_rr2.flac lovel=33 hivel=42 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v05_rr2.flac lovel=43 hivel=52 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v06_rr2.flac lovel=53 hivel=64 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v07_rr2.flac lovel=65 hivel=76 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v08_rr2.flac lovel=77 hivel=86 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v09_rr2.flac lovel=87 hivel=95 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v10_rr2.flac lovel=96 hivel=107 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v11_rr2.flac lovel=108 hivel=120 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v12_rr2.flac lovel=121 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomFloor_v01_rr3.flac lovel=1 hivel=8 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v02_rr3.flac lovel=9 hivel=20 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v03_rr3.flac lovel=21 hivel=32 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v04_rr3.flac lovel=33 hivel=42 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v05_rr3.flac lovel=43 hivel=52 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v06_rr3.flac lovel=53 hivel=64 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v07_rr3.flac lovel=65 hivel=76 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v08_rr3.flac lovel=77 hivel=86 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v09_rr3.flac lovel=87 hivel=95 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v10_rr3.flac lovel=96 hivel=107 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v11_rr3.flac lovel=108 hivel=120 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomFloor_v12_rr3.flac lovel=121 hivel=127 lorand=0.6667 hirand=1.0000
+
+// TomMid
+<group> key=47
+<region> sample=Samples/TomMid_v01_rr1.flac lovel=1 hivel=8 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v02_rr1.flac lovel=9 hivel=19 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v03_rr1.flac lovel=20 hivel=30 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v04_rr1.flac lovel=31 hivel=43 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v05_rr1.flac lovel=44 hivel=53 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v06_rr1.flac lovel=54 hivel=64 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v07_rr1.flac lovel=65 hivel=74 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v08_rr1.flac lovel=75 hivel=85 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v09_rr1.flac lovel=86 hivel=98 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v10_rr1.flac lovel=99 hivel=109 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v11_rr1.flac lovel=110 hivel=119 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v12_rr1.flac lovel=120 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomMid_v01_rr2.flac lovel=1 hivel=8 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v02_rr2.flac lovel=9 hivel=19 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v03_rr2.flac lovel=20 hivel=30 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v04_rr2.flac lovel=31 hivel=43 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v05_rr2.flac lovel=44 hivel=53 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v06_rr2.flac lovel=54 hivel=64 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v07_rr2.flac lovel=65 hivel=74 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v08_rr2.flac lovel=75 hivel=85 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v09_rr2.flac lovel=86 hivel=98 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v10_rr2.flac lovel=99 hivel=109 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v11_rr2.flac lovel=110 hivel=119 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v12_rr2.flac lovel=120 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomMid_v01_rr3.flac lovel=1 hivel=8 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v02_rr3.flac lovel=9 hivel=19 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v03_rr3.flac lovel=20 hivel=30 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v04_rr3.flac lovel=31 hivel=43 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v05_rr3.flac lovel=44 hivel=53 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v06_rr3.flac lovel=54 hivel=64 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v07_rr3.flac lovel=65 hivel=74 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v08_rr3.flac lovel=75 hivel=85 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v09_rr3.flac lovel=86 hivel=98 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v10_rr3.flac lovel=99 hivel=109 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v11_rr3.flac lovel=110 hivel=119 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomMid_v12_rr3.flac lovel=120 hivel=127 lorand=0.6667 hirand=1.0000
+
+// TomHigh
+<group> key=50
+<region> sample=Samples/TomHigh_v01_rr1.flac lovel=1 hivel=8 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v02_rr1.flac lovel=9 hivel=18 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v03_rr1.flac lovel=19 hivel=30 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v04_rr1.flac lovel=31 hivel=43 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v05_rr1.flac lovel=44 hivel=54 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v06_rr1.flac lovel=55 hivel=63 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v07_rr1.flac lovel=64 hivel=74 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v08_rr1.flac lovel=75 hivel=84 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v09_rr1.flac lovel=85 hivel=97 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v10_rr1.flac lovel=98 hivel=110 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v11_rr1.flac lovel=111 hivel=120 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v12_rr1.flac lovel=121 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/TomHigh_v01_rr2.flac lovel=1 hivel=8 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v02_rr2.flac lovel=9 hivel=18 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v03_rr2.flac lovel=19 hivel=30 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v04_rr2.flac lovel=31 hivel=43 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v05_rr2.flac lovel=44 hivel=54 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v06_rr2.flac lovel=55 hivel=63 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v07_rr2.flac lovel=64 hivel=74 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v08_rr2.flac lovel=75 hivel=84 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v09_rr2.flac lovel=85 hivel=97 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v10_rr2.flac lovel=98 hivel=110 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v11_rr2.flac lovel=111 hivel=120 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v12_rr2.flac lovel=121 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/TomHigh_v01_rr3.flac lovel=1 hivel=8 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v02_rr3.flac lovel=9 hivel=18 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v03_rr3.flac lovel=19 hivel=30 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v04_rr3.flac lovel=31 hivel=43 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v05_rr3.flac lovel=44 hivel=54 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v06_rr3.flac lovel=55 hivel=63 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v07_rr3.flac lovel=64 hivel=74 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v08_rr3.flac lovel=75 hivel=84 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v09_rr3.flac lovel=85 hivel=97 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v10_rr3.flac lovel=98 hivel=110 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v11_rr3.flac lovel=111 hivel=120 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/TomHigh_v12_rr3.flac lovel=121 hivel=127 lorand=0.6667 hirand=1.0000
+
+// Crash16
+<group> key=49
+<region> sample=Samples/Crash16_v01_rr1.flac lovel=1 hivel=11 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v02_rr1.flac lovel=12 hivel=29 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v03_rr1.flac lovel=30 hivel=46 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v04_rr1.flac lovel=47 hivel=63 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v05_rr1.flac lovel=64 hivel=81 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v06_rr1.flac lovel=82 hivel=99 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v07_rr1.flac lovel=100 hivel=116 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v08_rr1.flac lovel=117 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Crash16_v01_rr2.flac lovel=1 hivel=11 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v02_rr2.flac lovel=12 hivel=29 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v03_rr2.flac lovel=30 hivel=46 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v04_rr2.flac lovel=47 hivel=63 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v05_rr2.flac lovel=64 hivel=81 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v06_rr2.flac lovel=82 hivel=99 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v07_rr2.flac lovel=100 hivel=116 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v08_rr2.flac lovel=117 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Crash16_v01_rr3.flac lovel=1 hivel=11 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v02_rr3.flac lovel=12 hivel=29 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v03_rr3.flac lovel=30 hivel=46 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v04_rr3.flac lovel=47 hivel=63 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v05_rr3.flac lovel=64 hivel=81 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v06_rr3.flac lovel=82 hivel=99 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v07_rr3.flac lovel=100 hivel=116 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Crash16_v08_rr3.flac lovel=117 hivel=127 lorand=0.6667 hirand=1.0000
+
+// Ride20
+<group> key=51
+<region> sample=Samples/Ride20_v01_rr1.flac lovel=1 hivel=12 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v02_rr1.flac lovel=13 hivel=28 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v03_rr1.flac lovel=29 hivel=45 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v04_rr1.flac lovel=46 hivel=64 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v05_rr1.flac lovel=65 hivel=83 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v06_rr1.flac lovel=84 hivel=100 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v07_rr1.flac lovel=101 hivel=116 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v08_rr1.flac lovel=117 hivel=127 lorand=0.0000 hirand=0.3333
+<region> sample=Samples/Ride20_v01_rr2.flac lovel=1 hivel=12 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v02_rr2.flac lovel=13 hivel=28 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v03_rr2.flac lovel=29 hivel=45 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v04_rr2.flac lovel=46 hivel=64 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v05_rr2.flac lovel=65 hivel=83 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v06_rr2.flac lovel=84 hivel=100 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v07_rr2.flac lovel=101 hivel=116 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v08_rr2.flac lovel=117 hivel=127 lorand=0.3333 hirand=0.6667
+<region> sample=Samples/Ride20_v01_rr3.flac lovel=1 hivel=12 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v02_rr3.flac lovel=13 hivel=28 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v03_rr3.flac lovel=29 hivel=45 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v04_rr3.flac lovel=46 hivel=64 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v05_rr3.flac lovel=65 hivel=83 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v06_rr3.flac lovel=84 hivel=100 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v07_rr3.flac lovel=101 hivel=116 lorand=0.6667 hirand=1.0000
+<region> sample=Samples/Ride20_v08_rr3.flac lovel=117 hivel=127 lorand=0.6667 hirand=1.0000
+
+// HandClap (AVL Drumkits)
+<group> key=39
+<region> sample=../AVL-Drumkits/Samples/39-HandClap-1.flac lovel=1 hivel=26
+<region> sample=../AVL-Drumkits/Samples/39-HandClap-2.flac lovel=27 hivel=52
+<region> sample=../AVL-Drumkits/Samples/39-HandClap-3.flac lovel=53 hivel=77
+<region> sample=../AVL-Drumkits/Samples/39-HandClap-4.flac lovel=78 hivel=102
+<region> sample=../AVL-Drumkits/Samples/39-HandClap-5.flac lovel=103 hivel=127

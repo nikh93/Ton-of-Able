@@ -45,7 +45,8 @@ Arrangement (Mehrspur)
 - Send-Effekte (Return-Spuren A-D), Spuren einfrieren, Kompressor.
 - Wah-Pedal per Maus: Taste W, dann Maus hoch = Toe (hell), runter = Heel.
 - Tastenkuerzel: F1 zeigt alle und laesst sie frei belegen.
-- Drumcomputer mit Step-Sequencer. Eigene VST3-Drum-Instrumente (z. B.
+- Drumcomputer mit Step-Sequencer und echten Drum-Samples (SM Drums,
+  AVL Black Pearl und Red Zeppelin) oder Synth-Kit. Eigene VST3-Drum-Instrumente (z. B.
   JDrummer) koennen pro Drum-Spur geladen werden.
 - Import/Export: WAV, AIFF, FLAC, Ogg, MP3, AAC, Opus und Audio aus Videos.
   Dafuer liegt ffmpeg.exe neben der exe.

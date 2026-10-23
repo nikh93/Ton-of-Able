@@ -31,6 +31,8 @@ void applyOpcode(SampleKit::Region& region, const juce::String& key, const juce:
     else if (key == "hikey") region.hiKey = parseNote(value);
     else if (key == "lovel") region.loVel = juce::jlimit(0, 127, value.getIntValue());
     else if (key == "hivel") region.hiVel = juce::jlimit(0, 127, value.getIntValue());
+    else if (key == "lorand") region.loRand = juce::jlimit(0.0f, 1.0f, value.getFloatValue());
+    else if (key == "hirand") region.hiRand = juce::jlimit(0.0f, 1.0f, value.getFloatValue());
     else if (key == "sample") region.sample = value.trim().replaceCharacter('\\', '/');
     else if (key == "pan") region.pan = juce::jlimit(-100.0f, 100.0f, value.getFloatValue());
     else if (key == "volume") region.volumeDb = value.getFloatValue();
@@ -65,17 +67,22 @@ std::shared_ptr<const SampleKit::Data> resampled(const juce::String& key, const 
                 auto output = std::make_shared<SampleKit::Sample>();
                 output->sampleRate = rate;
                 const auto ratio = input.sampleRate / rate;
-                if (std::abs(ratio - 1.0) < 1.0e-9)
-                    output->data = input.data;
-                else
+                const auto convert = [ratio](const std::vector<float>& from, std::vector<float>& to)
                 {
-                    const auto length = static_cast<int>(static_cast<double>(input.data.size()) / ratio);
-                    output->data.resize(static_cast<size_t>(std::max(0, length)));
-                    std::vector<float> padded(input.data);
+                    if (from.empty() || std::abs(ratio - 1.0) < 1.0e-9)
+                    {
+                        to = from;
+                        return;
+                    }
+                    const auto length = static_cast<int>(static_cast<double>(from.size()) / ratio);
+                    to.resize(static_cast<size_t>(std::max(0, length)));
+                    std::vector<float> padded(from);
                     padded.resize(padded.size() + 8, 0.0f); // the interpolator reads a little ahead
                     juce::LagrangeInterpolator interpolator;
-                    interpolator.process(ratio, padded.data(), output->data.data(), length);
-                }
+                    interpolator.process(ratio, padded.data(), to.data(), length);
+                };
+                convert(input.left, output->left);
+                convert(input.right, output->right);
                 slot = output;
             }
             layer.sample = slot;
@@ -146,6 +153,8 @@ const std::vector<SampleKit::KitInfo>& SampleKit::bundledKits()
     // put the hi-hat swish on 48 and a crash choke on 50, so the toms are
     // mapped to the kits' own drums (high, mid, low).
     static const std::vector<KitInfo> kits {
+        // SM Drums: deeply sampled stereo kit, 8-16 velocity layers and 3-4 round robins per drum.
+        { "sm-drums", "SM Drums (Studio-Rock, Stereo)", "SM-Drums/SM_Drums.sfz", {} },
         { "avl-black-pearl", "Black Pearl (Pearl, Sabian)", "AVL-Drumkits/Black_Pearl_5pc.sfz", { { 50, 45 }, { 47, 47 }, { 45, 41 } } },
         { "avl-red-zeppelin", "Red Zeppelin (Ludwig, Zildjian)", "AVL-Drumkits/Red_Zeppelin_5pc.sfz", { { 50, 45 }, { 47, 41 }, { 45, 43 } } },
     };
@@ -217,16 +226,20 @@ std::shared_ptr<SampleKit> SampleKit::load(const juce::File& kitsDirectory, cons
                 const auto length = static_cast<int>(reader->lengthInSamples);
                 juce::AudioBuffer<float> buffer(static_cast<int>(reader->numChannels), length);
                 reader->read(&buffer, 0, length, 0, true, true);
-                decoded->data.resize(static_cast<size_t>(length));
-                // Kits are mono; stereo files are summed.
-                for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-                    juce::FloatVectorOperations::addWithMultiply(decoded->data.data(), buffer.getReadPointer(channel),
-                                                                 1.0f / static_cast<float>(buffer.getNumChannels()), length);
+                const auto* first = buffer.getReadPointer(0);
+                decoded->left.assign(first, first + length);
+                if (buffer.getNumChannels() > 1)
+                {
+                    const auto* second = buffer.getReadPointer(1);
+                    decoded->right.assign(second, second + length);
+                }
                 sample = decoded;
             }
             Layer layer;
             layer.loVel = region.loVel;
             layer.hiVel = region.hiVel;
+            layer.loRand = region.loRand;
+            layer.hiRand = region.hiRand;
             layer.sample = sample;
             const auto angle = (region.pan + 100.0f) / 200.0f * juce::MathConstants<float>::halfPi;
             const auto level = juce::Decibels::decibelsToGain(region.volumeDb);
@@ -270,9 +283,12 @@ void SampleKit::trigger(int note, int velocity) noexcept
     if (data == nullptr || ! juce::isPositiveAndBelow(note, 128))
         return;
     const auto& layers = data->notes[static_cast<size_t>(noteMap[static_cast<size_t>(note)])];
+    // Round robins: each matching layer covers a slice of a random number.
+    random = random * 1664525u + 1013904223u;
+    const auto pick = static_cast<float>(random >> 8) / static_cast<float>(1u << 24);
     const Layer* chosen = nullptr;
     for (const auto& layer : layers)
-        if (velocity >= layer.loVel && velocity <= layer.hiVel)
+        if (velocity >= layer.loVel && velocity <= layer.hiVel && (chosen == nullptr || (pick >= layer.loRand && pick < layer.hiRand)))
             chosen = &layer;
     if (chosen == nullptr)
         return;
@@ -334,7 +350,8 @@ void SampleKit::render(const DrumEvent* events, int numEvents, float* left, floa
         {
             if (voice.layer == nullptr)
                 continue;
-            const auto& samples = voice.layer->sample->data;
+            const auto& samples = voice.layer->sample->left;
+            const auto& rightSamples = voice.layer->sample->right.empty() ? samples : voice.layer->sample->right;
             const auto gainLeft = voice.gain * voice.layer->gainLeft * outputGain;
             const auto gainRight = voice.gain * voice.layer->gainRight * outputGain;
             for (int index = start; index < end; ++index)
@@ -344,9 +361,9 @@ void SampleKit::render(const DrumEvent* events, int numEvents, float* left, floa
                     voice.layer = nullptr;
                     break;
                 }
-                const auto value = samples[voice.position++] * voice.fade;
-                left[index] += value * gainLeft;
-                right[index] += value * gainRight;
+                left[index] += samples[voice.position] * voice.fade * gainLeft;
+                right[index] += rightSamples[voice.position] * voice.fade * gainRight;
+                ++voice.position;
                 if (voice.choking)
                     voice.fade -= chokeStep;
             }

@@ -42,7 +42,7 @@ public:
             const auto regions = SampleKit::parseSfz("// comment\r\n<group> key=36 pan=-20 loop_mode=one_shot\r\n"
                                                      "<region> lovel=1 hivel=64 sample=Samples/Kick Soft.flac\r\n"
                                                      "<region> lovel=65 sample=Samples/Kick-Hard.flac\r\n"
-                                                     "<group> group=2 key=46 off_by=1\r\n<region> sample=a.wav\r\n");
+                                                     "<group> group=2 key=46 off_by=1\r\n<region> sample=a.wav lorand=0.25 hirand=0.5\r\n");
             expectEquals(static_cast<int>(regions.size()), 3);
             if (regions.size() == 3)
             {
@@ -55,6 +55,9 @@ public:
                 expectEquals(regions[2].group, 2);
                 expectEquals(regions[2].offBy, 1);
                 expectEquals(regions[2].loKey, 46);
+                expectWithinAbsoluteError(regions[2].loRand, 0.25f, 0.0001f);
+                expectWithinAbsoluteError(regions[2].hiRand, 0.5f, 0.0001f);
+                expectWithinAbsoluteError(regions[0].hiRand, 1.0f, 0.0001f);
             }
         }
 
@@ -99,6 +102,31 @@ public:
                 logMessage(juce::String("Full hit peak: ") + juce::String(loudest, 3));
                 expectLessThan(loudest, 1.0f, "full hit clips");
                 expectGreaterThan(loudest, 0.25f, "kit is too quiet");
+            }
+
+            // Round robins: repeated identical hits do not all use the same sample.
+            {
+                std::vector<float> first(2400), scratch(2400), other(2400);
+                bool varied = false;
+                energy(*kit, 48000 * 2);
+                const daw::DrumEvent hit { 0, 38, 100 };
+                kit->render(&hit, 1, first.data(), scratch.data(), 2400);
+                for (int attempt = 0; attempt < 12 && ! varied; ++attempt)
+                {
+                    energy(*kit, 48000 * 2);
+                    kit->render(&hit, 1, other.data(), scratch.data(), 2400);
+                    // The level varies slightly anyway; a different sample changes the waveform's shape.
+                    double dot = 0.0, a = 0.0, b = 0.0;
+                    for (size_t index = 0; index < first.size(); ++index)
+                    {
+                        dot += first[index] * other[index];
+                        a += first[index] * first[index];
+                        b += other[index] * other[index];
+                    }
+                    varied = dot / std::sqrt(a * b + 1.0e-20) < 0.999;
+                }
+                if (juce::String(info.id) == "sm-drums")
+                    expect(varied, "round robins");
             }
 
             beginTest(juce::String("Kit at 44.1 kHz and export copy: ") + info.name);

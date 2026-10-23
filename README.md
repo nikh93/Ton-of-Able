@@ -26,8 +26,10 @@ Ableton-style arrangement. The interface is in German.
 - Time-stretch and transpose clips with Rubber Band
 - Per-track effect chains as insert (editable later) or printed while recording
 - **Send effects** on up to four return tracks, **track freezing** (and "freeze and flatten")
-- Drum machine: step sequencer with pattern clips, built-in kit or any General MIDI
-  VST3 drum instrument such as [JDrummer](https://github.com/jmantra/jdrummer)
+- Drum machine: step sequencer with pattern clips, played by bundled **sampled acoustic kits**
+  (SM Drums in stereo with up to 16 velocity layers and round robins, AVL Black Pearl and
+  Red Zeppelin), an electronic synth kit or any General MIDI VST3 drum instrument such as
+  [JDrummer](https://github.com/jmantra/jdrummer)
 - Import WAV/AIFF/FLAC/Ogg/MP3 and, via the bundled FFmpeg, AAC/Opus/ALAC and audio
   from video files; export the mix, the loop range or stems in common formats
 - Freely assignable keyboard shortcuts with an overview (F1)

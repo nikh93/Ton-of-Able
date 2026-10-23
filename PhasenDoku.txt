@@ -81,3 +81,9 @@ Phase 29 abgeschlossen – Modernes Bedienkonzept und Arrangement-Überarbeitung
 - Arrangement: Transportleiste mit Projekt-Button (Name, • = ungespeichert), Transport-Gruppe, Display (Takt, Zeit, Tempo, Taktart) und Loop/Metronom/Vorzähler; Bearbeitungsleiste mit Werkzeugen, Raster, Zoom, Undo/Redo, Import/Export. „+ Spur“ sitzt jetzt mit vollem Menü in der Spurspalte. Arrangement und Bibliothek nutzen die ganze Fensterfläche.
 - Spurköpfe: breiter (250 px), Spurfarbe als Leiste, ausgewählte Spur hervorgehoben, Aufnahme/Mute/Solo als kompakte Gruppe, Abhören als Kopfhörer-Symbol, FX|SEND als Segment, Pegelanzeige mit Farbverlauf.
 - Effektkarten: flache Karten mit Akzentleiste bei aktivem Effekt, Titel mit aktueller Einstellung (z. B. „DELAY · 380 ms“), Schalter statt „AN“-Checkbox, Pfeil zum Auf-/Zuklappen.
+
+Phase 30 abgeschlossen – Echte Drum-Samples:
+- Neuer SFZ-Sample-Player (daw::SampleKit) für den Drumcomputer: Anschlagstufen (lovel/hivel), zufällige Round-Robins (lorand/hirand), Mono- und Stereo-Samples, Panorama, Choke-Gruppen (group/off_by: geschlossene HiHat stoppt die offene), Resampling auf die Projektrate, geteilte Sample-Daten für alle Spuren und den Export.
+- Mitgeliefert: SM Drums (Stereo-Raummix, bis zu 16 Anschlagstufen, 3-4 Round-Robins pro Trommel, 38 MB, mit tools/drums/convert_smdrums.py aus dem frei verfügbaren SFZ-Kit verdichtet) als Standard für neue Drum-Spuren, dazu AVL Drumkits Black Pearl und Red Zeppelin (5 Anschlagstufen). Das bisherige Synth-Kit bleibt als elektronische Option.
+- Toms werden pro Kit auf die passenden Trommeln gelegt (AVL nutzt 48/50 für HiHat-Swish und Crash-Choke).
+- Ältere Projekte behalten ihre Klangquelle; im Drumcomputer oben rechts umschaltbar.
