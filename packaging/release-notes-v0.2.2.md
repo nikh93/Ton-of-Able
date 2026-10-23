@@ -8,6 +8,7 @@ Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 
 - **Plugin-Verwaltung:** „+“ in der Signalkette → „Plugins verwalten / importieren …“. Zeigt alle VST3-Plugins mit Hersteller, Art und Datei. Einzelne `.vst3`-Dateien von beliebigen Orten importieren, eigene Suchordner hinzufügen, alles neu suchen, Plugins im Menü ausblenden. Plugins, die sich nicht laden lassen, stehen mit Grund in der Liste und lassen sich erneut prüfen oder entfernen.
 - **Re-Amping:** Rechtsklick auf eine Audio-Spur → „Re-Amp: ins Live-Rig spielen“. Bei der Wiedergabe spielt die Spur statt der Gitarre durch das Live-Rig, die Effekte (auch Wah per Maus) lassen sich live verändern, eine scharfgeschaltete Rig-Spur nimmt das Ergebnis auf – mit Loop als Takes.
 - **Wah per Maus in Spur-Effekten:** „MAUS“ beim Wah einer Spurkette lässt die Maus das Pedal auch bei der Wiedergabe dieser Spur steuern.
+- **Neue mitgelieferte Plugins:** Dragonfly Reverb (Hall, Room, Plate, Early Reflections) für natürliche Räume, Valhalla Freq Echo und Valhalla Space Modulator (Flanger). In der Kette über „+“ einfügen.
 
 **Behoben**
 - Drum-Spuren: Die Spur-Effekte wirken jetzt auch auf das Drum-Instrument (bisher lief es an der Kette vorbei, auch beim Export).

@@ -95,8 +95,13 @@ NAM-Modelle
 
 Plugins
 -------
-BYOD (Drive) und Valhalla Supermassive (Delay/Reverb) liegen direkt neben
-der exe und werden beim Start automatisch gefunden.
+Mitgeliefert und direkt neben der exe (werden automatisch gefunden):
+- BYOD (Drive/Verzerrer)
+- Valhalla Supermassive (Delay/Hall), Valhalla Freq Echo (Frequenzschieber-
+  Echo), Valhalla Space Modulator (Flanger)
+- Dragonfly Reverb: Hall Reverb, Room Reverb, Plate Reverb und Early
+  Reflections - natuerliche Raeume, gut fuer die Return-Spuren
+In der Signalkette ueber "+" -> "Effekt / Audio -> MIDI" einfuegen.
 
 Supermassive-Presets: Der Installer richtet sie auf Wunsch ein. Beim ZIP
 den Ordner "Supermassive-Presets\Factory" selbst hierhin kopieren:
@@ -108,5 +113,6 @@ Lizenzen
 Siehe Ordner "licenses" und resources\defaults\README.md.
 NAM-Modelle aus NAM_models: GPL-3.0. TONE3000-Modelle (Dateien "T3K ..."):
 nur fuer den privaten Gebrauch, nicht weitergeben.
-Rubber Band: GPL. FFmpeg: LGPL. BYOD: siehe licenses.
-Valhalla Supermassive ist Freeware von Valhalla DSP, LLC.
+Rubber Band: GPL. FFmpeg: LGPL. BYOD: siehe licenses. Dragonfly Reverb: GPL-3.
+Valhalla Supermassive, Freq Echo und Space Modulator sind Freeware von
+Valhalla DSP, LLC.
