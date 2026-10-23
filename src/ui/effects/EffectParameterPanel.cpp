@@ -560,7 +560,7 @@ void EffectParameterPanel::resized()
             layoutEffect(content, groups[i - 1]);
             if (i == 1) { wahDirection.setVisible(height > 0); wahDirection.setBounds(direction.removeFromRight(70)); }
             if (i == 5) { compressorPreAmp.setVisible(height > 0); compressorPreAmp.setBounds(direction.removeFromRight(110)); }
-            if (i == 6) { wahMouse.setVisible(height > 0 && mouseWahAvailable); wahMouse.setBounds(direction.removeFromRight(90)); }
+            if (i == 6) { wahMouse.setVisible(height > 0); wahMouse.setBounds(direction.removeFromRight(90)); }
         }
         area.removeFromTop(10);
     }

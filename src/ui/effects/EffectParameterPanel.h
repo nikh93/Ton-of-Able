@@ -45,7 +45,6 @@ public:
     /** Shows a pedal position that came from outside (mouse control) without publishing it. */
     void showWahPosition(float position);
     /** Mouse control only exists for the live rig; track chains hide the switch. */
-    void setMouseWahAvailable(bool available) { mouseWahAvailable = available; resized(); }
 
     std::function<void(const SoundState&)> onStateChanged;
 
@@ -92,7 +91,6 @@ private:
     RotaryParameterControl compressorThreshold { "THRESHOLD" }, compressorRatio { "RATIO" }, compressorAttack { "ATTACK" },
         compressorRelease { "RELEASE" }, compressorKnee { "KNEE" }, compressorMakeup { "MAKEUP" }, compressorMix { "MIX" };
     juce::ToggleButton wahMouse { "MAUS" };
-    bool mouseWahAvailable = true;
     RotaryParameterControl wahPosition { "POSITION" }, wahHeel { "HEEL" }, wahToe { "TOE" }, wahPedalQ { "Q" }, wahPedalMix { "MIX" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EffectParameterPanel)

@@ -1407,7 +1407,15 @@ void MainComponent::showShortcuts()
 
 void MainComponent::followMouseWithWah()
 {
-    if (! currentSound.pedalWahMouse || currentSound.pedalWahBypassed)
+    // The mouse plays the live rig's wah and those of track chains set to "MAUS".
+    const auto live = currentSound.pedalWahMouse && ! currentSound.pedalWahBypassed;
+    std::vector<RigChain*> trackChains;
+    for (const auto& track : arrangementController.state().tracks)
+        if (track.fx != nullptr && track.fx->enabled.load() && static_cast<bool>(track.fx->settings.getProperty("pedalWahMouse", false))
+            && ! static_cast<bool>(track.fx->settings.getProperty("pedalWahBypassed", true)))
+            if (auto* chain = dynamic_cast<RigChain*>(track.fx->processor.get()))
+                trackChains.push_back(chain);
+    if (! live && trackChains.empty())
     {
         lastMouseWah = -1.0f;
         return;
@@ -1424,6 +1432,10 @@ void MainComponent::followMouseWithWah()
     if (std::abs(position - lastMouseWah) < 0.002f)
         return;
     lastMouseWah = position;
+    for (auto* chain : trackChains)
+        chain->setWahPosition(position);
+    if (! live)
+        return;
     currentSound.pedalWahPosition = position;
     audioEngine.setWahPosition(position);
     effectParameters.showWahPosition(position);
