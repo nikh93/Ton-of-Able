@@ -59,7 +59,7 @@ void DiagnosticsPanel::paint(juce::Graphics& graphics)
 
     graphics.setColour(AmberTheme::amberBright());
     graphics.setFont(juce::FontOptions { 13.0f, juce::Font::bold });
-    graphics.drawText("DIAGNOSTICS", 10, 7, getWidth() - 20, 18, juce::Justification::centredLeft);
+    graphics.drawText("DIAGNOSE", 10, 7, getWidth() - 20, 18, juce::Justification::centredLeft);
 }
 
 void DiagnosticsPanel::resized()
@@ -78,12 +78,12 @@ void DiagnosticsPanel::refresh()
     if (performanceProvider != nullptr)
     {
         const auto snapshot = performanceProvider();
-        loadLabel.setText("Realtime load: " + juce::String(snapshot.realtimeLoad * 100.0, 1) + "%", juce::dontSendNotification);
+        loadLabel.setText("Echtzeit-Auslastung: " + juce::String(snapshot.realtimeLoad * 100.0, 1) + " %", juce::dontSendNotification);
         timingLabel.setText("Block: " + formatMilliseconds(snapshot.averageMilliseconds)
-                                + " avg / " + formatMilliseconds(snapshot.peakMilliseconds) + " peak",
+                                + " Mittel / " + formatMilliseconds(snapshot.peakMilliseconds) + " Spitze",
                             juce::dontSendNotification);
-        blockLabel.setText("Blocks: " + juce::String(snapshot.processedBlocks)
-                               + "   XRuns: " + juce::String(snapshot.xruns),
+        blockLabel.setText(juce::String(juce::CharPointer_UTF8("Bl\xc3\xb6" "cke: ")) + juce::String(snapshot.processedBlocks)
+                               + juce::String(juce::CharPointer_UTF8("   Aussetzer: ")) + juce::String(snapshot.xruns),
                            juce::dontSendNotification);
     }
 

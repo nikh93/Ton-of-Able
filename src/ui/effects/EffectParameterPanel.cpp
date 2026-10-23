@@ -43,11 +43,12 @@ EffectParameterPanel::EffectParameterPanel()
     for (int i = 0; i < numCards; ++i)
     {
         effectPresets[i].addItemList(presetNames[i], 1);
-        effectPresets[i].setTextWhenNothingSelected("Custom");
-        effectPresets[i].setTooltip("Effekt-Preset auswaehlen und aktivieren");
+        effectPresets[i].setTextWhenNothingSelected("Eigene Einstellung");
+        effectPresets[i].setTooltip(juce::String(juce::CharPointer_UTF8("Vorgabe ausw\xc3\xa4hlen \xe2\x80\x93 schaltet den Effekt dabei ein")));
         surfaces[i].addAndMakeVisible(effectPresets[i]);
         effectPresets[i].onChange = [this, i] { if (effectPresets[i].getSelectedId() > 0) applyEffectPreset(i, effectPresets[i].getSelectedId()); };
-        power[i].setButtonText("ON");
+        power[i].setButtonText("AN");
+        power[i].setTooltip("Effekt an/aus");
         surfaces[i].addAndMakeVisible(power[i]);
         power[i].onClick = [this, i]
         {
@@ -84,7 +85,7 @@ EffectParameterPanel::EffectParameterPanel()
     };
     cardContent.addAndMakeVisible(wahDirection);
     parameters[0].addAndMakeVisible(ampPush);
-    ampPush.slider().setTooltip("Pegel vor NAM: 0 dB = unveraendert. Wirkt auch bei Drive OFF. OUTPUT regelt die Abhoerlautstaerke.");
+    ampPush.slider().setTooltip(juce::String(juce::CharPointer_UTF8("Pegel vor dem NAM-Amp: 0 dB = unver\xc3\xa4ndert. Wirkt auch bei ausgeschaltetem Drive. OUTPUT regelt die Abh\xc3\xb6rlautst\xc3\xa4rke.")));
     for (auto* card : { &driveCard, &wahCard, &chorusCard, &delayCard, &reverbCard, &compressorCard, &wahPedalCard })
     {
         card->setLookAndFeel(&headerLook);
@@ -294,15 +295,15 @@ void EffectParameterPanel::updateCardLabels()
     for (int i=0; i<numCards; ++i) power[i].setToggleState(!bypass[i], juce::dontSendNotification);
     const juce::String driveNames[] { "CRUNCH", "WARM OVERDRIVE", "SINGING LEAD", "FUZZ" };
     const auto driveName = driveNames[juce::jlimit(0, 3, currentState.driveType)];
-    driveCard.setButtonText("DRIVE / " + driveName + "  " + (currentState.driveBypassed ? "OFF" : "ON") + "  " + (expandedCard == 0 ? "-" : "+"));
-    wahCard.setButtonText("AUTO-WAH  " + juce::String(currentState.autoWahBypassed ? "OFF" : "ON") + "  " + (expandedCard == 1 ? "-" : "+"));
-    chorusCard.setButtonText("CHORUS  " + juce::String(currentState.chorusBypassed ? "OFF" : "ON") + "  " + (expandedCard == 2 ? "-" : "+"));
-    delayCard.setButtonText("DELAY  " + juce::String(currentState.delayBypassed ? "OFF" : "ON") + "  " + (expandedCard == 3 ? "-" : "+"));
-    reverbCard.setButtonText("REVERB  " + juce::String(currentState.reverbBypassed ? "OFF" : "ON") + "  " + (expandedCard == 4 ? "-" : "+"));
+    driveCard.setButtonText("DRIVE / " + driveName + "  " + (currentState.driveBypassed ? "AUS" : "AN") + "  " + (expandedCard == 0 ? "-" : "+"));
+    wahCard.setButtonText("AUTO-WAH  " + juce::String(currentState.autoWahBypassed ? "AUS" : "AN") + "  " + (expandedCard == 1 ? "-" : "+"));
+    chorusCard.setButtonText("CHORUS  " + juce::String(currentState.chorusBypassed ? "AUS" : "AN") + "  " + (expandedCard == 2 ? "-" : "+"));
+    delayCard.setButtonText("DELAY  " + juce::String(currentState.delayBypassed ? "AUS" : "AN") + "  " + (expandedCard == 3 ? "-" : "+"));
+    reverbCard.setButtonText("REVERB  " + juce::String(currentState.reverbBypassed ? "AUS" : "AN") + "  " + (expandedCard == 4 ? "-" : "+"));
     compressorCard.setButtonText("KOMPRESSOR " + juce::String(currentState.compressorPreAmp ? "(VOR AMP)" : "(NACH AMP)") + "  "
-                                 + (currentState.compressorBypassed ? "OFF" : "ON") + "  " + (expandedCard == 5 ? "-" : "+"));
+                                 + (currentState.compressorBypassed ? "AUS" : "AN") + "  " + (expandedCard == 5 ? "-" : "+"));
     wahPedalCard.setButtonText("WAH-PEDAL " + juce::String(currentState.pedalWahMouse ? "(MAUS)" : "") + "  "
-                               + (currentState.pedalWahBypassed ? "OFF" : "ON") + "  " + (expandedCard == 6 ? "-" : "+"));
+                               + (currentState.pedalWahBypassed ? "AUS" : "AN") + "  " + (expandedCard == 6 ? "-" : "+"));
     driveAmount.setName(currentState.driveType == 2 ? "GAIN" : currentState.driveType == 3 ? "FUZZ" : "DRIVE");
     driveCharacter.setName(currentState.driveType == 1 ? "WARMTH" : currentState.driveType == 2 ? "PRESENCE" : "BIAS");
 }

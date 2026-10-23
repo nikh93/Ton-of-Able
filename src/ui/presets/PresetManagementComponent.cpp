@@ -12,7 +12,15 @@ constexpr int firstPresetId = 1;
 PresetManagementComponent::PresetManagementComponent()
 {
     addAndMakeVisible(presetSelector);
-    presetSelector.setTextWhenNothingSelected("Select preset");
+    presetSelector.setTextWhenNothingSelected(juce::String(juce::CharPointer_UTF8("Preset ausw\xc3\xa4hlen")));
+    saveAsButton.setButtonText(juce::String(juce::CharPointer_UTF8("Speichern unter \xe2\x80\xa6")));
+    deleteButton.setButtonText(juce::String(juce::CharPointer_UTF8("L\xc3\xb6schen")));
+    presetSelector.setTooltip(juce::String(juce::CharPointer_UTF8("Gespeicherte Kl\xc3\xa4nge: Amp, IR, EQs, Effekte, Pedale und VST3-Zust\xc3\xa4nde")));
+    saveButton.setTooltip(juce::String(juce::CharPointer_UTF8("Aktuellen Klang ins ausgew\xc3\xa4hlte Preset schreiben")));
+    saveAsButton.setTooltip(juce::String(juce::CharPointer_UTF8("Aktuellen Klang als neues Preset speichern")));
+    loadButton.setTooltip(juce::String(juce::CharPointer_UTF8("Ausgew\xc3\xa4hltes Preset laden")));
+    aButton.setTooltip(juce::String(juce::CharPointer_UTF8("Klang A \xe2\x80\x93 zum schnellen Vergleich mit B")));
+    bButton.setTooltip(juce::String(juce::CharPointer_UTF8("Klang B \xe2\x80\x93 zum schnellen Vergleich mit A")));
     presetSelector.onChange = [this] { choosePreset(presetSelector.getSelectedId()); };
 
     for (auto* button : { &saveButton, &saveAsButton, &loadButton, &renameButton, &deleteButton, &aButton, &bButton })
@@ -24,12 +32,12 @@ PresetManagementComponent::PresetManagementComponent()
 
     saveButton.onClick = [this] { if (! selectedPreset.isNull() && onSave) onSave(selectedPreset); };
     saveAsButton.onClick = [this] {
-        requestName("Save preset as", "New Preset", [this] (juce::String name) { if (onSaveAs) onSaveAs(std::move(name)); });
+        requestName(juce::String(juce::CharPointer_UTF8("Preset speichern unter")), "Neues Preset", [this] (juce::String name) { if (onSaveAs) onSaveAs(std::move(name)); });
     };
     loadButton.onClick = [this] { if (! selectedPreset.isNull() && onLoad) onLoad(selectedPreset); };
     renameButton.onClick = [this] {
         if (const auto* preset = presetManager != nullptr ? presetManager->find(selectedPreset) : nullptr)
-            requestName("Rename preset", preset->name, [this] (juce::String name) { if (onRename) onRename(selectedPreset, std::move(name)); });
+            requestName("Preset umbenennen", preset->name, [this] (juce::String name) { if (onRename) onRename(selectedPreset, std::move(name)); });
     };
     deleteButton.onClick = [this] { requestDeleteConfirmation(); };
     aButton.onClick = [this] { setUsingA(true, juce::sendNotificationSync); };
@@ -106,10 +114,10 @@ void PresetManagementComponent::updateControlState()
 void PresetManagementComponent::requestName(const juce::String& title, const juce::String& initial,
                                              std::function<void(juce::String)> completion)
 {
-    auto* dialog = new juce::AlertWindow(title, "Preset name:", juce::MessageBoxIconType::QuestionIcon);
+    auto* dialog = new juce::AlertWindow(title, "Name des Presets:", juce::MessageBoxIconType::QuestionIcon);
     dialog->addTextEditor("name", initial, "Name");
     dialog->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
-    dialog->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    dialog->addButton("Abbrechen", 0, juce::KeyPress(juce::KeyPress::escapeKey));
     dialog->enterModalState(true,
         juce::ModalCallbackFunction::create(
             [dialog, completion = std::move(completion)] (int result)
@@ -128,7 +136,7 @@ void PresetManagementComponent::requestDeleteConfirmation()
     const auto id = selectedPreset;
     const juce::Component::SafePointer<PresetManagementComponent> self(this);
     juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::WarningIcon)
-        .withTitle("Delete preset").withMessage("Delete the selected preset?").withButton("Delete").withButton("Cancel"),
+        .withTitle(juce::String(juce::CharPointer_UTF8("Preset l\xc3\xb6schen"))).withMessage(juce::String(juce::CharPointer_UTF8("Das ausgew\xc3\xa4hlte Preset l\xc3\xb6schen?"))).withButton(juce::String(juce::CharPointer_UTF8("L\xc3\xb6schen"))).withButton("Abbrechen"),
         [self, id] (int result) { if (self != nullptr && result == 1 && self->onDelete) self->onDelete(id); });
 }
 
@@ -150,14 +158,15 @@ void PresetManagementComponent::resized()
     auto area = getLocalBounds().reduced(10);
     area.removeFromTop(22);
     auto top = area.removeFromTop(28);
-    presetSelector.setBounds(top.removeFromLeft(juce::jmax(120, top.getWidth() - 240)));
-    top.removeFromLeft(6); saveButton.setBounds(top.removeFromLeft(52)); top.removeFromLeft(4);
-    saveAsButton.setBounds(top.removeFromLeft(70)); top.removeFromLeft(4);
-    loadButton.setBounds(top.removeFromLeft(52));
+    loadButton.setBounds(top.removeFromRight(70));
+    top.removeFromRight(6);
+    presetSelector.setBounds(top);
     area.removeFromTop(6);
     auto bottom = area.removeFromTop(28);
-    renameButton.setBounds(bottom.removeFromLeft(70)); bottom.removeFromLeft(4);
-    deleteButton.setBounds(bottom.removeFromLeft(65));
+    saveButton.setBounds(bottom.removeFromLeft(86)); bottom.removeFromLeft(4);
+    saveAsButton.setBounds(bottom.removeFromLeft(132)); bottom.removeFromLeft(4);
+    renameButton.setBounds(bottom.removeFromLeft(100)); bottom.removeFromLeft(4);
+    deleteButton.setBounds(bottom.removeFromLeft(74));
     bottom.removeFromLeft(juce::jmax(4, bottom.getWidth() - 58));
     aButton.setBounds(bottom.removeFromLeft(27)); bottom.removeFromLeft(4); bButton.setBounds(bottom.removeFromLeft(27));
 }

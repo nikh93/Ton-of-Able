@@ -46,7 +46,7 @@ private:
     void timerCallback() override;
     double animationStart = 0;
     static constexpr int numCards = 7;
-    float openness[numCards] { 0, 1, 0, 0, 0, 0, 0 }, from[numCards] {};
+    float openness[numCards] {}, from[numCards] {};
     GlassHeaderLook headerLook;
     GlassEffectSurface surfaces[numCards];
     juce::Component reveals[numCards], parameters[numCards];
@@ -58,7 +58,7 @@ private:
     SoundState currentState;
     SoundState lastPublishedState;
     void updateCardLabels();
-    int expandedCard = 1;
+    int expandedCard = -1; // all cards start collapsed: the list shows every effect and whether it is on
     juce::TextButton driveCard { "DRIVE" }, wahCard { "AUTO-WAH" }, chorusCard { "CHORUS" }, delayCard { "DELAY" }, reverbCard { "REVERB" }, compressorCard { "KOMPRESSOR" }, wahPedalCard { "WAH-PEDAL" };
     juce::Component cardContent;
     juce::Viewport cardViewport;

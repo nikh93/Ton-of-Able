@@ -50,8 +50,8 @@ private:
     bool usingA = true;
 
     juce::ComboBox presetSelector;
-    juce::TextButton saveButton { "Save" }, saveAsButton { "Save As" };
-    juce::TextButton loadButton { "Load" }, renameButton { "Rename" }, deleteButton { "Delete" };
+    juce::TextButton saveButton { "Speichern" }, saveAsButton;
+    juce::TextButton loadButton { "Laden" }, renameButton { "Umbenennen" }, deleteButton;
     juce::TextButton aButton { "A" }, bButton { "B" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetManagementComponent)

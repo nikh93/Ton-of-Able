@@ -72,11 +72,11 @@ private:
     Callbacks callbacks;
     juce::String heading;
     juce::ListBox list { "library items", this };
-    juce::TextButton importButton { "Import" };
-    juce::TextButton renameButton { "Rename" };
+    juce::TextButton importButton { "Importieren" };
+    juce::TextButton renameButton { "Umbenennen" };
     juce::TextButton tagsButton { "Tags" };
-    juce::TextButton missingButton { "Relink" };
-    juce::TextButton deleteButton { "Remove" };
+    juce::TextButton missingButton; // "Neu verknüpfen", set in the constructor (UTF-8)
+    juce::TextButton deleteButton { "Entfernen" };
     std::unique_ptr<juce::FileChooser> chooser;
     juce::Uuid selectedId;
 

@@ -57,3 +57,13 @@ Phase 25 abgeschlossen – Fehlerbehebungen aus dem ersten Test von v0.2.0:
 - Drumcomputer: Vorhören stoppt, sobald das Fenster geschlossen wird.
 
 Phase 26 abgeschlossen – PITCH: Bei −12 läuft nicht mehr automatisch der analoge Oktaver. Er ist jetzt eine dritte Modus-Option neben Rubber Band R2 und R3 („Analog-Oktaver (Flip-Flop, 0 ms) – nur bei −12“), wird in Presets und Spurketten gespeichert (pitchAnalogOctave) und gilt nur bei genau −12; sonst läuft R2.
+
+Phase 27 abgeschlossen – UI/UX-Durchgang:
+- Einheitlich Deutsch mit echten Umlauten: Presets (Speichern, Speichern unter …, Laden, Umbenennen, Löschen), Bibliotheken, Diagnose, Effektkarten (AN/AUS, „Eigene Einstellung“), Pedale/VST3, Fenstertitel, Statuszeile, Latenzanzeige.
+- Tooltips funktionieren in allen Fenstern (TooltipWindow auf dem Desktop statt im Hauptfenster); neue Tooltips für Hauptbedienelemente.
+- Audio-Status in der Kopfzeile auf Deutsch (Treiber · Gerät · kHz · Samples (ms)), bernsteinfarben ohne Gerät und per Klick zu den Einstellungen.
+- Effekt-Panel startet eingeklappt, damit alle sieben Effekte mit ihrem Zustand sichtbar sind.
+- Quelle & Aufnahme: WAV-Bedienelemente nur im WAV-Modus, im Live-Modus ein kurzer Hinweis.
+- Presets neu angeordnet (Auswahl + Laden oben, Speichern/Speichern unter/Umbenennen/Löschen unten), damit die deutschen Beschriftungen passen.
+- Verständliche Meldung statt technischem Fehler, wenn keine Rig-Vorlagen gefunden werden.
+- Arrangement: Hinweis bei leerem Projekt (aufnehmen, Dateien ziehen, Drum-Spur, F1).

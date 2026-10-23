@@ -21,7 +21,7 @@ class AudioSettingsDialog final : public juce::DocumentWindow
 {
 public:
     AudioSettingsDialog(juce::AudioDeviceManager& manager, std::function<void()> closed)
-        : juce::DocumentWindow("Audio Settings", Theme::surface(), closeButton), onClosed(std::move(closed))
+        : juce::DocumentWindow("Audio-Einstellungen", Theme::surface(), closeButton), onClosed(std::move(closed))
     {
         setUsingNativeTitleBar(true);
         content = std::make_unique<Content>(manager);
@@ -112,7 +112,7 @@ public:
 class RackWindow final : public juce::DocumentWindow
 {
 public:
-    explicit RackWindow(PluginRackPanel& panel) : DocumentWindow("VST3 Effects", Theme::surface(), closeButton)
+    explicit RackWindow(PluginRackPanel& panel) : DocumentWindow("Pedale & VST3", Theme::surface(), closeButton)
     {
         setUsingNativeTitleBar(true); setContentNonOwned(&panel,true);
         setResizable(true,false); setResizeLimits(840,610,1200,850); centreWithSize(840,610);
@@ -127,6 +127,7 @@ MainComponent::MainComponent()
     // Separate windows (track effects, plugin rack, call-outs) share the theme.
     juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
     addAndMakeVisible(pluginsButton);
+    pluginsButton.setTooltip(uiText("NAM-Pedale und zwei VST3-Slots (vor und nach dem Amp)"));
     pluginsButton.onClick = [this]
     {
         if (!pluginWindow) pluginWindow=std::make_unique<RackWindow>(pluginRack);
@@ -136,6 +137,25 @@ MainComponent::MainComponent()
     chooseWavFolder.setButtonText(uiText("Ordner öffnen"));
     record.setButtonText(uiText("● REC"));
     configureAudio.setButtonText(uiText("Einstellungen"));
+    configureAudio.setTooltip(uiText("Audio-Interface, Ein-/Ausgänge, Samplerate und Puffergröße"));
+    audioSummaryLabel.onClick = [this] { showAudioSettings(); };
+    audioSummaryLabel.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    audioSummaryLabel.setTooltip(uiText("Aktuelles Audiogerät – Klick öffnet die Einstellungen"));
+    liveHint.setText(uiText("Live: Die Gitarre spielt durch das Rig. Für Testdateien auf WAV umschalten, für Mehrspuraufnahmen ins Arrangement (Tab)."),
+                     juce::dontSendNotification);
+    liveHint.setColour(juce::Label::textColourId, Theme::subduedText());
+    liveHint.setJustificationType(juce::Justification::topLeft);
+    liveHint.setMinimumHorizontalScale(1.0f);
+    addChildComponent(liveHint);
+    liveMode.setTooltip(uiText("Live-Eingang des Interfaces durch das Rig"));
+    wavMode.setTooltip(uiText("WAV-Datei statt Gitarre durch das Rig spielen – zum Vergleichen von Amps und Presets"));
+    record.setTooltip(uiText("Den Rig-Ausgang als WAV aufnehmen (für Mehrspuraufnahmen das Arrangement nutzen)"));
+    diagnosticsToggle.setTooltip(uiText("Latenz, Auslastung, Aussetzer und Protokoll"));
+    librariesToggle.setTooltip(uiText("NAM- und IR-Bibliothek: umbenennen, Tags, fehlende Dateien neu verknüpfen"));
+    selectNam.setTooltip(uiText("NAM-Modelle importieren (mehrere Dateien oder ganze Ordner, auch per Drag & Drop)"));
+    selectIr.setTooltip(uiText("Cabinet-IRs (.wav) importieren"));
+    namEnabled.setTooltip(uiText("NAM-Amp an/aus"));
+    irEnabled.setTooltip(uiText("Cabinet-IR an/aus (bei Full-Rig-Modellen automatisch aus)"));
     selectNam.setButtonText(uiText("NAM importieren"));
     selectIr.setButtonText(uiText("IR importieren"));
     juce::String stateError;
@@ -159,8 +179,8 @@ MainComponent::MainComponent()
     for (auto* b : { &configureAudio, &selectNam, &selectIr, &liveMode, &wavMode, &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &record, &savePreset, &toggleAB }) addAndMakeVisible(*b);
     ampSelector.setTextWhenNothingSelected("AMP");
     ampSelector.setTextWhenNoChoicesAvailable("AMP");
-    configurationSelector.setTextWhenNothingSelected("CONFIGURATION");
-    configurationSelector.setTextWhenNoChoicesAvailable("CONFIGURATION");
+    configurationSelector.setTextWhenNothingSelected("KONFIGURATION");
+    configurationSelector.setTextWhenNoChoicesAvailable("KONFIGURATION");
     addAndMakeVisible(ampSelector); addAndMakeVisible(configurationSelector);
     addAndMakeVisible(presetBrowser);
     addAndMakeVisible(effectParameters);
@@ -193,7 +213,7 @@ MainComponent::MainComponent()
     inputMeter.setLabel("INPUT"); outputMeter.setLabel("OUTPUT"); addAndMakeVisible(inputMeter); addAndMakeVisible(outputMeter);
     configureAudio.onClick = [this] { showAudioSettings(); };
     selectNam.onClick = [this] { chooseNamFile(); }; selectIr.onClick = [this] { chooseIrFile(); };
-    liveMode.onClick = [this] { audioEngine.setSourceMode(AudioEngine::SourceMode::live); wavBrowser.setVisible(false); status.setText("LIVE-Eingang aktiv", juce::dontSendNotification); resized(); };
+    liveMode.onClick = [this] { audioEngine.setSourceMode(AudioEngine::SourceMode::live); wavBrowser.setVisible(false); status.setText(uiText("Live-Eingang aktiv"), juce::dontSendNotification); resized(); };
     wavMode.onClick = [this] { audioEngine.setSourceMode(AudioEngine::SourceMode::wav); wavBrowser.setVisible(true); status.setText("WAV-Testmodus aktiv", juce::dontSendNotification); if (! wavBrowser.directory().isDirectory()) chooseWavDirectory(); resized(); };
     openWav.onClick = [this] { chooseWavFile(); }; chooseWavFolder.onClick = [this] { chooseWavDirectory(); }; playWav.onClick = [this] { audioEngine.player().play(); }; pauseWav.onClick = [this] { audioEngine.player().pause(); }; stopWav.onClick = [this] { audioEngine.player().stop(); };
     loopWav.onClick = [this] { audioEngine.player().setLooping(loopWav.getToggleState()); };
@@ -467,20 +487,26 @@ void MainComponent::timerCallback()
     if (! wavTimeline.isMouseButtonDown())
         wavTimeline.setValue(audioEngine.player().positionNormalized(), juce::dontSendNotification);
     latency.setText(latencyMs >= 0.0
-        ? "Latency " + juce::String(latencyMs, 1) + " ms | Load " + juce::String(performance.realtimeLoad * 100.0, 0) + "% | Dropouts " + juce::String(performance.xruns)
-        : "Audio device unavailable", juce::dontSendNotification);
+        ? uiText("Latenz ") + juce::String(latencyMs, 1) + uiText(" ms · Last ") + juce::String(performance.realtimeLoad * 100.0, 0) + uiText(" % · Aussetzer ") + juce::String(performance.xruns)
+        : uiText("Kein Audiogerät aktiv"), juce::dontSendNotification);
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
+    audioSummaryLabel.setColour(juce::Label::textColourId,
+                                audioEngine.deviceManager().getCurrentAudioDevice() == nullptr ? Theme::amber() : Theme::subduedText());
+    // LIVE shows a hint instead of the WAV player controls.
+    const auto showWav = wav && ! arrangementVisible;
+    if (playWav.isVisible() != showWav)
+        resized();
 }
 
 juce::String MainComponent::audioSummary() const
 {
     auto* device = audioEngine.deviceManager().getCurrentAudioDevice();
     if (device == nullptr)
-        return "No audio device";
-    const auto type = device->getTypeName();
-    const auto name = device->getName();
-    const auto rate = juce::String(device->getCurrentSampleRate() / 1000.0, 1) + " kHz";
-    return type + " | " + name + " | " + rate + " | " + juce::String(device->getCurrentBufferSizeSamples()) + " samples";
+        return uiText("Kein Audiogerät – hier klicken zum Einrichten");
+    const auto rate = device->getCurrentSampleRate();
+    const auto buffer = device->getCurrentBufferSizeSamples();
+    return device->getTypeName() + uiText(" · ") + device->getName() + uiText(" · ") + juce::String(rate / 1000.0, 1) + uiText(" kHz · ")
+         + juce::String(buffer) + uiText(" Samples (") + juce::String(rate > 0.0 ? 1000.0 * buffer / rate : 0.0, 1) + " ms)";
 }
 
 void MainComponent::showAudioSettings()
@@ -629,13 +655,13 @@ void MainComponent::configureCuratedSelectors()
 void MainComponent::configureRigs()
 {
     addAndMakeVisible(rigSelector); addAndMakeVisible(loadRigButton); addAndMakeVisible(rigInfo); addAndMakeVisible(rigDetailsButton);
-    rigSelector.setTextWhenNothingSelected("Komplette Rigs / Vorlage auswaehlen");
-    rigSelector.setTooltip("Laedt Pedal, Amp und Cabinet gemeinsam. Alle zusaetzlichen Effekte werden ausgeschaltet.");
+    rigSelector.setTextWhenNothingSelected(uiText("Komplette Rigs / Vorlage auswählen"));
+    rigSelector.setTooltip(uiText("Lädt Pedal, Amp und Cabinet gemeinsam. Alle zusätzlichen Effekte werden ausgeschaltet."));
     juce::String error;
     const auto resources=defaultAssetsDirectory().getParentDirectory();
     if (rigLibrary.load(resources.getChildFile("rig-models/catalog.json"),resources,&error))
         for (const auto& rig : rigLibrary.rigs()) rigSelector.addItem(rig.name,rigSelector.getNumItems()+1);
-    else rigInfo.setText("Rig-Katalog: "+error,juce::dontSendNotification);
+    else rigInfo.setText(uiText("Keine Rig-Vorlagen gefunden (resources/rig-models fehlt)."),juce::dontSendNotification);
     rigSelector.onChange=[this]
     {
         const int index=rigSelector.getSelectedId()-1;
@@ -1038,7 +1064,7 @@ std::vector<juce::Component*> MainComponent::rigComponents()
     return { &rigSelector, &loadRigButton, &rigDetailsButton, &rigInfo, &ampSelector, &configurationSelector,
              &inputGain, &bass, &mid, &treble, &outputGain, &inputMeter, &outputMeter, &namEnabled, &irEnabled,
              &graphicEqButton, &pitchButton, &selectNam, &selectIr, &presetBrowser, &effectParameters, &liveMode, &wavMode,
-             &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline, &record };
+             &openWav, &chooseWavFolder, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline, &record, &liveHint };
 }
 
 void MainComponent::configureArrangement()
@@ -1559,9 +1585,9 @@ void MainComponent::paint(juce::Graphics& g)
     wood(soundPanel, juce::Colour(0xff705139), juce::Colour(0xff38281f));
     wood(transportPanel, juce::Colour(0xff4b3c30), juce::Colour(0xff292722));
     g.setColour(Theme::subduedText()); g.setFont(juce::FontOptions(11, juce::Font::bold));
-    g.drawText("AMP / MODEL", soundPanel.getX()+22, soundPanel.getY()+14, 210, 20, juce::Justification::left);
-    g.drawText("CONFIGURATION", soundPanel.getCentreX()+8, soundPanel.getY()+14, 230, 20, juce::Justification::left);
-    g.drawText("SOURCE & RECORDING", transportPanel.reduced(18).removeFromTop(20), juce::Justification::left);
+    g.drawText("AMP / MODELL", soundPanel.getX()+22, soundPanel.getY()+14, 210, 20, juce::Justification::left);
+    g.drawText("KONFIGURATION", soundPanel.getCentreX()+8, soundPanel.getY()+14, 230, 20, juce::Justification::left);
+    g.drawText(uiText("QUELLE & AUFNAHME"), transportPanel.reduced(18).removeFromTop(20), juce::Justification::left);
 }
 
 void MainComponent::resized()
@@ -1589,8 +1615,8 @@ void MainComponent::resized()
         // The arrangement uses the full window below the header; the live rig keeps running.
         auto full = getLocalBounds().reduced(16).withTrimmedTop(area.getY() - 16);
         auto footer = full.removeFromBottom(28);
-        diagnosticsToggle.setBounds(footer.removeFromRight(112));
-        librariesToggle.setBounds(footer.removeFromRight(98));
+        diagnosticsToggle.setBounds(footer.removeFromRight(104));
+        librariesToggle.setBounds(footer.removeFromRight(126));
         latency.setBounds(footer.removeFromRight(330));
         status.setBounds(footer);
         arrangementView.setBounds(full.withTrimmedBottom(6));
@@ -1604,8 +1630,8 @@ void MainComponent::resized()
     rigRow.removeFromLeft(8); rigDetailsButton.setBounds(rigRow.removeFromLeft(65));
     rigRow.removeFromLeft(12); rigInfo.setBounds(rigRow);
     auto footer = area.removeFromBottom(32);
-    diagnosticsToggle.setBounds(footer.removeFromRight(112));
-    librariesToggle.setBounds(footer.removeFromRight(98));
+    diagnosticsToggle.setBounds(footer.removeFromRight(104));
+    librariesToggle.setBounds(footer.removeFromRight(126));
     latency.setBounds(footer.removeFromRight(330));
     status.setBounds(footer);
     area.removeFromTop(16); area.removeFromBottom(12);
@@ -1646,11 +1672,17 @@ void MainComponent::resized()
     record.setBounds(row.removeFromRight(90));
     chooseWavFolder.setBounds(row.removeFromLeft(120)); row.removeFromLeft(6);
     openWav.setBounds(row.removeFromLeft(104));
-    transport.removeFromTop(10); row = transport.removeFromTop(28);
-    playWav.setBounds(row.removeFromLeft(62)); row.removeFromLeft(6);
+    const auto wav = audioEngine.getSourceMode() == AudioEngine::SourceMode::wav;
+    for (auto* c : std::initializer_list<juce::Component*> { &chooseWavFolder, &openWav, &playWav, &pauseWav, &stopWav, &loopWav, &wavTimeline })
+        c->setVisible(wav);
+    liveHint.setVisible(! wav);
+    transport.removeFromTop(10);
+    liveHint.setBounds(transport.withHeight(std::min(60, transport.getHeight())));
+    row = transport.removeFromTop(28);
+    playWav.setBounds(row.removeFromLeft(86)); row.removeFromLeft(6);
     pauseWav.setBounds(row.removeFromLeft(62)); row.removeFromLeft(6);
     stopWav.setBounds(row.removeFromLeft(62)); row.removeFromLeft(8);
-    loopWav.setBounds(row.removeFromLeft(70));
+    loopWav.setBounds(row.removeFromLeft(90));
     transport.removeFromTop(6); wavTimeline.setBounds(transport.removeFromTop(24));
     transport.removeFromTop(8); wavBrowser.setBounds(transport);
     savePreset.setVisible(false); toggleAB.setVisible(false);

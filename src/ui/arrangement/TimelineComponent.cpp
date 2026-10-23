@@ -440,6 +440,22 @@ void TimelineComponent::paint(juce::Graphics& g)
                 }
         }
 
+        // Empty project: say how to get started instead of showing an empty grid.
+        if (state.endSample() == 0 && ! controller.engine().isRecording())
+        {
+            const auto below = laneTop(static_cast<int>(state.tracks.size()));
+            auto area = juce::Rectangle<int>(0, std::max(below, rulerHeight) + 24, getWidth(), 120);
+            if (area.getBottom() > getHeight())
+                area = getLocalBounds().withTrimmedTop(rulerHeight).withSizeKeepingCentre(getWidth(), 120);
+            g.setColour(Theme::subduedText().withAlpha(0.85f));
+            g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
+            g.drawText(text("Noch keine Aufnahmen"), area.removeFromTop(26), juce::Justification::centred);
+            g.setFont(juce::FontOptions(13.0f));
+            g.drawFittedText(text("Spur scharf schalten (●) und REC drücken (F9) · Audio- oder Videodateien hierher ziehen · "
+                                  "+ Spur → Drum-Spur für den Drumcomputer · F1 zeigt alle Tastenkürzel"),
+                             area.reduced(40, 0), juce::Justification::centredTop, 3);
+        }
+
         if (drag == Drag::marquee)
         {
             g.setColour(Theme::amber().withAlpha(0.12f));

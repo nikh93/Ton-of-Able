@@ -117,15 +117,15 @@ private:
     juce::TimedCallback wahMouseTimer { [this] { followMouseWithWah(); } };
     float lastMouseWah = -1.0f;
     std::unique_ptr<juce::DocumentWindow> shortcutWindow; // after commandManager: it edits its key mappings
-    juce::TextButton pluginsButton { "Pedals / VST3" };
+    juce::TextButton pluginsButton { "Pedale / VST3" };
     NamLibrary namLibrary;
     IRLibrary irLibrary;
     PresetManager presetManager;
     nam::ui::PresetManagementComponent presetBrowser;
     nam::ui::EffectParameterPanel effectParameters;
     nam::ui::WavFileBrowser wavBrowser;
-    nam::ui::LibraryBrowser namBrowser { namLibrary, "NAM LIBRARY" };
-    nam::ui::LibraryBrowser irBrowser { irLibrary, "IR LIBRARY" };
+    nam::ui::LibraryBrowser namBrowser { namLibrary, "NAM-BIBLIOTHEK" };
+    nam::ui::LibraryBrowser irBrowser { irLibrary, "IR-BIBLIOTHEK" };
     CuratedAmpLibrary curatedAmpLibrary;
     RigLibrary rigLibrary;
     juce::ComboBox rigSelector;
@@ -139,8 +139,14 @@ private:
     juce::Label title;
     juce::Label status;
     juce::Label latency;
-    juce::Label audioSummaryLabel;
-    juce::TextButton configureAudio { "Settings" };
+    /** Audio device summary in the header; a click opens the settings. */
+    struct ClickableLabel final : juce::Label
+    {
+        std::function<void()> onClick;
+        void mouseUp(const juce::MouseEvent& event) override { if (onClick && event.mouseWasClicked()) onClick(); }
+    };
+    ClickableLabel audioSummaryLabel;
+    juce::TextButton configureAudio { "Einstellungen" };
     juce::TextButton selectNam { "NAM importieren" };
     juce::TextButton selectIr { "IR importieren" };
     juce::ComboBox ampSelector;
@@ -149,18 +155,19 @@ private:
     juce::TextButton wavMode { "WAV" };
     juce::TextButton openWav { "WAV Oeffnen" };
     juce::TextButton chooseWavFolder { "Ordner" };
-    juce::TextButton playWav { "Play" };
+    juce::TextButton playWav { "Abspielen" };
     juce::TextButton pauseWav { "Pause" };
-    juce::TextButton stopWav { "Stop" };
-    juce::ToggleButton loopWav { "Loop" };
+    juce::TextButton stopWav { "Stopp" };
+    juce::ToggleButton loopWav { "Schleife" };
+    juce::Label liveHint;
     juce::Slider wavTimeline;
     juce::ToggleButton namEnabled { "NAM" };
     juce::ToggleButton irEnabled { "IR" };
     juce::TextButton record { "● REC" };
     juce::TextButton savePreset { "Save" };
     juce::TextButton toggleAB { "A" };
-    juce::ToggleButton diagnosticsToggle { "Diagnostics" };
-    juce::ToggleButton librariesToggle { "Libraries" };
+    juce::ToggleButton diagnosticsToggle { "Diagnose" };
+    juce::ToggleButton librariesToggle { "Bibliotheken" };
     juce::ToggleButton wahEnabled { "Auto-Wah" };
     juce::ToggleButton chorusEnabled { "Chorus" };
     juce::ToggleButton delayEnabled { "Delay" };
@@ -186,7 +193,8 @@ private:
     juce::Rectangle<int> soundPanel, transportPanel;
     juce::StringArray curatedAmpIds;
     juce::StringArray curatedConfigurationIds;
-    juce::TooltipWindow rigTooltips {this,400};
+    // On the desktop (no parent), so tooltips also work in the separate windows.
+    juce::TooltipWindow tooltips { nullptr, 500 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

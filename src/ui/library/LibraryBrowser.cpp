@@ -23,6 +23,10 @@ LibraryBrowser::LibraryBrowser(LibraryManager& library, juce::String title)
         button.setColour(juce::TextButton::textColourOffId, AmberTheme::text());
         button.onClick = action;
     };
+    missingButton.setButtonText(juce::String(juce::CharPointer_UTF8("Neu verkn\xc3\xbcpfen")));
+    importButton.setTooltip(juce::String(juce::CharPointer_UTF8("Dateien oder Ordner importieren \xe2\x80\x93 sie werden in den Modellordner kopiert")));
+    missingButton.setTooltip(juce::String(juce::CharPointer_UTF8("Fehlende Datei neu verkn\xc3\xbcpfen")));
+    tagsButton.setTooltip(juce::String(juce::CharPointer_UTF8("Schlagw\xc3\xb6rter zum Filtern, durch Komma getrennt")));
     addButton(importButton, [this] { importFile(); });
     addButton(renameButton, [this] { renameSelected(); });
     addButton(tagsButton, [this] { editTags(); });
@@ -96,7 +100,7 @@ void LibraryBrowser::paintListBoxItem(int row, juce::Graphics& g, int width, int
     g.drawText(item.displayName, textArea.removeFromTop(19), juce::Justification::centredLeft, true);
     g.setColour(AmberTheme::subduedText());
     g.setFont(juce::FontOptions(11.0f));
-    auto subtext = item.isMissing() ? "Missing — relink required" : item.linkedFile.getFullPathName();
+    auto subtext = item.isMissing() ? juce::String(juce::CharPointer_UTF8("Datei fehlt \xe2\x80\x93 bitte neu verkn\xc3\xbcpfen")) : item.linkedFile.getFullPathName();
     if (!item.tags.isEmpty()) subtext << "  •  " << item.tags.joinIntoString(", ");
     g.drawText(subtext, textArea, juce::Justification::centredLeft, true);
 }
@@ -140,7 +144,7 @@ void LibraryBrowser::importFile()
 
 void LibraryBrowser::chooseImport(bool folders)
 {
-    chooser = std::make_unique<juce::FileChooser>("Import " + manager.itemType().toUpperCase(), juce::File{}, folders ? juce::String("*") : extensionWildcard());
+    chooser = std::make_unique<juce::FileChooser>(manager.itemType().toUpperCase() + " importieren", juce::File{}, folders ? juce::String("*") : extensionWildcard());
     const auto flags = juce::FileBrowserComponent::openMode
                      | (folders ? juce::FileBrowserComponent::canSelectDirectories : juce::FileBrowserComponent::canSelectFiles)
                      | juce::FileBrowserComponent::canSelectMultipleItems;
@@ -179,7 +183,7 @@ void LibraryBrowser::relinkFile()
     if (item == nullptr) return;
     const auto id = item->id;
     if (callbacks.onMissingAction) callbacks.onMissingAction(*item);
-    chooser = std::make_unique<juce::FileChooser>("Relink " + item->displayName, item->linkedFile, extensionWildcard());
+    chooser = std::make_unique<juce::FileChooser>(item->displayName + juce::String(juce::CharPointer_UTF8(" neu verkn\xc3\xbcpfen")), item->linkedFile, extensionWildcard());
     chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                          [this, id](const juce::FileChooser& fc)
     {
@@ -199,7 +203,7 @@ void LibraryBrowser::showTextEditor(const juce::String& prompt, const juce::Stri
 {
     auto dialog = std::make_unique<juce::AlertWindow>(prompt, juce::String{}, juce::MessageBoxIconType::NoIcon);
     dialog->addTextEditor("value", value);
-    dialog->addButton("Cancel", 0);
+    dialog->addButton("Abbrechen", 0);
     dialog->addButton("OK", 1);
     auto* raw = dialog.release();
     raw->enterModalState(true, juce::ModalCallbackFunction::create([raw, accepted = std::move(accepted)](int result)
@@ -213,7 +217,7 @@ void LibraryBrowser::renameSelected()
 {
     const auto* item = selectedItem(); if (item == nullptr) return;
     const auto id = item->id;
-    showTextEditor("Display name", item->displayName, [this, id](const juce::String& name)
+    showTextEditor("Anzeigename", item->displayName, [this, id](const juce::String& name)
     {
         const auto* original = manager.find(id); if (original == nullptr || name.trim().isEmpty()) return;
         if (manager.rename(id, name.trim())) { if (callbacks.onRename) callbacks.onRename(*original, name.trim()); refresh(); }
@@ -224,7 +228,7 @@ void LibraryBrowser::editTags()
 {
     const auto* item = selectedItem(); if (item == nullptr) return;
     const auto id = item->id;
-    showTextEditor("Tags (comma separated)", item->tags.joinIntoString(", "), [this, id](const juce::String& value)
+    showTextEditor("Tags (durch Komma getrennt)", item->tags.joinIntoString(", "), [this, id](const juce::String& value)
     {
         const auto* original = manager.find(id); if (original == nullptr) return;
         auto tags = juce::StringArray::fromTokens(value, ",", ""); tags.trim(); tags.removeEmptyStrings();

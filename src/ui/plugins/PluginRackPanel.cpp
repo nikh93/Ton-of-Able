@@ -36,7 +36,7 @@ public:
 PluginRackPanel::PluginRackPanel(AudioEngine& engine) : preSlot(engine.prePlugin()), postSlot(engine.postPlugin()), pedal(engine)
 {
     addAndMakeVisible(pedal);
-    heading.setText("PEDALS & VST3 EFFECT RACK", juce::dontSendNotification);
+    heading.setText("PEDALE & VST3-EFFEKTE", juce::dontSendNotification);
     heading.setFont(juce::FontOptions(22.f, juce::Font::bold));
     route.setText("Drive > PRE VST3 > NAM PEDAL > NAM AMP > IR / Effekte > POST VST3 (Stereo)", juce::dontSendNotification);
     for (auto* c : { &heading, &route, &status }) addAndMakeVisible(*c);
@@ -61,7 +61,7 @@ PluginRackPanel::PluginRackPanel(AudioEngine& engine) : preSlot(engine.prePlugin
                 }
             }
         };
-        choices[i].setTextWhenNothingSelected("Plugin auswaehlen");
+        choices[i].setTextWhenNothingSelected(juce::String(juce::CharPointer_UTF8("Plugin ausw\xc3\xa4hlen")));
         choices[i].onChange = [this,i]
         {
             const int selected = choices[i].getSelectedId()-1;
@@ -71,9 +71,9 @@ PluginRackPanel::PluginRackPanel(AudioEngine& engine) : preSlot(engine.prePlugin
             status.setText(result.wasOk() ? "Geladen: " + slot(i).name() : result.getErrorMessage(), juce::dontSendNotification);
             refresh();
         };
-        enabled[i].setButtonText("ON");
+        enabled[i].setButtonText("AN");
         enabled[i].onClick = [this,i] { slot(i).setBypassed(!enabled[i].getToggleState()); };
-        editors[i].setButtonText("Plugin / Presets oeffnen");
+        editors[i].setButtonText(juce::String(juce::CharPointer_UTF8("Plugin / Presets \xc3\xb6" "ffnen")));
         editors[i].onClick = [this,i] { openEditor(i); };
         remove[i].setButtonText("Entfernen");
         remove[i].onClick = [this,i] { windows[i].reset(); slot(i).clear(); choices[i].setSelectedId(0,juce::dontSendNotification); refresh(); };
@@ -126,7 +126,7 @@ void PluginRackPanel::openEditor(int i)
 }
 void PluginRackPanel::choosePlugin()
 {
-    chooser=std::make_shared<juce::FileChooser>("VST3-Datei oder Bundle auswaehlen",appDirectory(),"*.vst3");
+    chooser=std::make_shared<juce::FileChooser>(juce::String(juce::CharPointer_UTF8("VST3-Datei oder Bundle ausw\xc3\xa4hlen")),appDirectory(),"*.vst3");
     const juce::Component::SafePointer<PluginRackPanel> self(this);
     chooser->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::canSelectDirectories,
         [self](const juce::FileChooser& selected)
@@ -153,7 +153,7 @@ void PluginRackPanel::scan(const juce::Array<juce::File>& files, bool defaults)
 {
     if (scanning) return;
     scanning=true; scanButton.setEnabled(false); importButton.setEnabled(false);
-    status.setText("VST3-Pruefung in separatem Prozess ...",juce::dontSendNotification);
+    status.setText(juce::String(juce::CharPointer_UTF8("VST3-Pr\xc3\xbc" "fung in separatem Prozess \xe2\x80\xa6")),juce::dontSendNotification);
     const juce::Component::SafePointer<PluginRackPanel> self(this);
     scanPool.addJob([self,files,defaults]
     {
@@ -214,7 +214,7 @@ void PluginRackPanel::scan(const juce::Array<juce::File>& files, bool defaults)
             }
             self->scanning=false; self->scanButton.setEnabled(true); self->importButton.setEnabled(true);
             self->status.setText(juce::String(self->descriptions.size())+" Plugins verfuegbar. "
-                +(errors.isEmpty() ? "ON aktiviert; Plugin oeffnen zeigt dessen Presets." : "Scan fehlgeschlagen: "+errors.joinIntoString(", ")),juce::dontSendNotification);
+                +(errors.isEmpty() ? juce::String(juce::CharPointer_UTF8("AN aktiviert; \xe2\x80\x9ePlugin \xc3\xb6" "ffnen\xe2\x80\x9c zeigt dessen Presets.")) : "Scan fehlgeschlagen: "+errors.joinIntoString(", ")),juce::dontSendNotification);
             self->refresh();
         });
     });
