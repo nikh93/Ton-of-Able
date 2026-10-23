@@ -164,6 +164,12 @@ struct ArrangementState
     bool loopEnabled = false;
     juce::int64 loopStart = 0;
     juce::int64 loopEnd = 0;
+    /** Re-amping: this track's playback feeds the live rig instead of the guitar
+        (for this session; not saved with the project). */
+    juce::Uuid reampSource;
+
+    /** The re-amp source track, if set and usable (an audio track). */
+    [[nodiscard]] const Track* reampTrack() const noexcept;
 
     [[nodiscard]] juce::int64 endSample() const noexcept;
     [[nodiscard]] Track* findTrack(const juce::Uuid& id) noexcept;

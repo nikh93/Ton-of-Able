@@ -47,7 +47,7 @@ private:
     std::shared_ptr<daw::TrackMixer> mixer;
     juce::Label name;
     IconButton arm { Icon::record }, monitor { Icon::headphones }, frozenBadge { Icon::snowflake };
-    juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" }, send { "SEND" };
+    juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" }, send { "SEND" }, reampBadge { "RE-AMP" };
     IconButton drums { Icon::sliders, "Drumcomputer" };
     juce::Label role;
     juce::ComboBox input;
@@ -56,6 +56,6 @@ private:
     std::vector<int> inputChannels;
     bool isDrumTrack = false;
     bool isReturnTrack = false;
-    bool frozen = false, freezing = false;
+    bool frozen = false, freezing = false, reamping = false;
 };
 } // namespace nam::ui

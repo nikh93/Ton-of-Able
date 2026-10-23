@@ -108,6 +108,8 @@ public:
     void dropOtherTakes(const juce::Uuid& clipId);
     void locate(juce::int64 position);
     void setLoop(bool enabled, juce::int64 start, juce::int64 end);
+    /** Re-amping: plays this track into the live rig instead of the guitar (null: off). */
+    void setReampSource(const juce::Uuid& trackId);
     void setTempo(double bpm, int beatsPerBar, int beatUnit);
     void setCountIn(bool enabled) noexcept { countIn = enabled; }
     [[nodiscard]] bool isCountInEnabled() const noexcept { return countIn; }

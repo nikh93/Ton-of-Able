@@ -118,3 +118,10 @@ Phase 34 abgeschlossen – Plugin-Verwaltung, Send-/Insert-Ketten geprüft:
 - Fehler in den Spur- und Send-Ketten behoben: Das Instrument einer Drum-Spur lief an der Spurkette vorbei (live und beim Export). Wiedergabe und Return-Spuren wurden vor der Kette auf Mono zusammengemischt, Panorama und Stereo-Hall der Sends gingen verloren; jetzt läuft die Kette stereo, ausgeschaltete eingebaute Effekte lassen die Seiteninformation durch (weich überblendet).
 - Geprüft und in Ordnung: Sends post-Fader, Mute/Solo, Solo-Sicherheit der Returns, Rampen, Export und Stems.
 - Tests: Katalog (Zusammenführen, Ausblenden, Speichern, Altformat, Ordner/Import entfernen, Bundle-Pfad), Drum-Instrument durch die Spurkette, Stereo durch ausgeschaltete Blöcke.
+
+Phase 35 abgeschlossen – Re-Amping und Wah per Maus in Spurketten:
+- Re-Amping: Rechtsklick auf eine Audio-Spur → „Re-Amp: ins Live-Rig spielen“. Während der Wiedergabe rendert die Engine die Clips dieser Spur vor dem Live-Rig (gleiche Positionen und Loop-Sprünge wie die Wiedergabe) und speist sie statt der Gitarre ein; die Spur selbst ist dann nur über das Rig zu hören. Rig-Spuren nehmen das Ergebnis auf, Loop-Takes inklusive. Die Latenzkorrektur zählt dabei nur die Rig-Latenz, nicht die des Interfaces.
+- Bewusst kein allgemeiner „Send to Input“: exklusive Quelle statt Mischung mit der Gitarre, keine Rückkopplungsschleifen, eindeutige Latenz. Gilt für die Sitzung (nicht im Projekt gespeichert); Drum-, Return- und eingefrorene Spuren sind ausgeschlossen.
+- Anzeige: RE-AMP im Spurkopf (Klick schaltet aus), Hinweis zum Rig-Eingang im Tab RIG.
+- Wah per Maus auch in Spurketten: Spuren mit „MAUS“ beim Wah folgen der Maus bei der Wiedergabe, zusätzlich zum Live-Rig.
+- Tests: Quelle nur beim Abspielen, vor dem Fader, nicht direkt hörbar, Loop-Sprung innerhalb eines Blocks, ungültige Quellen.

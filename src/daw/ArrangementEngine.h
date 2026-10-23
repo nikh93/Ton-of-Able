@@ -70,6 +70,7 @@ public:
         std::vector<std::shared_ptr<const std::vector<DrumPattern>>> retainedPatterns;
         double samplesPerStep = 6000.0;       // one sixteenth note
         std::array<int, maximumReturns> returnTracks { -1, -1, -1, -1 }; // index into tracks per slot
+        int reampTrack = -1;                  // index of the track feeding the live rig, or -1
     };
 
 
@@ -133,6 +134,11 @@ public:
     /** Current step of the audition loop, -1 if none is running. */
     [[nodiscard]] int auditionStep() const noexcept { return auditionStepNow.load(); }
 
+    /** Audio thread, before the live rig: while playing, renders the re-amp
+        track's clips (dry, at the position process() will play next) into mono
+        and returns true; otherwise leaves mono alone and returns false. */
+    bool renderReampInput(float* mono, int numSamples) noexcept;
+
     // Device lifecycle and audio thread.
     void prepare(double sampleRate, int maximumBlockSize);
     [[nodiscard]] double preparedSampleRate() const noexcept { return sampleRate.load(); }
@@ -187,7 +193,7 @@ private:
 
     float currentMaster = 1.0f;
     int maximumBlock = 0;
-    juce::AudioBuffer<float> trackBuffer, mixBuffer, monoBuffer, instrumentBuffer, returnBuffer;
+    juce::AudioBuffer<float> trackBuffer, mixBuffer, monoBuffer, instrumentBuffer, returnBuffer, reampBuffer;
     static constexpr int maximumEvents = 512;
     std::array<DrumEvent, maximumEvents> events;
     std::atomic<int> auditionTrackIndex { -1 }, auditionPatternIndex { 0 }, auditionStepNow { -1 };

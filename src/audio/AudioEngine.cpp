@@ -168,6 +168,8 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
         juce::FloatVectorOperations::copy(mono, input, numSamples);
     else
         juce::FloatVectorOperations::clear(mono, numSamples);
+    // Re-amping: while the arrangement plays, a recorded track replaces the guitar.
+    arrangementEngine.renderReampInput(mono, numSamples);
 
     auto* left = stereoBuffer.getWritePointer(0);
     auto* right = stereoBuffer.getWritePointer(1);

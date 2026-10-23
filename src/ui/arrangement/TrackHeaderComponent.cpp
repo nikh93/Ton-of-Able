@@ -91,6 +91,11 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     frozenBadge.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff23323d));
     frozenBadge.onClick = [this] { if (frozen) controller.unfreezeTrack(id); };
     addChildComponent(frozenBadge);
+    reampBadge.setTooltip(text("Re-Amp: Diese Spur spielt bei der Wiedergabe statt der Gitarre ins Live-Rig. Eine scharfgeschaltete Rig-Spur nimmt das Ergebnis auf. Klick schaltet aus."));
+    reampBadge.setColour(juce::TextButton::buttonColourId, Theme::amber());
+    reampBadge.setColour(juce::TextButton::textColourOffId, Theme::onText());
+    reampBadge.onClick = [this] { controller.setReampSource({}); };
+    addChildComponent(reampBadge);
     role.setFont(juce::FontOptions(11.5f, juce::Font::bold));
     role.setColour(juce::Label::textColourId, Theme::subduedText());
     role.setInterceptsMouseClicks(false, false);
@@ -137,8 +142,11 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
     colour = track.colour;
     const auto nowFrozen = track.isFrozen(controller.state());
     const auto nowFreezing = controller.isFreezing(track.id);
-    if (isDrumTrack != track.drums || isReturnTrack != track.isReturn() || frozen != nowFrozen || freezing != nowFreezing)
+    const auto* source = controller.state().reampTrack();
+    const auto nowReamping = source != nullptr && source->id == track.id && ! nowFrozen;
+    if (isDrumTrack != track.drums || isReturnTrack != track.isReturn() || frozen != nowFrozen || freezing != nowFreezing || reamping != nowReamping)
     {
+        reamping = nowReamping;
         isDrumTrack = track.drums;
         isReturnTrack = track.isReturn();
         frozen = nowFrozen;
@@ -247,6 +255,9 @@ void TrackHeaderComponent::resized()
     frozenBadge.setVisible(frozen || freezing);
     if (frozen || freezing)
         square(frozenBadge, 26);
+    reampBadge.setVisible(reamping);
+    if (reamping)
+        square(reampBadge, 56);
     top.removeFromRight(3);
     name.setBounds(top.withTrimmedLeft(-4));
 
@@ -317,6 +328,8 @@ void TrackHeaderComponent::showMenu()
     if (! isReturnTrack)
     {
         menu.addItem(8, text("Sends …"));
+        if (! isDrumTrack)
+            menu.addItem(10, text("Re-Amp: ins Live-Rig spielen"), ! frozen, reamping);
         menu.addSeparator();
         const auto* track = controller.state().findTrack(id);
         const auto hasRender = track != nullptr && track->frozen != nullptr;
@@ -349,6 +362,7 @@ void TrackHeaderComponent::showMenu()
             case 7: self.controller.flattenTrack(trackId); break;
             case 8: self.showSends(); break;
             case 9: self.controller.unfreezeTrack(trackId); break;
+            case 10: self.controller.setReampSource(self.reamping ? juce::Uuid() : trackId); break;
             default: break;
         }
     });

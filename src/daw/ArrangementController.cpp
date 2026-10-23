@@ -863,6 +863,11 @@ void ArrangementController::setLoop(bool enabled, juce::int64 start, juce::int64
     });
 }
 
+void ArrangementController::setReampSource(const juce::Uuid& trackId)
+{
+    modify([&trackId](ArrangementState& state) { state.reampSource = trackId; });
+}
+
 void ArrangementController::setTempo(double bpm, int beatsPerBar, int beatUnit)
 {
     perform("Tempo", [&](ArrangementState& state)
@@ -908,13 +913,16 @@ void ArrangementController::toggleRecord(int fallbackTrack)
     const auto deviceLatency = device->getInputLatencyInSamples() + device->getOutputLatencyInSamples();
     const auto manual = static_cast<int>(std::lround(manualLatency() * current.sampleRate / 1000.0));
     const auto stamp = juce::Time::getCurrentTime().formatted("%H-%M-%S");
+    // While re-amping, the rig hears a track from inside the engine: its
+    // output only lags by the rig's own latency, not the interface's.
+    const auto reamping = current.reampTrack() != nullptr;
     for (const auto& track : current.tracks)
         if (track.armed && recordable(track) && targets.size() < static_cast<size_t>(ArrangementEngine::maximumRecordTracks))
         {
             const auto print = track.inputChannel >= 0 && track.fx->enabled && track.fx->printWhileRecording && track.fx->processor != nullptr;
             targets.push_back({ track.id, track.inputChannel, uniqueFile(audioDirectory(), track.name + " " + stamp, ".wav"),
                                 track.inputChannel < 0 || print ? 2 : 1 });
-            takeLatency[track.id] = deviceLatency + manual
+            takeLatency[track.id] = (track.inputChannel < 0 && reamping ? 0 : deviceLatency + manual)
                 + (track.inputChannel < 0 && rigLatency ? rigLatency() : 0)
                 + (print ? track.fx->processor->latencySamples() : 0);
         }

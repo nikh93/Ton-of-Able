@@ -62,6 +62,10 @@ Arrangement (Mehrspur)
 - Loop-Aufnahme mit Takes: Loop an (Strg+L), aufnehmen - jede Runde ist
   ein Take. "TAKE 3/5" im Clip anklicken und den besten waehlen, oder
   [ und ]. Clip teilen, dann pro Teil den besten Take waehlen (Comping).
+- Re-Amping: Rechtsklick auf eine Audio-Spur -> "Re-Amp: ins Live-Rig
+  spielen". Bei der Wiedergabe spielt die Spur statt der Gitarre durch das
+  Rig (Effekte live aendern, auch Wah per Maus); eine scharfgeschaltete
+  Rig-Spur nimmt das Ergebnis auf.
 - Zoom mit Strg + Mausrad.
 - Time-Stretch und Transponieren mit Rubber Band.
 - Effekte und NAM-Modelle pro Spur: als Insert (nachtraeglich) oder Print

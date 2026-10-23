@@ -467,9 +467,63 @@ public:
     }
 };
 
+// Re-amping: a recorded track replaces the guitar at the live rig's input.
+class ReampTests final : public juce::UnitTest
+{
+public:
+    ReampTests() : UnitTest("Re-amping into the live rig", "DAW") {}
+
+    void runTest() override
+    {
+        constexpr int block = 256;
+        ArrangementState state;
+        edit::addTrack(state, edit::makeTrack(state, "DI"));
+        edit::insert(state, edit::makeClip({}, makeConstant(0.4f, 1000), 0), 0);
+        state.tracks[0].mixer->volumeDb = -60.0f; // re-amping is pre-fader
+        ArrangementEngine engine;
+        engine.prepare(48000.0, block);
+        std::vector<float> mono(block, -1.0f);
+
+        beginTest("Without a source or while stopped the guitar stays");
+        engine.publish(ArrangementEngine::buildSnapshot(state));
+        engine.play();
+        expect(! engine.renderReampInput(mono.data(), block));
+        state.reampSource = state.tracks[0].id;
+        engine.publish(ArrangementEngine::buildSnapshot(state));
+        engine.stop();
+        expect(! engine.renderReampInput(mono.data(), block));
+        expectEquals(mono[0], -1.0f);
+
+        beginTest("While playing the track feeds the rig and is not heard directly");
+        engine.setPosition(800);
+        engine.play();
+        expect(engine.renderReampInput(mono.data(), block));
+        expectWithinAbsoluteError(mono[50], 0.4f, 1.0e-5f);
+        expectEquals(mono[250], 0.0f); // past the clip end (1000)
+        juce::AudioBuffer<float> out(2, block);
+        out.clear();
+        engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), block);
+        expectEquals(out.getMagnitude(0, block), 0.0f);
+
+        beginTest("Loop jumps are followed inside a block");
+        engine.setLoop(true, 0, 1150);
+        engine.setPosition(1050);
+        expect(engine.renderReampInput(mono.data(), block));
+        expectEquals(mono[50], 0.0f);                          // 1100: no clip
+        expectWithinAbsoluteError(mono[200], 0.4f, 1.0e-5f);   // wrapped to 100
+
+        beginTest("Drum and return tracks cannot be sources");
+        state.tracks.push_back(edit::makeDrumTrack(state, "Drums"));
+        state.reampSource = state.tracks.back().id;
+        expect(state.reampTrack() == nullptr);
+        expectEquals(ArrangementEngine::buildSnapshot(state)->reampTrack, -1);
+    }
+};
+
 CompressorTests compressorTests;
 WahPedalTests wahPedalTests;
 SendReturnTests sendReturnTests;
 FreezeTests freezeTests;
 ShortcutTests shortcutTests;
+ReampTests reampTests;
 } // namespace

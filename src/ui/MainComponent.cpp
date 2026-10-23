@@ -139,9 +139,6 @@ MainComponent::MainComponent()
     audioSummaryLabel.onClick = [this] { showAudioSettings(); };
     audioSummaryLabel.setMouseCursor(juce::MouseCursor::PointingHandCursor);
     audioSummaryLabel.setTooltip(uiText("Aktuelles Audiogerät – Klick öffnet die Einstellungen"));
-    liveHint.setText(uiText("Live: Die Gitarre spielt durch das Rig. Für Testdateien auf WAV umschalten, für Mehrspuraufnahmen ins Arrangement (Tab)."),
-                     juce::dontSendNotification);
-    liveHint.setColour(juce::Label::textColourId, Theme::subduedText());
     liveHint.setJustificationType(juce::Justification::topLeft);
     liveHint.setMinimumHorizontalScale(1.0f);
     addChildComponent(liveHint);
@@ -530,6 +527,13 @@ void MainComponent::timerCallback()
     audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);
     audioSummaryLabel.setColour(juce::Label::textColourId,
                                 audioEngine.deviceManager().getCurrentAudioDevice() == nullptr ? Theme::amber() : Theme::subduedText());
+    // The hint names the rig's input, which re-amping replaces during playback.
+    const auto* reamp = arrangementController.state().reampTrack();
+    liveHint.setText(reamp != nullptr
+        ? uiText("Rig-Eingang: Re-Amp „") + reamp->name + uiText("“ – bei der Wiedergabe spielt diese Spur statt der Gitarre durch das Rig; eine scharfgeschaltete Rig-Spur nimmt das Ergebnis auf. Ausschalten: Rechtsklick auf die Spur oder RE-AMP im Spurkopf.")
+        : uiText("Live: Die Gitarre spielt durch das Rig. Für Testdateien auf WAV umschalten, für Mehrspuraufnahmen ins Arrangement (Tab)."),
+        juce::dontSendNotification);
+    liveHint.setColour(juce::Label::textColourId, reamp != nullptr ? Theme::amber() : Theme::subduedText());
     // LIVE shows a hint instead of the WAV player controls.
     const auto showWav = wav && view == View::rig;
     if (playWav.isVisible() != showWav)

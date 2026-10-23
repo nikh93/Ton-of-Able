@@ -232,6 +232,10 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         snapshot->tracks.push_back(std::move(render));
     }
     snapshot->samplesPerStep = state.sampleRate * 60.0 / state.bpm / 4.0;
+    // A frozen track would feed its processed render; re-amping needs the dry clips.
+    if (const auto* source = state.reampTrack())
+        if (const auto index = state.trackIndex(source->id); index >= 0 && ! snapshot->tracks[static_cast<size_t>(index)].frozen)
+            snapshot->reampTrack = index;
     return snapshot;
 }
 
@@ -358,6 +362,7 @@ void ArrangementEngine::prepare(double rate, int maximumBlockSize)
     monoBuffer.setSize(1, maximumBlock, false, true, false);
     instrumentBuffer.setSize(2, maximumBlock, false, true, false);
     returnBuffer.setSize(2 * maximumReturns, maximumBlock, false, true, false);
+    reampBuffer.setSize(2, maximumBlock, false, true, false);
     silence.assign(static_cast<size_t>(maximumBlock), 0.0f);
     // The device is stopped here, so the published chains can be re-prepared.
     if (owned != nullptr)
@@ -369,6 +374,42 @@ void ArrangementEngine::prepare(double rate, int maximumBlockSize)
     }
     currentMaster = juce::Decibels::decibelsToGain(masterDb.load(), -60.0f);
     sampleRate.store(rate);
+}
+
+bool ArrangementEngine::renderReampInput(float* mono, int numSamples) noexcept
+{
+    const auto* snapshot = live.load();
+    if (snapshot == nullptr || snapshot->reampTrack < 0 || ! playing.load() || maximumBlock <= 0)
+        return false;
+    callbacksInFlight.fetch_add(1);
+    const auto& track = snapshot->tracks[static_cast<size_t>(snapshot->reampTrack)];
+    // The same positions processChunk() is about to play, loop jumps included.
+    auto position = playhead.load(std::memory_order_relaxed);
+    if (const auto locate = pendingLocate.load(); locate != std::numeric_limits<juce::int64>::min())
+        position = locate;
+    const auto looping = loopEnabled.load();
+    const auto loopFrom = loopStart.load();
+    const auto loopTo = loopEnd.load();
+    auto* left = reampBuffer.getWritePointer(0);
+    auto* right = reampBuffer.getWritePointer(1);
+    for (int done = 0; done < numSamples;)
+    {
+        auto length = std::min(maximumBlock, numSamples - done);
+        const auto wraps = looping && position < loopTo && loopTo > loopFrom;
+        if (wraps)
+            length = static_cast<int>(std::min<juce::int64>(length, loopTo - position));
+        juce::FloatVectorOperations::clear(left, length);
+        juce::FloatVectorOperations::clear(right, length);
+        renderTrackClips(track, position, length, left, right);
+        for (int sample = 0; sample < length; ++sample)
+            mono[done + sample] = 0.5f * (left[sample] + right[sample]);
+        position += length;
+        done += length;
+        if (wraps && position >= loopTo)
+            position = loopFrom;
+    }
+    callbacksInFlight.fetch_sub(1);
+    return true;
 }
 
 void ArrangementEngine::process(const float* const* inputs, int numInputs, const float* rigLeft, const float* rigRight,
@@ -509,7 +550,8 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                 }
                 else
                 {
-                    if (playingNow && ! (recordingNow && track.armed))
+                    // The re-amp source is heard through the live rig, not directly.
+                    if (playingNow && ! (recordingNow && track.armed) && static_cast<int>(trackIndex) != snapshot.reampTrack)
                     {
                         renderTrackClips(track, position, length, left, right);
                     }

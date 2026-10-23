@@ -56,7 +56,17 @@ Loop einschalten (**Ctrl+L**, Bereich oben im Lineal ziehen) und aufnehmen (**F9
 
 Rig-Spuren nehmen das Live-Rig auf. Ihre eigene Kette wirkt dort zusätzlich als Insert.
 
-**Was wirkt bei der Wiedergabe?** Nur die Kette der Spur selbst. Das Live-Rig (oben im Tab RIG) verarbeitet ausschließlich das, was gerade am Eingang hereinkommt; Aufnahmen laufen nie noch einmal hindurch. Bei einer Rig-Spur ist der Live-Sound schon in der Aufnahme enthalten: Ein Wah, das beim Einspielen aus war, lässt sich danach nicht mehr über das Rig hinzuschalten – auch kein anderer Rig-Effekt. Wer den Sound nachträglich ändern will, nimmt die Gitarre trocken auf (Audio-Spur mit Eingang, Insert) und baut den Sound in der Spurkette, z. B. mit **Live-Rig übernehmen**.
+**Was wirkt bei der Wiedergabe?** Nur die Kette der Spur selbst. Das Live-Rig (oben im Tab RIG) verarbeitet ausschließlich das, was gerade am Eingang hereinkommt; Aufnahmen laufen nie noch einmal hindurch. Bei einer Rig-Spur ist der Live-Sound schon in der Aufnahme enthalten: Ein Wah, das beim Einspielen aus war, lässt sich danach nicht mehr über das Rig hinzuschalten – auch kein anderer Rig-Effekt. Wer den Sound nachträglich ändern will, nimmt die Gitarre trocken auf (Audio-Spur mit Eingang, Insert) und baut den Sound in der Spurkette, z. B. mit **Live-Rig übernehmen** – oder spielt sie per Re-Amping erneut durch das Live-Rig.
+
+### Re-Amping
+
+Rechtsklick auf eine Audio-Spur → **Re-Amp: ins Live-Rig spielen**. Bei der Wiedergabe spielt die Spur dann statt der Gitarre durch das Live-Rig: Wah per Maus, Amp, Plugins, Presets – alles lässt sich live verändern. Eine scharfgeschaltete Rig-Spur nimmt das Ergebnis auf, mit Loop auch als mehrere Takes.
+
+- Die Spur hört man dabei nur über das Rig, nicht direkt. Ihr Fader und Mute wirken nicht auf das Re-Amping (wie ein Re-Amp-Ausgang vor dem Fader).
+- Im Spurkopf leuchtet **RE-AMP**; ein Klick darauf schaltet aus. Im Tab RIG steht der Rig-Eingang über der Quellenwahl.
+- Gestoppt spielt wieder die Gitarre ins Rig.
+- Die Aufnahme wird nur um die Latenz des Rigs verschoben, nicht um die des Audio-Interfaces – das Signal verlässt das Programm nicht.
+- Am besten eignen sich trockene Aufnahmen (DI). Eingefrorene Spuren erst auftauen. Die Einstellung gilt für die Sitzung und wird nicht im Projekt gespeichert.
 
 Die Spurkette bearbeitet Clips und das Drum-Instrument einer Drum-Spur gleichermaßen und arbeitet in Stereo: Ausgeschaltete eingebaute Effekte lassen das Stereobild durch, eingeschaltete eingebaute Effekte sind mono, VST3-Plugins stereo. Return-Spuren erhalten so auch das Panorama der sendenden Spuren.
 
