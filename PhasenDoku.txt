@@ -50,3 +50,8 @@ Phase 23 abgeschlossen – Mischen und Bedienung:
 - Export rendert jetzt die Insert-Ketten und Returns mit; bisher wurden Spuren mit eigenen Effekten trocken exportiert.
 
 Phase 24 abgeschlossen – Wah-Pedal mit Maussteuerung: siebte Effektkarte WAH-PEDAL. Resonanter TPT-Bandpass mit exponentiellem Sweep zwischen HEEL und TOE, +6 dB Wah-Anhebung, mit Q und Mix, vor Drive und Amp. Mit MAUS (Taste W, frei belegbar) steuert die vertikale Mausposition auf dem Bildschirm das Pedal: oben Toe, unten Heel, 5 % Totzone, 60 Hz Abtastung, 25 ms Glättung. Vier Vorgaben (Cry Baby, Vox, Bass-Wah, Fester Wah). Dabei behoben: Die Kartenkopf-Tabelle im Effekt-Panel hatte eine feste Länge und wurde beim Erweitern über das Ende hinaus gelesen.
+
+Phase 25 abgeschlossen – Fehlerbehebungen aus dem ersten Test von v0.2.0:
+- Einstellungen: Das Audio-Fenster ist jetzt ein normales DocumentWindow wie die übrigen Fenster (statt DialogWindow mit eigener Skalierung) und behält seine Größe; das Gerätepanel scrollt, statt das Fenster von innen zu verändern. Ursache der vertikal versetzten Klicks.
+- Mute und Solo zeigen ihren Zustand sofort nach dem Klick (Mute gelb, Solo blau); das Theme berücksichtigt jetzt eigene „An“-Farben von Buttons.
+- Drumcomputer: Vorhören stoppt, sobald das Fenster geschlossen wird.

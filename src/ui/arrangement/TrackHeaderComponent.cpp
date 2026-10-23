@@ -42,9 +42,28 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
         });
     };
     mute.setTooltip("Stumm");
-    mute.onClick = [this] { if (mixer) { mixer->muted = ! mixer->muted.load(); controller.markDirty(); repaint(); } };
+    mute.onClick = [this]
+    {
+        if (! mixer)
+            return;
+        mixer->muted = ! mixer->muted.load();
+        mute.setToggleState(mixer->muted.load(), juce::dontSendNotification); // show it right away
+        controller.markDirty();
+    };
     solo.setTooltip("Solo");
-    solo.onClick = [this] { if (mixer) { mixer->soloed = ! mixer->soloed.load(); controller.markDirty(); repaint(); } };
+    solo.onClick = [this]
+    {
+        if (! mixer)
+            return;
+        mixer->soloed = ! mixer->soloed.load();
+        solo.setToggleState(mixer->soloed.load(), juce::dontSendNotification);
+        controller.markDirty();
+    };
+    // Active mute is yellow, active solo blue (as in Ableton), both with dark text.
+    mute.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe8b33c));
+    solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff5aa9e6));
+    for (auto* button : { &mute, &solo })
+        button->setColour(juce::TextButton::textColourOnId, juce::Colour(0xff1a1612));
     monitor.setTooltip(text("Eingang abhören, solange die Spur scharf ist (nur dry-Eingänge; das Rig ist immer hörbar)"));
     monitor.onClick = [this]
     {

@@ -176,7 +176,7 @@ private:
         [this] { return audioEngine.performanceSnapshot(); },
         [this] { return audioEngine.recentLogEntries(); }
     };
-    std::unique_ptr<juce::DialogWindow> audioSettingsWindow;
+    std::unique_ptr<juce::DocumentWindow> audioSettingsWindow;
     std::shared_ptr<juce::FileChooser> namChooser;
     std::shared_ptr<juce::FileChooser> irChooser;
     std::shared_ptr<juce::FileChooser> wavChooser;

@@ -7,9 +7,12 @@ void StudioLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b,
     auto r = b.getLocalBounds().toFloat().reduced(1);
     g.setColour(juce::Colours::black.withAlpha(0.45f));
     g.fillRoundedRectangle(r.translated(0, 2), 7);
-    const auto top = b.getToggleState() ? AmberTheme::amber().darker(0.35f) : juce::Colour(0xff584738);
+    // Buttons with their own "on" colour (record arm, mute, solo) show it clearly when active.
+    const auto ownOnColour = b.getToggleState() && b.isColourSpecified(juce::TextButton::buttonOnColourId);
+    const auto top = ownOnColour ? b.findColour(juce::TextButton::buttonOnColourId)
+                   : b.getToggleState() ? AmberTheme::amber().darker(0.35f) : juce::Colour(0xff584738);
     g.setGradientFill(juce::ColourGradient(top.brighter(over ? 0.15f : 0), 0, r.getY(),
-        juce::Colour(down ? 0xff211c18 : 0xff30271f), 0, r.getBottom(), false));
+        ownOnColour ? top.darker(0.45f) : juce::Colour(down ? 0xff211c18 : 0xff30271f), 0, r.getBottom(), false));
     g.fillRoundedRectangle(r, 7);
     g.setColour(juce::Colours::white.withAlpha(b.isEnabled() ? 0.16f : 0.05f));
     g.drawRoundedRectangle(r.reduced(0.5f), 7, 1);

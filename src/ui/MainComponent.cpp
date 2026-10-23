@@ -14,15 +14,20 @@ juce::String uiText(const char* utf8Text)
 
 namespace
 {
-class AudioSettingsDialog final : public juce::DialogWindow
+// A plain DocumentWindow like the app's other windows: juce::DialogWindow
+// brings its own desktop scale handling, and with Windows display scaling
+// its clicks landed vertically offset from the drawn controls.
+class AudioSettingsDialog final : public juce::DocumentWindow
 {
 public:
     AudioSettingsDialog(juce::AudioDeviceManager& manager, std::function<void()> closed)
-        : juce::DialogWindow("Audio Settings", Theme::surface(), true), onClosed(std::move(closed))
+        : juce::DocumentWindow("Audio Settings", Theme::surface(), closeButton), onClosed(std::move(closed))
     {
         setUsingNativeTitleBar(true);
-        content = std::make_unique<juce::AudioDeviceSelectorComponent>(manager, 1, 16, 2, 2, false, false, false, false);
-        setContentNonOwned(content.get(), true);
+        content = std::make_unique<Content>(manager);
+        // The window keeps its own size; the device panel grows inside a scroll area
+        // instead of resizing the window from within whenever devices change.
+        setContentNonOwned(content.get(), false);
         setResizable(true, false);
         setResizeLimits(620, 420, 1000, 900);
     }
@@ -32,8 +37,34 @@ public:
         if (onClosed) onClosed();
     }
 
+    bool keyPressed(const juce::KeyPress& key) override
+    {
+        if (key == juce::KeyPress::escapeKey)
+        {
+            closeButtonPressed();
+            return true;
+        }
+        return DocumentWindow::keyPressed(key);
+    }
+
 private:
-    std::unique_ptr<juce::AudioDeviceSelectorComponent> content;
+    struct Content final : juce::Component
+    {
+        explicit Content(juce::AudioDeviceManager& manager) : selector(manager, 1, 16, 2, 2, false, false, false, false)
+        {
+            viewport.setViewedComponent(&selector, false);
+            viewport.setScrollBarsShown(true, false);
+            addAndMakeVisible(viewport);
+        }
+        void resized() override
+        {
+            viewport.setBounds(getLocalBounds());
+            selector.setSize(viewport.getMaximumVisibleWidth(), std::max(selector.getHeight(), getHeight()));
+        }
+        juce::AudioDeviceSelectorComponent selector;
+        juce::Viewport viewport;
+    };
+    std::unique_ptr<Content> content;
     std::function<void()> onClosed;
 };
 // A track's own chain remembers which assets it has loaded, so knob edits

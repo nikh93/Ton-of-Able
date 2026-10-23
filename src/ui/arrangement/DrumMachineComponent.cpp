@@ -310,7 +310,7 @@ void DrumMachineComponent::mouseUp(const juce::MouseEvent&)
 
 void DrumMachineComponent::visibilityChanged()
 {
-    if (! isVisible() && auditioning)
+    if (! isShowing() && auditioning)
     {
         auditioning = false;
         audition.setToggleState(false, juce::dontSendNotification);
@@ -337,6 +337,10 @@ int DrumMachineComponent::currentStep() const
 
 void DrumMachineComponent::timerCallback()
 {
+    // Closing the window only hides it (visibilityChanged() is not called for
+    // the content), so the preview is stopped here once nothing shows it.
+    if (auditioning && ! isShowing())
+        visibilityChanged();
     if (track() == nullptr)
         return;
     if (const auto step = currentStep(); step != playingStep)
