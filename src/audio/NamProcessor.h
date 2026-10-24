@@ -22,7 +22,9 @@ public:
     // May be called from the message thread. File parsing, allocation, Reset and
     // prewarming all execute on this object's worker thread.
     void loadAsync(const juce::File& modelFile);
-    void setProcessingFormat(double sampleRate, int maximumBlockSize) noexcept;
+    // Non-audio thread. A changed format re-prepares the loaded model on the
+    // worker; until it arrives, process() feeds the old one in blocks it fits.
+    void setProcessingFormat(double sampleRate, int maximumBlockSize);
 
     // Audio-thread only. `monoSamples` is processed in-place by a fully prepared
     // NAM model, or left untouched while no model is active.
@@ -36,6 +38,7 @@ private:
     {
         std::unique_ptr<nam::DSP> dsp;
         juce::String displayName;
+        int maximumBlock = 1; // the block size the model was Reset with
     };
 
     template <size_t capacity>
@@ -88,6 +91,7 @@ private:
     juce::WaitableEvent workAvailable;
     juce::CriticalSection requestLock;
     juce::File requestedFile;
+    juce::File loadedFile; // last requested model, reloaded on format changes
     juce::CriticalSection stateLock;
     juce::String activeName;
     juce::String failureReason;

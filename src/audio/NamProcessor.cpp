@@ -36,15 +36,29 @@ void NamProcessor::loadAsync(const juce::File& modelFile)
     {
         const juce::ScopedLock lock(requestLock);
         requestedFile = modelFile;
+        loadedFile = modelFile;
     }
     setError({});
     workAvailable.signal();
 }
 
-void NamProcessor::setProcessingFormat(const double sampleRate, const int maximumBlockSize) noexcept
+void NamProcessor::setProcessingFormat(const double sampleRate, const int maximumBlockSize)
 {
-    currentSampleRate.store(sampleRate > 0.0 ? sampleRate : 48000.0, std::memory_order_relaxed);
-    currentBlockSize.store(juce::jmax(1, maximumBlockSize), std::memory_order_relaxed);
+    const auto rate = sampleRate > 0.0 ? sampleRate : 48000.0;
+    const auto block = juce::jmax(1, maximumBlockSize);
+    const auto previousRate = currentSampleRate.exchange(rate, std::memory_order_relaxed);
+    const auto previousBlock = currentBlockSize.exchange(block, std::memory_order_relaxed);
+    if (previousRate == rate && previousBlock == block)
+        return;
+
+    // The active model's buffers were sized by Reset() for the old format.
+    const juce::ScopedLock lock(requestLock);
+    if (loadedFile == juce::File())
+        return;
+    juce::Logger::writeToLog("[NAM] format " + juce::String(previousRate) + " Hz / " + juce::String(previousBlock) + " -> "
+                             + juce::String(rate) + " Hz / " + juce::String(block) + "; re-preparing " + loadedFile.getFileName());
+    requestedFile = loadedFile;
+    workAvailable.signal();
 }
 
 void NamProcessor::process(float* monoSamples, const int numSamples) noexcept
@@ -66,8 +80,14 @@ void NamProcessor::process(float* monoSamples, const int numSamples) noexcept
     if (activeModel == nullptr || monoSamples == nullptr || numSamples <= 0)
         return;
 
-    NAM_SAMPLE* channels[] { monoSamples };
-    activeModel->dsp->process(channels, channels, numSamples);
+    // Never hand NAM more frames than its buffers were Reset for; a device with
+    // a larger block runs the model in pieces until the re-prepared one arrives.
+    const auto chunk = activeModel->maximumBlock;
+    for (int offset = 0; offset < numSamples; offset += chunk)
+    {
+        NAM_SAMPLE* channels[] { monoSamples + offset };
+        activeModel->dsp->process(channels, channels, juce::jmin(chunk, numSamples - offset));
+    }
 }
 
 bool NamProcessor::hasActiveModel() const noexcept
@@ -116,10 +136,14 @@ void NamProcessor::loadPrepared(const juce::File& modelFile)
         options.prewarm = false;
         auto dsp = nam::get_dsp(std::filesystem::path(modelFile.getFullPathName().toStdString()), options);
         dsp->SetPrewarmOnReset(false);
-        dsp->Reset(currentSampleRate.load(std::memory_order_relaxed), currentBlockSize.load(std::memory_order_relaxed));
+        const auto rate = currentSampleRate.load(std::memory_order_relaxed);
+        const auto block = currentBlockSize.load(std::memory_order_relaxed);
+        dsp->Reset(rate, block);
         dsp->prewarm();
 
-        auto* model = new ModelInstance { std::move(dsp), modelFile.getFileNameWithoutExtension() };
+        auto* model = new ModelInstance { std::move(dsp), modelFile.getFileNameWithoutExtension(), block };
+        juce::Logger::writeToLog("[NAM] prepared " + modelFile.getFileName() + " for " + juce::String(rate) + " Hz, block "
+                                 + juce::String(block));
         while (!threadShouldExit() && !preparedModels.tryPush(model))
         {
             collectRetiredModels();
