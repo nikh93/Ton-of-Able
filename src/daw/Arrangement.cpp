@@ -404,12 +404,20 @@ std::optional<juce::Uuid> split(ArrangementState& state, const juce::Uuid& clipI
     return rightId;
 }
 
+bool canHold(const ArrangementState& state, int trackIndex, const Clip& clip)
+{
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()))
+        return false;
+    // Return tracks carry no clips; MIDI clips live on MIDI tracks only, and those hold nothing else.
+    const auto& track = state.tracks[static_cast<size_t>(trackIndex)];
+    return ! track.isReturn() && clip.isMidi() == track.midi;
+}
+
 bool move(ArrangementState& state, const juce::Uuid& clipId, juce::int64 newStart, int targetTrack)
 {
     int sourceTrack = -1;
     auto* clip = state.findClip(clipId, &sourceTrack);
-    if (clip == nullptr || targetTrack < 0 || targetTrack >= static_cast<int>(state.tracks.size())
-        || state.tracks[static_cast<size_t>(targetTrack)].isReturn())
+    if (clip == nullptr || ! canHold(state, targetTrack, *clip))
         return false;
 
     auto moved = *clip;
@@ -613,7 +621,7 @@ std::vector<Clip> clipsFromLoopRecording(const juce::File& file, AudioDataPtr so
 
 juce::Uuid insert(ArrangementState& state, Clip clip, int trackIndex)
 {
-    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()) || state.tracks[static_cast<size_t>(trackIndex)].isReturn())
+    if (! canHold(state, trackIndex, clip))
         return juce::Uuid::null(); // a default-constructed Uuid would be random
     clip.id = juce::Uuid();
     const auto id = clip.id;
@@ -623,8 +631,7 @@ juce::Uuid insert(ArrangementState& state, Clip clip, int trackIndex)
 
 void place(ArrangementState& state, Clip clip, int trackIndex)
 {
-    // Return tracks carry no clips; they are fed by the sends of other tracks.
-    if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()) || state.tracks[static_cast<size_t>(trackIndex)].isReturn())
+    if (! canHold(state, trackIndex, clip))
         return;
     clip.start = std::max<juce::int64>(0, clip.start);
     clampFades(clip);
@@ -640,8 +647,7 @@ bool moveMany(ArrangementState& state, const std::vector<MoveRequest>& requests)
     for (const auto& request : requests)
     {
         const auto* clip = state.findClip(request.clipId);
-        if (clip == nullptr || request.track < 0 || request.track >= static_cast<int>(state.tracks.size())
-            || state.tracks[static_cast<size_t>(request.track)].isReturn())
+        if (clip == nullptr || ! canHold(state, request.track, *clip))
             continue;
         auto copy = *clip;
         copy.start = request.start;

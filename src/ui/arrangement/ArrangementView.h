@@ -8,6 +8,7 @@
 
 #include "TimelineComponent.h"
 #include "ExportRangeBar.h"
+#include "PianoRollComponent.h"
 #include "ui/components/Icons.h"
 #include "TrackHeaderComponent.h"
 
@@ -38,6 +39,9 @@ public:
     /** Supplies the drum machine editor (needs the app's plugin hosting). */
     std::function<std::unique_ptr<juce::Component>(const juce::Uuid& trackId, int pattern)> createDrumEditor;
     void openDrumMachine(const juce::Uuid& trackId, int pattern);
+    /** Instrument menu of a MIDI track (built-in synth, VST3 instruments), set by the main window. */
+    std::function<void(const juce::Uuid& trackId, juce::Component& target)> showInstrumentMenu;
+    void openPianoRoll(const juce::Uuid& clipId);
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -96,6 +100,6 @@ private:
     juce::File lastExportDirectory;
     std::shared_ptr<juce::FileChooser> chooser;
     bool followEnabled = true;
-    std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows, drumWindows;
+    std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows, drumWindows, pianoWindows;
 };
 } // namespace nam::ui

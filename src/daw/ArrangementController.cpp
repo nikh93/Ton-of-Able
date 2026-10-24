@@ -1199,7 +1199,7 @@ juce::Result ArrangementController::save()
     // Plugin instruments and chain plugins may have been edited in their own GUI.
     for (auto& track : current.tracks)
     {
-        if (track.drums && track.instrument->instrument != nullptr)
+        if (track.hasInstrument() && track.instrument->instrument != nullptr)
             if (const auto settings = track.instrument->instrument->currentSettings(); settings.isValid())
                 track.instrument->settings = settings;
         if (track.fx->processor != nullptr && track.fx->settings.isValid())
@@ -1319,7 +1319,7 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
     for (const auto& track : current.tracks)
     {
         std::shared_ptr<TrackInstrument> copy;
-        if (track.drums && track.instrument->instrument != nullptr && ! track.isFrozen(current))
+        if (track.hasInstrument() && track.instrument->instrument != nullptr && ! track.isFrozen(current))
             if ((copy = track.instrument->instrument->createOfflineCopy()) != nullptr)
                 copy->prepare(rate, offlineBlock);
         offline->push_back(std::move(copy));

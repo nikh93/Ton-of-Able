@@ -145,6 +145,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/arrangement/ArrangementView.cpp
     src/ui/arrangement/ArrangementView.h
     src/ui/arrangement/DrumMachineComponent.cpp
+    src/ui/arrangement/PianoRollComponent.cpp
+    src/ui/arrangement/PianoRollComponent.h
     src/ui/arrangement/DrumMachineComponent.h
     src/ui/arrangement/TrackFxComponent.cpp
     src/ui/arrangement/TrackFxComponent.h

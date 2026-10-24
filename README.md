@@ -34,6 +34,9 @@ Ableton-style arrangement. The interface is in German.
 - Time-stretch and transpose clips with Rubber Band
 - Per-track effect chains as insert (editable later) or printed while recording
 - **Send effects** on up to four return tracks, **track freezing** (and "freeze and flatten")
+- **MIDI tracks with a piano roll**: draw, move, resize and quantise notes, edit velocities;
+  played by a built-in synth (pad, keys, bass, lead) or any VST3 instrument such as Vital;
+  armed MIDI tracks play and record the MIDI keyboards
 - Drum machine: step sequencer with pattern clips, played by bundled **sampled acoustic kits**
   (SM Drums in stereo with up to 16 velocity layers and round robins, AVL Black Pearl and
   Red Zeppelin), an electronic synth kit or any General MIDI VST3 drum instrument such as

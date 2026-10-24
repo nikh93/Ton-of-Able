@@ -76,6 +76,12 @@ Arrangement (Mehrspur)
 - Drumcomputer mit Step-Sequencer und echten Drum-Samples (SM Drums,
   AVL Black Pearl und Red Zeppelin) oder Synth-Kit. Eigene VST3-Drum-Instrumente (z. B.
   JDrummer) koennen pro Drum-Spur geladen werden.
+- MIDI-Spuren mit Piano-Roll: "+ Spur" -> "MIDI-Spur". Doppelklick in die
+  leere Spur legt einen Clip an und oeffnet die Piano-Roll (Noten zeichnen,
+  verschieben, Laenge, Anschlag, Quantisieren). Klang: eingebauter Synth
+  (Pad, Keys, Bass, Lead) oder ein VST3-Instrument wie Vital (Knopf im
+  Spurkopf). Scharf geschaltet spielt das MIDI-Keyboard die Spur, die
+  Aufnahme nimmt Noten auf.
 - Import/Export: WAV, AIFF, FLAC, Ogg, MP3, AAC, Opus und Audio aus Videos.
   Dafuer liegt ffmpeg.exe neben der exe.
 

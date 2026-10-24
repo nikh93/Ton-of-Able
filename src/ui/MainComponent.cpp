@@ -1226,12 +1226,13 @@ void MainComponent::configureArrangement()
         status.setText(uiText("Drum-Instrument nicht verfügbar (") + error + uiText("), internes Kit wird verwendet."), juce::dontSendNotification);
         return std::make_shared<daw::DrumSynth>();
     });
+    arrangementView.showInstrumentMenu = [this](const juce::Uuid& trackId, juce::Component& target) { showInstrumentMenu(trackId, target); };
     arrangementView.createDrumEditor = [this](const juce::Uuid& trackId, int pattern) -> std::unique_ptr<juce::Component>
     {
         nam::ui::DrumMachineComponent::Host host;
         host.instruments = [this] { return pluginCatalog.instruments(); };
         host.rescan = [this](std::function<void()> done) { scanPlugins({}, std::move(done)); };
-        host.setSource = [this](const juce::Uuid& id, const juce::PluginDescription* description) { return setDrumSource(id, description); };
+        host.setSource = [this](const juce::Uuid& id, const juce::PluginDescription* description) { return setInstrumentSource(id, description); };
         host.setKit = [this](const juce::Uuid& id, const juce::String& kitId)
         {
             instrumentEditors.erase(id);
@@ -1519,11 +1520,15 @@ void MainComponent::showGraphicEq(juce::Rectangle<int> anchor)
     juce::CallOutBox::launchAsynchronously(std::move(editor), anchor, nullptr);
 }
 
-juce::Result MainComponent::setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description)
+juce::Result MainComponent::setInstrumentSource(const juce::Uuid& trackId, const juce::PluginDescription* description)
 {
     instrumentEditors.erase(trackId); // the editor belongs to the old instrument
+    const auto* track = arrangementController.state().findTrack(trackId);
+    const auto midi = track != nullptr && track->midi;
+    // Drum hits go out on the General MIDI percussion channel, MIDI tracks on channel 1.
     const auto result = arrangementController.setTrackInstrument(trackId,
-        description != nullptr ? PluginInstrument::settingsFor(*description) : daw::builtInInstrumentSettings());
+        description != nullptr ? PluginInstrument::settingsFor(*description, {}, midi ? 1 : 10)
+                               : midi ? daw::synthInstrumentSettings() : daw::builtInInstrumentSettings());
     if (result.wasOk() && description != nullptr)
         openInstrumentEditor(trackId);
     return result;
@@ -1537,7 +1542,7 @@ void MainComponent::openInstrumentEditor(const juce::Uuid& trackId)
     auto instrument = std::dynamic_pointer_cast<PluginInstrument>(track->instrument->instrument);
     if (instrument == nullptr || instrument->instance() == nullptr)
     {
-        status.setText(uiText("Die Drum-Spur nutzt das interne Kit – es hat keinen Plugin-Editor."), juce::dontSendNotification);
+        status.setText(uiText("Die Spur nutzt ein eingebautes Instrument – es hat keinen Plugin-Editor."), juce::dontSendNotification);
         return;
     }
     if (const auto existing = instrumentEditors.find(trackId); existing != instrumentEditors.end())
@@ -1555,6 +1560,41 @@ void MainComponent::openInstrumentEditor(const juce::Uuid& trackId)
     auto window = std::make_unique<InstrumentEditorWindow>(instrument, editor);
     window->setVisible(true);
     instrumentEditors[trackId] = std::move(window);
+}
+
+void MainComponent::showInstrumentMenu(const juce::Uuid& trackId, juce::Component& target)
+{
+    const auto* track = arrangementController.state().findTrack(trackId);
+    if (track == nullptr || ! track->midi)
+        return;
+    const auto settings = track->instrument->settings;
+    const auto isSynth = settings.getProperty("type").toString() == "synth";
+    juce::PopupMenu menu;
+    menu.addSectionHeader(uiText("Eingebauter Synth"));
+    for (int index = 0; index < daw::Synth::numPresets; ++index)
+    {
+        const auto preset = static_cast<daw::Synth::Preset>(index);
+        menu.addItem(daw::Synth::presetName(preset), true, isSynth && daw::Synth::presetFromSettings(settings) == preset, [this, trackId, preset]
+        {
+            instrumentEditors.erase(trackId);
+            arrangementController.setTrackInstrument(trackId, daw::synthInstrumentSettings(preset));
+        });
+    }
+    menu.addSectionHeader(uiText("VST3-Instrumente"));
+    const auto instruments = pluginCatalog.instruments();
+    for (const auto& description : instruments)
+        menu.addItem(description.name + (description.manufacturerName.isNotEmpty() ? "  (" + description.manufacturerName + ")" : juce::String()), true,
+                     ! isSynth && settings.getProperty("name").toString() == description.name, [this, trackId, description]
+                     {
+                         if (const auto result = setInstrumentSource(trackId, &description); result.failed())
+                             status.setText(result.getErrorMessage(), juce::dontSendNotification);
+                     });
+    if (instruments.isEmpty())
+        menu.addItem(uiText("(keine gefunden – Plugins verwalten …)"), false, false, [] {});
+    menu.addSeparator();
+    menu.addItem(uiText("Plugin-Fenster öffnen"), ! isSynth, false, [this, trackId] { openInstrumentEditor(trackId); });
+    menu.addItem(uiText("Plugins verwalten / importieren …"), [this] { showPluginManager(); });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&target));
 }
 
 void MainComponent::scanPlugins(const juce::StringArray& only, std::function<void()> done)

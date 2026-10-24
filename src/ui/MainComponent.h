@@ -28,6 +28,7 @@
 #include "ui/arrangement/DrumMachineComponent.h"
 #include "audio/plugins/PluginInstrument.h"
 #include "daw/ArrangementController.h"
+#include "daw/Synth.h"
 #include "ui/shortcuts/Shortcuts.h"
 #include "ui/rig/SignalChainStrip.h"
 
@@ -115,7 +116,10 @@ private:
     void savePluginCatalog();
     void showPluginManager();
     void openInstrumentEditor(const juce::Uuid& trackId);
-    juce::Result setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description);
+    /** Instrument of a drum or MIDI track: a VST3 instrument, or null for the built-in one. */
+    juce::Result setInstrumentSource(const juce::Uuid& trackId, const juce::PluginDescription* description);
+    /** The instrument menu of a MIDI track (synth presets, VST3 instruments, plugin window). */
+    void showInstrumentMenu(const juce::Uuid& trackId, juce::Component& target);
     [[nodiscard]] nam::ui::TrackFxComponent::Sources trackFxSources();
     void applyTrackSound(RigChain& chain, const SoundState& sound);
     [[nodiscard]] std::vector<juce::Component*> rigComponents();

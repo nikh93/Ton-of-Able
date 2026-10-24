@@ -269,6 +269,8 @@ struct RecordedMidiEvent
 };
 MidiNotes notesFromEvents(const std::vector<RecordedMidiEvent>& events, juce::int64 clipStart, juce::int64 end, double samplesPerBeat);
 
+/** Whether a clip may lie on a track (no clips on returns, MIDI clips only on MIDI tracks). */
+[[nodiscard]] bool canHold(const ArrangementState&, int trackIndex, const Clip&);
 /** Splits at timeline position; returns the id of the right part. */
 std::optional<juce::Uuid> split(ArrangementState&, const juce::Uuid& clipId, juce::int64 at);
 /** Moves a clip to another start / track; the moved clip wins overlaps. */
