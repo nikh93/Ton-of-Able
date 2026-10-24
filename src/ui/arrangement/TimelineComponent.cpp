@@ -567,6 +567,8 @@ void TimelineComponent::paintClip(juce::Graphics& g, const daw::Clip& clip, int 
 
     if (clip.isPattern() && bounds.getHeight() > 24.0f)
         paintPattern(g, clip, owner, bounds.withTrimmedTop(header.getHeight()).reduced(0.0f, 2.0f));
+    if (clip.isMidi() && bounds.getHeight() > 24.0f)
+        paintMidi(g, clip, owner, bounds.withTrimmedTop(header.getHeight()).reduced(0.0f, 3.0f));
 
     // Waveform from the original peaks, mapped through offset and stretch.
     if (clip.source != nullptr && bounds.getHeight() > 24.0f)
@@ -614,14 +616,15 @@ void TimelineComponent::paintClip(juce::Graphics& g, const daw::Clip& clip, int 
         g.fillRect(juce::Rectangle<float>(5.0f, 5.0f).withCentre({ fadeOutX, bounds.getY() + 5.0f }));
     }
 
-    juce::String label = clip.isPattern() ? juce::String(juce::CharPointer_UTF8("\xe2\x96\xa6 ")) + clip.name : clip.name;
+    juce::String label = clip.isPattern() ? juce::String(juce::CharPointer_UTF8("\xe2\x96\xa6 ")) + clip.name
+                       : clip.isMidi() ? text("♪ ") + clip.name : clip.name;
     if (std::abs(clip.stretchRatio - 1.0) > 1.0e-6)
         label << "  " << juce::String(juce::CharPointer_UTF8("\xe2\x86\x94 ")) << percent(clip.stretchRatio);
     if (std::abs(clip.pitchSemitones) > 1.0e-6)
         label << "  " << (clip.pitchSemitones > 0 ? "+" : "") << juce::String(clip.pitchSemitones, 1) << " st";
     if (std::abs(clip.gainDb) > 0.05f)
         label << "  " << juce::String(clip.gainDb, 1) << " dB";
-    if (clip.source == nullptr && ! clip.isPattern())
+    if (clip.source == nullptr && ! clip.isGenerated())
         label << text("  · lädt …");
     else if (controller.isRendering(clip))
         label << text("  · Rubber Band rechnet …");
@@ -644,6 +647,37 @@ void TimelineComponent::paintClip(juce::Graphics& g, const daw::Clip& clip, int 
 
     g.setColour(selected ? Theme::amberBright() : juce::Colours::black.withAlpha(0.6f));
     g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, selected ? 1.8f : 1.0f);
+}
+
+void TimelineComponent::paintMidi(juce::Graphics& g, const daw::Clip& clip, const daw::Track& owner, juce::Rectangle<float> area)
+{
+    if (clip.notes == nullptr || clip.notes->empty())
+        return;
+    // The notes as small bars, scaled to the range of pitches in the clip.
+    int low = 127, high = 0;
+    for (const auto& note : *clip.notes)
+    {
+        low = std::min(low, note.pitch);
+        high = std::max(high, note.pitch);
+    }
+    low = std::max(0, low - 2);
+    high = std::min(127, high + 2);
+    const auto rowHeight = std::min(6.0f, area.getHeight() / static_cast<float>(high - low + 1));
+    const auto spb = controller.grid().samplesPerBeat();
+    const auto origin = static_cast<double>(clip.start) - clip.offset;
+    juce::Graphics::ScopedSaveState save(g);
+    g.reduceClipRegion(area.toNearestInt());
+    g.setColour(owner.colour.brighter(0.5f).withAlpha(0.9f));
+    const auto top = area.getCentreY() - rowHeight * static_cast<float>(high - low + 1) * 0.5f;
+    for (const auto& note : *clip.notes)
+    {
+        const auto x0 = std::max(sampleToX(origin + note.start * spb), sampleToX(static_cast<double>(clip.start)));
+        const auto x1 = std::min(sampleToX(origin + note.end() * spb), sampleToX(static_cast<double>(clip.end())));
+        if (x1 <= x0)
+            continue;
+        const auto y = top + static_cast<float>(high - note.pitch) * rowHeight;
+        g.fillRect(juce::Rectangle<float>(x0, y, std::max(1.5f, x1 - x0 - 1.0f), std::max(1.5f, rowHeight - 1.0f)));
+    }
 }
 
 void TimelineComponent::paintPattern(juce::Graphics& g, const daw::Clip& clip, const daw::Track& owner, juce::Rectangle<float> area)
@@ -819,7 +853,7 @@ void TimelineComponent::mouseDown(const juce::MouseEvent& event)
     dragAnchorSample = at;
     dragAnchorTrack = hit.track;
     // Pattern clips follow the tempo: their edges always trim.
-    const auto stretching = (currentTool == Tool::stretch || event.mods.isCommandDown()) && ! hit.clip->isPattern();
+    const auto stretching = (currentTool == Tool::stretch || event.mods.isCommandDown()) && ! hit.clip->isGenerated();
     switch (hit.zone)
     {
         case Zone::leftEdge: drag = stretching ? Drag::stretchStart : Drag::trimStart; break;
@@ -1028,6 +1062,21 @@ void TimelineComponent::mouseDoubleClick(const juce::MouseEvent& event)
         if (onOpenDrums)
             onOpenDrums(controller.state().tracks[static_cast<size_t>(hit.track)].id, hit.clip->pattern);
     }
+    else if (hit.clip != nullptr && hit.clip->isMidi())
+    {
+        if (onOpenPianoRoll)
+            onOpenPianoRoll(hit.clip->id);
+    }
+    else if (hit.clip == nullptr && hit.track >= 0 && hit.track < static_cast<int>(controller.state().tracks.size())
+             && controller.state().tracks[static_cast<size_t>(hit.track)].midi)
+    {
+        // Double-click on an empty MIDI lane: a new clip from this bar, opened right away.
+        const auto bar = controller.grid().samplesPerBar();
+        const auto start = static_cast<juce::int64>(std::floor(static_cast<double>(xToSample(event.position.x)) / bar) * bar);
+        const auto id = controller.insertMidiClip(controller.state().tracks[static_cast<size_t>(hit.track)].id, start, 4);
+        if (! id.isNull() && onOpenPianoRoll)
+            onOpenPianoRoll(id);
+    }
     else if (hit.clip != nullptr)
         showClipProperties(hit.clip->id);
     else if (hit.track >= static_cast<int>(controller.state().tracks.size()))
@@ -1171,6 +1220,11 @@ void TimelineComponent::showClipMenu(const daw::Clip& clip, juce::int64 at)
         menu.addSubMenu("Pattern wechseln", patterns);
         menu.addSeparator();
     }
+    if (clip.isMidi())
+    {
+        menu.addItem(text("Piano-Roll öffnen"), [this, id] { if (onOpenPianoRoll) onOpenPianoRoll(id); });
+        menu.addSeparator();
+    }
     if (clip.hasTakes())
     {
         menu.addItem(text("Take wählen … (") + juce::String(clip.activeTake + 1) + "/" + juce::String(static_cast<int>(clip.takes.size())) + ")",
@@ -1183,7 +1237,7 @@ void TimelineComponent::showClipMenu(const daw::Clip& clip, juce::int64 at)
     menu.addItem("Ausschneiden\tCtrl+X", [this] { cutSelection(); });
     menu.addItem(text("Löschen\tEntf"), [this] { deleteSelection(); });
     menu.addSeparator();
-    if (! clip.isPattern())
+    if (! clip.isGenerated())
     {
         menu.addSubMenu("Time-Stretch (Rubber Band)", stretch);
         menu.addSubMenu("Transponieren (Rubber Band)", pitch);
@@ -1194,7 +1248,7 @@ void TimelineComponent::showClipMenu(const daw::Clip& clip, juce::int64 at)
         controller.perform("Fades entfernen", [&](daw::ArrangementState& s) { for (const auto& c : ids) daw::edit::setFades(s, c, 0, 0); });
     });
     menu.addSeparator();
-    if (! clip.isPattern())
+    if (! clip.isGenerated())
         menu.addItem(text("Eigenschaften …"), [this, id] { showClipProperties(id); });
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
 }
@@ -1220,8 +1274,20 @@ void TimelineComponent::showLaneMenu(int track, juce::int64 at)
         menu.addItem(text("Drumcomputer öffnen"), [this, trackId = owner.id] { if (onOpenDrums) onOpenDrums(trackId, 0); });
         menu.addSeparator();
     }
+    if (track >= 0 && track < static_cast<int>(controller.state().tracks.size()) && controller.state().tracks[static_cast<size_t>(track)].midi)
+    {
+        menu.addItem(text("MIDI-Clip einfügen (4 Takte)"), [this, trackId = controller.state().tracks[static_cast<size_t>(track)].id, at]
+        {
+            const auto bar = controller.grid().samplesPerBar();
+            const auto id = controller.insertMidiClip(trackId, static_cast<juce::int64>(std::floor(static_cast<double>(at) / bar) * bar), 4);
+            if (! id.isNull() && onOpenPianoRoll)
+                onOpenPianoRoll(id);
+        });
+        menu.addSeparator();
+    }
     menu.addItem("Neue Spur (Rig)", [this] { controller.addTrack({}, -1); });
     menu.addItem("Neue Drum-Spur", [this] { controller.addDrumTrack(); });
+    menu.addItem("Neue MIDI-Spur", [this] { controller.addMidiTrack(); });
     menu.addItem("Neue Spur (Eingang 1, dry)", [this] { controller.addTrack({}, 0); });
     menu.addItem(text("Abspielposition hierher"), [this, at] { controller.locate(at); });
     if (track >= 0 && track < static_cast<int>(controller.state().tracks.size()))

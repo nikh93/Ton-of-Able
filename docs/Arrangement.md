@@ -182,6 +182,22 @@ Während des Exports ersetzt ein Fortschrittsbalken die Buttons Import/Export (b
 - `Ton of Able.exe Pfad\zum\Projekt.tonproj` öffnet ein Projekt direkt, z. B. per Dateizuordnung.
 - Ändert sich die Samplerate des Audiogeräts, bleiben die musikalischen Positionen erhalten und das Audio wird neu geladen.
 
+## MIDI-Spuren und Piano-Roll
+
+**+ Spur → MIDI-Spur** legt eine Instrumentspur an. Ihr Klang kommt vom Knopf im Spurkopf: der **eingebaute Synth** (Pad, Keys, Bass, Lead – funktioniert ohne Plugins) oder ein **VST3-Instrument** wie Vital oder Surge XT (dort auch „Plugin-Fenster öffnen“). VST3-Instrumente empfangen die Noten auf MIDI-Kanal 1.
+
+- **MIDI-Clip anlegen:** Doppelklick in die leere Spur (4 Takte ab diesem Takt) oder Rechtsklick → *MIDI-Clip einfügen*. Clips lassen sich wie Audio verschieben, kürzen, teilen, kopieren und einfrieren; sie folgen dem Tempo.
+- **Piano-Roll** (Doppelklick auf den Clip): links die Tastatur (Klick spielt den Ton), in der Mitte die Noten, unten der Anschlag.
+  - Klick ins Leere zeichnet eine Note, Ziehen bestimmt ihre Länge. Die nächste Note bekommt die zuletzt verwendete Länge.
+  - Note ziehen verschiebt (Zeit und Tonhöhe), ihr rechter Rand ändert die Länge; mehrere ausgewählte Noten bewegen sich gemeinsam.
+  - Shift+Ziehen wählt mit einem Rahmen aus, Shift+Klick ergänzt die Auswahl, Strg+A wählt alles.
+  - Doppelklick, Rechtsklick oder Entf löscht. ↑/↓ transponiert (mit Shift um eine Oktave), ←/→ verschiebt um ein Raster, Strg+D dupliziert, **Q** quantisiert die Auswahl (ohne Auswahl alles).
+  - Im Anschlag-Streifen ziehen ändert die Lautstärke der Note (bzw. der ausgewählten Noten).
+  - Raster 1/4 bis 1/32 und Triolen; Alt schaltet das Raster beim Zeichnen und Ziehen aus. Strg+Mausrad zoomt, Shift+Mausrad scrollt waagerecht.
+  - Noten außerhalb des Clips (grau hinterlegt) werden nicht gespielt. Jede Bearbeitung ist ein Schritt für Rückgängig (Strg+Z).
+- **Live spielen und aufnehmen:** Eine scharf geschaltete MIDI-Spur wird von den MIDI-Keyboards (und virtuellen MIDI-Ports) gespielt – das Live-Rig bekommt die Keyboards dann nicht. Mit **Aufnahme** werden die gespielten Noten zu einem MIDI-Clip (auf ganze Takte gerundet). Im Loop entsteht ein Clip über den Loop, in dem alle Runden zusammenkommen.
+- Wiedergabe-Stopp, Sprünge und Loop-Wiederholungen beenden alle Noten, es bleibt nichts hängen.
+
 ## Drumcomputer
 
 **+ Spur → Drum-Spur (Drumcomputer)** legt eine Drum-Spur an und öffnet den Step-Sequencer (später über den Button **Drumcomputer** im Spurkopf oder per Doppelklick auf einen Pattern-Clip).

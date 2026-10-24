@@ -24,6 +24,8 @@ public:
     std::function<void(const juce::Uuid&)> onExportTrack;
     std::function<void(const juce::Uuid&)> onOpenFx;
     std::function<void(const juce::Uuid&)> onOpenDrums;
+    /** MIDI tracks: the instrument menu under the instrument button. */
+    std::function<void(const juce::Uuid&, juce::Component& target)> onInstrumentMenu;
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -49,6 +51,7 @@ private:
     IconButton arm { Icon::record }, monitor { Icon::headphones }, frozenBadge { Icon::snowflake };
     juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" }, send { "SEND" }, reampBadge { "RE-AMP" };
     IconButton drums { Icon::sliders, "Drumcomputer" };
+    IconButton instrumentButton { Icon::keyboard, "Synth" };
     juce::Label role;
     juce::ComboBox input;
     juce::Slider volume { juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
@@ -56,6 +59,7 @@ private:
     std::vector<int> inputChannels;
     bool isDrumTrack = false;
     bool isReturnTrack = false;
+    bool isMidiTrack = false;
     bool frozen = false, freezing = false, reamping = false;
 };
 } // namespace nam::ui

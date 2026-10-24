@@ -266,6 +266,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
 
     timeline.onViewChanged = [this] { layoutHeaders(); updateScrollBars(); };
     timeline.onOpenDrums = [this](const juce::Uuid& id, int pattern) { openDrumMachine(id, pattern); };
+    timeline.onOpenPianoRoll = [this](const juce::Uuid& id) { openPianoRoll(id); };
     timeline.onSelectionChanged = [this] { for (auto& header : headers) header->repaint(); stateChanged(); };
 
     controller.onChanged = [this] { stateChanged(); };
@@ -303,6 +304,28 @@ void ArrangementView::openTrackFx(const juce::Uuid& trackId)
     fxWindows[trackId]->toFront(true);
 }
 
+void ArrangementView::openPianoRoll(const juce::Uuid& clipId)
+{
+    const auto* clip = controller.state().findClip(clipId);
+    if (clip == nullptr || ! clip->isMidi())
+        return;
+    if (auto existing = pianoWindows.find(clipId); existing != pianoWindows.end())
+    {
+        existing->second->setVisible(true);
+        existing->second->toFront(true);
+        return;
+    }
+    PianoRollComponent::Host host;
+    host.showInstrumentMenu = [this](const juce::Uuid& trackId, juce::Component& target) { if (showInstrumentMenu) showInstrumentMenu(trackId, target); };
+    auto window = std::make_unique<FxWindow>(std::make_unique<PianoRollComponent>(controller, clipId, std::move(host)));
+    window->setName(daw::text("Piano-Roll"));
+    window->setResizeLimits(700, 420, 2400, 1600);
+    window->centreWithSize(1100, 620);
+    window->setVisible(true);
+    window->toFront(true);
+    pianoWindows[clipId] = std::move(window);
+}
+
 void ArrangementView::openDrumMachine(const juce::Uuid& trackId, int pattern)
 {
     if (! createDrumEditor || controller.state().findTrack(trackId) == nullptr)
@@ -328,6 +351,7 @@ ArrangementView::~ArrangementView()
     stopTimer();
     fxWindows.clear();
     drumWindows.clear();
+    pianoWindows.clear();
     controller.onChanged = nullptr;
     controller.onMessage = nullptr;
 }
@@ -424,6 +448,7 @@ void ArrangementView::rebuildHeaders()
                 header->onExportTrack = [this](const juce::Uuid& id) { exportTo(false, id); };
                 header->onOpenFx = [this](const juce::Uuid& id) { openTrackFx(id); };
                 header->onOpenDrums = [this](const juce::Uuid& id) { openDrumMachine(id, 0); };
+                header->onInstrumentMenu = [this](const juce::Uuid& id, juce::Component& target) { if (showInstrumentMenu) showInstrumentMenu(id, target); };
                 headerColumn->addAndMakeVisible(*header);
                 next.push_back(std::move(header));
             }
@@ -432,6 +457,9 @@ void ArrangementView::rebuildHeaders()
         for (auto* windows : { &fxWindows, &drumWindows })
             for (auto it = windows->begin(); it != windows->end();)
                 it = controller.state().findTrack(it->first) == nullptr ? windows->erase(it) : std::next(it);
+        // Piano rolls belong to clips.
+        for (auto it = pianoWindows.begin(); it != pianoWindows.end();)
+            it = controller.state().findClip(it->first) == nullptr ? pianoWindows.erase(it) : std::next(it);
     }
     const auto inputs = controller.availableInputs();
     for (size_t index = 0; index < tracks.size(); ++index)
@@ -778,6 +806,7 @@ void ArrangementView::showAddTrackMenu(juce::Component& target)
         if (input.channel >= 0)
             menu.addItem(text("Audiospur mit ") + input.name + text(" (trocken)"), [this, channel = input.channel] { controller.addTrack({}, channel); });
     menu.addItem(text("Drum-Spur (Drumcomputer)"), [this] { openDrumMachine(controller.addDrumTrack(), 0); });
+    menu.addItem(text("MIDI-Spur (Synth, Vital …)"), [this] { controller.addMidiTrack(); });
     menu.addSeparator();
     menu.addItem(text("Return-Spur (Send-Effekt: Hall, Delay …)"), daw::edit::makeReturnTrack(controller.state()).has_value(), false,
                  [this] { controller.addReturnTrack(); });

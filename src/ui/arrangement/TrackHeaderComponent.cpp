@@ -81,6 +81,9 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     drums.setTooltip(text("Step-Sequencer und Klangquelle dieser Drum-Spur öffnen"));
     drums.onClick = [this] { if (onOpenDrums) onOpenDrums(id); };
     addChildComponent(drums);
+    instrumentButton.setTooltip(text("Instrument dieser MIDI-Spur: eingebauter Synth oder ein VST3-Instrument (z. B. Vital)"));
+    instrumentButton.onClick = [this] { if (onInstrumentMenu) onInstrumentMenu(id, instrumentButton); };
+    addChildComponent(instrumentButton);
     for (juce::Button* button : std::initializer_list<juce::Button*> { &arm, &mute, &solo, &monitor, &fx })
         addAndMakeVisible(*button);
     send.setTooltip(text("Sends: wie viel dieser Spur in die Return-Spuren (Hall, Delay …) geht"));
@@ -144,14 +147,24 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
     const auto nowFreezing = controller.isFreezing(track.id);
     const auto* source = controller.state().reampTrack();
     const auto nowReamping = source != nullptr && source->id == track.id && ! nowFrozen;
-    if (isDrumTrack != track.drums || isReturnTrack != track.isReturn() || frozen != nowFrozen || freezing != nowFreezing || reamping != nowReamping)
+    if (isDrumTrack != track.drums || isMidiTrack != track.midi || isReturnTrack != track.isReturn() || frozen != nowFrozen
+        || freezing != nowFreezing || reamping != nowReamping)
     {
+        isMidiTrack = track.midi;
+        arm.setTooltip(track.midi ? text("Scharf: die MIDI-Keyboards spielen diese Spur, die Aufnahme nimmt Noten auf")
+                                  : text("Aufnahme scharf schalten"));
         reamping = nowReamping;
         isDrumTrack = track.drums;
         isReturnTrack = track.isReturn();
         frozen = nowFrozen;
         freezing = nowFreezing;
         resized();
+    }
+    if (track.midi)
+    {
+        const auto name = track.instrument->instrument != nullptr ? track.instrument->instrument->name() : text("Instrument");
+        if (instrumentButton.getButtonText() != name)
+            instrumentButton.setButtonText(name);
     }
     frozenBadge.setAlpha(freezing ? 0.5f + 0.5f * static_cast<float>((juce::Time::getMillisecondCounter() / 300) % 2) : 1.0f);
     arm.setEnabled(! frozen);
@@ -264,11 +277,12 @@ void TrackHeaderComponent::resized()
     const auto roomy = area.getHeight() >= 46;
     arm.setVisible(! isDrumTrack && ! isReturnTrack);
     drums.setVisible(roomy && isDrumTrack);
-    input.setVisible(roomy && ! isDrumTrack && ! isReturnTrack);
+    input.setVisible(roomy && ! isDrumTrack && ! isReturnTrack && ! isMidiTrack);
+    instrumentButton.setVisible(roomy && isMidiTrack);
     role.setVisible(roomy && isReturnTrack);
     fx.setVisible(roomy);
     send.setVisible(roomy && ! isReturnTrack);
-    monitor.setVisible(roomy && ! isDrumTrack && ! isReturnTrack);
+    monitor.setVisible(roomy && ! isDrumTrack && ! isReturnTrack && ! isMidiTrack);
     volume.setVisible(roomy);
     pan.setVisible(roomy);
     if (! roomy)
@@ -289,7 +303,9 @@ void TrackHeaderComponent::resized()
         fx.setConnectedEdges(0);
     }
     second.removeFromRight(6);
-    if (! isDrumTrack && ! isReturnTrack)
+    if (isMidiTrack)
+        instrumentButton.setBounds(second);
+    else if (! isDrumTrack && ! isReturnTrack)
     {
         monitor.setBounds(second.removeFromRight(28));
         second.removeFromRight(3);
@@ -328,7 +344,7 @@ void TrackHeaderComponent::showMenu()
     if (! isReturnTrack)
     {
         menu.addItem(8, text("Sends …"));
-        if (! isDrumTrack)
+        if (! isDrumTrack && ! isMidiTrack)
             menu.addItem(10, text("Re-Amp: ins Live-Rig spielen"), ! frozen, reamping);
         menu.addSeparator();
         const auto* track = controller.state().findTrack(id);

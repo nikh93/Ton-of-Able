@@ -606,6 +606,42 @@ public:
                 synth.render(nullptr, 0, out.getWritePointer(0), out.getWritePointer(1), 512);
             expect(out.getMagnitude(0, 512) < 1.0e-4f); // released
         }
+
+        beginTest("An armed MIDI track plays and records the MIDI keyboards");
+        {
+            auto log = std::make_shared<EventLog>();
+            auto state = makeState(log);
+            state.tracks[0].armed = true;
+            ArrangementEngine engine;
+            engine.prepare(48000.0, 512);
+            engine.publish(ArrangementEngine::buildSnapshot(state));
+            expect(engine.takesKeyboard());
+            juce::MidiBuffer keys;
+            keys.addEvent(juce::MidiMessage::noteOn(1, 67, static_cast<juce::uint8>(90)), 100);
+            juce::AudioBuffer<float> out(2, 512);
+            engine.setKeyboard(&keys); // stopped: the keyboard still plays the instrument
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 512);
+            expect(std::any_of(log->log.begin(), log->log.end(), [](const EventLog::Entry& e) { return e.note == 67 && e.at == 100; }));
+
+            expect(engine.startRecording({}, 48000.0, 0).wasOk()); // MIDI only: no audio targets
+            engine.setPosition(0);
+            engine.play();
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 512);
+            keys.clear();
+            keys.addEvent(juce::MidiMessage::noteOff(1, 67), 10);
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 512);
+            engine.setKeyboard(nullptr);
+            engine.stopRecording();
+            const auto recorded = engine.takeRecordedMidi();
+            expectEquals(static_cast<int>(recorded.size()), 2);
+            if (recorded.size() == 2)
+            {
+                expect(recorded[0].position == 100 && recorded[0].note == 67 && recorded[0].velocity == 90);
+                expect(recorded[1].position == 512 + 10 && recorded[1].velocity == 0);
+            }
+            state.tracks[0].armed = false;
+            expect(! ArrangementEngine::buildSnapshot(state)->keyboardTaken);
+        }
     }
 };
 
