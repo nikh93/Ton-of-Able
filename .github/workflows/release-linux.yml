@@ -47,7 +47,12 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --target NamTestProgram NamTestProgramTests --parallel
+        run: |
+          set -o pipefail
+          cmake --build build --target NamTestProgram NamTestProgramTests --parallel 2>&1 | tee build.log || {
+            grep -E 'error|Error' build.log | head -15 | sed 's/^/::error title=Build::/'
+            exit 1
+          }
 
       - name: Unit tests
         run: |
