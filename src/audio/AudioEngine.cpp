@@ -175,14 +175,18 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     auto* right = stereoBuffer.getWritePointer(1);
     keyboardMidi.clear();
     keyboardCollector.removeNextBlockOfMessages(keyboardMidi, numSamples);
-    inPeak = rig.processWithInputPeak(mono, left, right, numSamples, &keyboardMidi);
+    // An armed MIDI track takes the keyboards; otherwise they play the rig's instruments.
+    const auto keysToArrangement = arrangementEngine.takesKeyboard();
+    inPeak = rig.processWithInputPeak(mono, left, right, numSamples, keysToArrangement ? nullptr : &keyboardMidi);
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
     recorder.process(stereoView);
     // Multitrack playback, input monitoring and click are added on top of the
     // live rig. Tracks recording the rig read left/right before the mix is
     // added at the end of the arrangement block.
+    arrangementEngine.setKeyboard(keysToArrangement ? &keyboardMidi : nullptr);
     arrangementEngine.process(inputChannelData, numInputChannels, left, right, left, right, numSamples);
+    arrangementEngine.setKeyboard(nullptr);
 
     for (int sample = 0; sample < numSamples; ++sample)
     {

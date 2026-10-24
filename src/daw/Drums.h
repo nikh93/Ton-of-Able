@@ -46,6 +46,8 @@ struct DrumEvent
     juce::uint8 note = 0;
     juce::uint8 velocity = 0; // 0 = note off
 };
+/** Event note that releases every sounding note (transport stopped or jumped). */
+constexpr juce::uint8 allNotesOffNote = 255;
 
 /** Collects the events of a pattern clip for [position, position + length).
     patternOffset is the pattern time (samples) at clipStart. Returns the
@@ -72,7 +74,8 @@ public:
         invalid tree if nothing changes at runtime (built-in kit). */
     [[nodiscard]] virtual juce::ValueTree currentSettings() { return {}; }
 
-    /** Any non-audio thread: audition one hit (lock-free, single producer). */
+    /** Any non-audio thread: audition one hit or note (lock-free, single
+        producer); velocity 0 releases a previewed note. */
     void preview(int note, int velocity) noexcept;
 
 protected:

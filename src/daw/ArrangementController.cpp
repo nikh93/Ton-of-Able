@@ -5,6 +5,7 @@
 
 #include "AudioCodecs.h"
 #include "DawText.h"
+#include "Synth.h"
 
 namespace daw
 {
@@ -520,7 +521,7 @@ void ArrangementController::startFreeze(const juce::Uuid& trackId, std::function
         return;
     }
     for (const auto& clip : track.clips)
-        if (! clip.isPattern() && (clip.source == nullptr || isRendering(clip)))
+        if (! clip.isGenerated() && (clip.source == nullptr || isRendering(clip)))
         {
             message(text("Einfrieren noch nicht möglich: Audio wird noch geladen oder per Rubber Band berechnet."));
             return;
@@ -529,12 +530,12 @@ void ArrangementController::startFreeze(const juce::Uuid& trackId, std::function
     const auto signature = freezeSignature(track, current);
     const auto chain = track.fx->processor != nullptr && track.fx->enabled.load() && ! track.fx->printWhileRecording.load();
     // Room for reverb/delay tails and ringing drum hits after the last clip.
-    const auto tail = static_cast<juce::int64>(current.sampleRate * (chain ? 4.0 : track.drums ? 2.0 : 0.0));
+    const auto tail = static_cast<juce::int64>(current.sampleRate * (chain ? 4.0 : track.midi ? 3.0 : track.drums ? 2.0 : 0.0));
     const auto end = track.contentEnd() + tail;
     const auto rate = current.sampleRate;
     const auto file = uniqueFile(audioDirectory().getChildFile("Freeze"), track.name + " (eingefroren)", ".wav");
     std::vector<std::shared_ptr<TrackInstrument>> copies(current.tracks.size());
-    if (track.drums && track.instrument->instrument != nullptr)
+    if (track.hasInstrument() && track.instrument->instrument != nullptr)
         if ((copies[static_cast<size_t>(index)] = track.instrument->instrument->createOfflineCopy()) != nullptr)
             copies[static_cast<size_t>(index)]->prepare(rate, offlineBlock);
 
@@ -654,6 +655,7 @@ void ArrangementController::flattenTrack(const juce::Uuid& trackId)
             track->clips.clear();
             track->clips.push_back(std::move(clip));
             track->drums = false;
+            track->midi = false;
             track->patterns.clear();
             track->frozen.reset();
             // The chain is now part of the audio: keep its settings, switched off.
@@ -681,7 +683,9 @@ void ArrangementController::setInstrumentFactory(InstrumentFactory factory)
 std::shared_ptr<TrackInstrument> ArrangementController::createInstrument(const juce::ValueTree& settings, int blockSize)
 {
     std::shared_ptr<TrackInstrument> instrument;
-    if (instrumentFactory)
+    if (settings.getProperty("type").toString() == "synth")
+        instrument = std::make_shared<Synth>(Synth::presetFromSettings(settings));
+    else if (instrumentFactory)
         instrument = instrumentFactory(settings);
     if (instrument == nullptr)
         instrument = std::make_shared<DrumSynth>();
@@ -693,7 +697,7 @@ std::shared_ptr<TrackInstrument> ArrangementController::createInstrument(const j
 void ArrangementController::ensureInstruments()
 {
     for (auto& track : current.tracks)
-        if (track.drums && track.instrument->instrument == nullptr)
+        if (track.hasInstrument() && track.instrument->instrument == nullptr)
             track.instrument->instrument = createInstrument(track.instrument->settings, audio.maximumBlockSize());
 }
 
@@ -709,13 +713,18 @@ juce::Uuid ArrangementController::addDrumTrack(const juce::String& name)
     return id;
 }
 
-juce::Result ArrangementController::setDrumInstrument(const juce::Uuid& trackId, const juce::ValueTree& settings)
+juce::Result ArrangementController::setTrackInstrument(const juce::Uuid& trackId, const juce::ValueTree& settings)
 {
     auto* track = current.findTrack(trackId);
-    if (track == nullptr || ! track->drums)
-        return juce::Result::fail("Keine Drum-Spur.");
-    auto instrument = instrumentFactory ? instrumentFactory(settings) : nullptr;
-    if (instrument == nullptr && settings.getProperty("type").toString() != "builtin")
+    if (track == nullptr || ! track->hasInstrument())
+        return juce::Result::fail(text("Keine Drum- oder MIDI-Spur."));
+    const auto type = settings.getProperty("type").toString();
+    std::shared_ptr<TrackInstrument> instrument;
+    if (type == "synth")
+        instrument = std::make_shared<Synth>(Synth::presetFromSettings(settings));
+    else if (instrumentFactory)
+        instrument = instrumentFactory(settings);
+    if (instrument == nullptr && type != "builtin")
         return juce::Result::fail("Instrument konnte nicht geladen werden.");
     if (instrument == nullptr)
         instrument = std::make_shared<DrumSynth>();
@@ -747,7 +756,38 @@ juce::Uuid ArrangementController::insertPatternClip(const juce::Uuid& trackId, i
     return id;
 }
 
-void ArrangementController::previewDrum(const juce::Uuid& trackId, int note, int velocity)
+juce::Uuid ArrangementController::addMidiTrack(const juce::String& name)
+{
+    juce::Uuid id;
+    perform("MIDI-Spur erstellen", [&](ArrangementState& state)
+    {
+        auto track = edit::makeMidiTrack(state, name.isNotEmpty() ? name : "MIDI " + juce::String(state.firstReturnIndex() + 1));
+        id = track.id;
+        edit::addTrack(state, std::move(track));
+    });
+    return id;
+}
+
+void ArrangementController::setClipNotes(const juce::Uuid& clipId, MidiNotes notes, const juce::String& description)
+{
+    perform(description, [&](ArrangementState& state) { edit::setNotes(state, clipId, std::move(notes)); });
+}
+
+juce::Uuid ArrangementController::insertMidiClip(const juce::Uuid& trackId, juce::int64 start, int bars)
+{
+    juce::Uuid id;
+    perform(text("MIDI-Clip einfügen"), [&](ArrangementState& state)
+    {
+        const auto index = state.trackIndex(trackId);
+        if (index < 0 || ! state.tracks[static_cast<size_t>(index)].midi)
+            return;
+        const auto length = static_cast<juce::int64>(std::llround(TimeGrid::of(state).samplesPerBar() * std::max(1, bars)));
+        id = edit::insert(state, edit::makeMidiClip("MIDI", start, length), index);
+    });
+    return id;
+}
+
+void ArrangementController::previewNote(const juce::Uuid& trackId, int note, int velocity)
 {
     if (const auto* track = current.findTrack(trackId); track != nullptr && track->instrument->instrument != nullptr)
         track->instrument->instrument->preview(note, velocity);
@@ -908,8 +948,15 @@ void ArrangementController::toggleRecord(int fallbackTrack)
     }
 
     // Drum and return tracks are not recorded, frozen tracks must be thawed first.
-    const auto recordable = [this](const Track& t) { return ! t.drums && ! t.isReturn() && ! t.isFrozen(current); };
-    if (std::none_of(current.tracks.begin(), current.tracks.end(), [&](const Track& t) { return t.armed && recordable(t); }))
+    // Armed MIDI tracks record the MIDI keyboards.
+    const auto recordable = [this](const Track& t) { return ! t.hasInstrument() && ! t.isReturn() && ! t.isFrozen(current); };
+    const auto midiRecordable = [this](const Track& t) { return t.midi && ! t.isFrozen(current); };
+    const auto armedMidi = [&] { return std::any_of(current.tracks.begin(), current.tracks.end(), [&](const Track& t) { return t.armed && midiRecordable(t); }); };
+    if (! armedMidi() && juce::isPositiveAndBelow(fallbackTrack, static_cast<int>(current.tracks.size()))
+        && midiRecordable(current.tracks[static_cast<size_t>(fallbackTrack)])
+        && std::none_of(current.tracks.begin(), current.tracks.end(), [&](const Track& t) { return t.armed && recordable(t); }))
+        modify([fallbackTrack](ArrangementState& state) { state.tracks[static_cast<size_t>(fallbackTrack)].armed = true; });
+    if (! armedMidi() && std::none_of(current.tracks.begin(), current.tracks.end(), [&](const Track& t) { return t.armed && recordable(t); }))
     {
         // Fall back to the selected or first audio track.
         auto index = juce::jlimit(0, std::max(0, static_cast<int>(current.tracks.size()) - 1), fallbackTrack);
@@ -960,7 +1007,9 @@ void ArrangementController::toggleRecord(int fallbackTrack)
         return;
     }
     audio.play();
-    message(juce::String(static_cast<int>(targets.size())) + text(targets.size() == 1 ? " Spur nimmt auf" : " Spuren nehmen auf"));
+    const auto recordingTracks = static_cast<int>(targets.size())
+        + static_cast<int>(std::count_if(current.tracks.begin(), current.tracks.end(), [&](const Track& t) { return t.armed && midiRecordable(t); }));
+    message(juce::String(recordingTracks) + text(recordingTracks == 1 ? " Spur nimmt auf" : " Spuren nehmen auf"));
     if (onChanged) onChanged();
 }
 
@@ -1003,9 +1052,11 @@ void ArrangementController::dropOtherTakes(const juce::Uuid& clipId)
 void ArrangementController::finishRecording()
 {
     const auto takes = audio.stopRecording();
+    const auto midiCount = finishMidiRecording();
     if (takes.empty())
     {
-        message("Aufnahme verworfen (nichts aufgenommen).");
+        if (midiCount == 0)
+            message("Aufnahme verworfen (nichts aufgenommen).");
         return;
     }
     auto remaining = std::make_shared<int>(static_cast<int>(takes.size()));
@@ -1047,6 +1098,41 @@ void ArrangementController::finishRecording()
                 message("Aufnahme gespeichert: " + juce::String(static_cast<int>(loaded->size())) + " Spur(en)");
         });
     }
+}
+
+int ArrangementController::finishMidiRecording()
+{
+    const auto events = audio.takeRecordedMidi();
+    std::vector<juce::Uuid> tracks;
+    for (const auto& track : current.tracks)
+        if (track.armed && track.midi && ! track.isFrozen(current))
+            tracks.push_back(track.id);
+    if (events.empty() || tracks.empty())
+        return 0;
+    // The clip covers the loop when recording in the loop, else the played bars.
+    const auto grid = TimeGrid::of(current);
+    const auto bar = grid.samplesPerBar();
+    juce::int64 first = events.front().position, last = events.front().position;
+    for (const auto& event : events)
+    {
+        first = std::min(first, event.position);
+        last = std::max(last, event.position);
+    }
+    const auto looped = recordLoopEnd > recordLoopStart && first >= recordLoopStart && last <= recordLoopEnd;
+    const auto start = looped ? recordLoopStart : static_cast<juce::int64>(std::floor(static_cast<double>(first) / bar) * bar);
+    const auto end = looped ? recordLoopEnd : static_cast<juce::int64>(std::ceil(static_cast<double>(last + 1) / bar) * bar);
+    auto notes = edit::notesFromEvents(events, start, end, grid.samplesPerBeat());
+    if (notes.empty())
+        return 0;
+    const auto count = static_cast<int>(notes.size());
+    perform("MIDI-Aufnahme", [&](ArrangementState& state)
+    {
+        for (const auto& id : tracks)
+            if (const auto index = state.trackIndex(id); index >= 0)
+                edit::insert(state, edit::makeMidiClip(state.tracks[static_cast<size_t>(index)].name, start, end - start, notes), index);
+    });
+    message(juce::String(count) + text(" Noten aufgenommen."));
+    return count;
 }
 
 //==============================================================================
@@ -1174,7 +1260,7 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
 {
     for (const auto& track : current.tracks)
         for (const auto& clip : track.clips)
-            if (! clip.isPattern() && (clip.source == nullptr || isRendering(clip)))
+            if (! clip.isGenerated() && (clip.source == nullptr || isRendering(clip)))
             {
                 done(juce::Result::fail(text("Export noch nicht möglich: Audio wird noch geladen oder per Rubber Band berechnet.")));
                 return;

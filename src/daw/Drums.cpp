@@ -173,7 +173,7 @@ void TrackInstrument::preview(int note, int velocity) noexcept
     const auto next = (write + 1) % queueSize;
     if (next == readIndex.load(std::memory_order_acquire))
         return; // queue full: drop the audition
-    queue[static_cast<size_t>(write)].store((juce::jlimit(0, 127, note) << 8) | juce::jlimit(1, 127, velocity), std::memory_order_relaxed);
+    queue[static_cast<size_t>(write)].store((juce::jlimit(0, 127, note) << 8) | juce::jlimit(0, 127, velocity), std::memory_order_relaxed);
     writeIndex.store(next, std::memory_order_release);
 }
 
@@ -370,13 +370,14 @@ void DrumSynth::render(const DrumEvent* events, int numEvents, float* left, floa
     DrumEvent previews[16];
     const auto previewCount = takePreviews(previews, 16);
     for (int index = 0; index < previewCount; ++index)
-        trigger(previews[index].note, previews[index].velocity);
+        if (previews[index].velocity > 0)
+            trigger(previews[index].note, previews[index].velocity);
 
     int next = 0;
     for (int sample = 0; sample < numSamples; ++sample)
     {
         for (; next < numEvents && events[next].offset <= sample; ++next)
-            if (events[next].velocity > 0)
+            if (events[next].velocity > 0 && events[next].note != allNotesOffNote)
                 trigger(events[next].note, events[next].velocity);
         float l = 0.0f, r = 0.0f;
         for (auto& voice : voices)
