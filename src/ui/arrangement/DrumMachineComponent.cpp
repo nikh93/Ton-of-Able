@@ -265,7 +265,7 @@ void DrumMachineComponent::mouseDown(const juce::MouseEvent& event)
     {
         const auto lane = (event.y - laneArea.getY()) / std::max(1, laneArea.getHeight() / daw::numDrumLanes);
         if (juce::isPositiveAndBelow(lane, daw::numDrumLanes))
-            controller.previewDrum(trackId, daw::drumLanes()[static_cast<size_t>(lane)].note, 110);
+            controller.previewNote(trackId, daw::drumLanes()[static_cast<size_t>(lane)].note, 110);
         return;
     }
     int lane = 0, step = 0;
@@ -279,7 +279,7 @@ void DrumMachineComponent::mouseDown(const juce::MouseEvent& event)
         const juce::uint8 next = current == 0 ? 45 : current < 70 ? 100 : current < 115 ? 127 : 0;
         editPattern("Anschlag", [lane, step, next](daw::DrumPattern& pat) { pat.velocity[static_cast<size_t>(lane)][static_cast<size_t>(step)] = next; });
         if (next > 0)
-            controller.previewDrum(trackId, daw::drumLanes()[static_cast<size_t>(lane)].note, next);
+            controller.previewNote(trackId, daw::drumLanes()[static_cast<size_t>(lane)].note, next);
         return;
     }
     paintVelocity = current > 0 ? 0 : (event.mods.isShiftDown() ? 127 : 100);
@@ -291,7 +291,7 @@ void DrumMachineComponent::mouseDown(const juce::MouseEvent& event)
     controller.beginGesture();
     controller.updateGesture([this](daw::ArrangementState& state) { applyPainted(state); });
     if (paintVelocity > 0)
-        controller.previewDrum(trackId, daw::drumLanes()[static_cast<size_t>(lane)].note, paintVelocity);
+        controller.previewNote(trackId, daw::drumLanes()[static_cast<size_t>(lane)].note, paintVelocity);
     repaint();
 }
 

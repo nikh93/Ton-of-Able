@@ -83,12 +83,46 @@ std::pair<float, float> balanceGains(const TrackMixer& mixer) noexcept
     return { gain * std::min(1.0f, 1.0f - pan), gain * std::min(1.0f, 1.0f + pan) };
 }
 
+// Note-ons and note-offs of a MIDI clip inside [position, position + length).
+// A note cut by the clip end stops there; one starting before the clip (cut
+// off by trimming its start) is left out.
+int collectMidiEvents(const ArrangementEngine::ClipRender& clip, double samplesPerBeat, juce::int64 position, int length,
+                      DrumEvent* out, int maxEvents) noexcept
+{
+    int count = 0;
+    const auto origin = static_cast<double>(clip.start) - clip.offset; // timeline position of beat 0
+    const auto clipEnd = clip.start + clip.length;
+    const auto blockEnd = position + length;
+    const auto add = [&](juce::int64 at, int note, int velocity)
+    {
+        if (at >= position && at < blockEnd && count < maxEvents)
+            out[count++] = { static_cast<int>(at - position), static_cast<juce::uint8>(note), static_cast<juce::uint8>(velocity) };
+    };
+    for (const auto& note : *clip.notes)
+    {
+        const auto on = static_cast<juce::int64>(std::llround(origin + note.start * samplesPerBeat));
+        if (on >= blockEnd || on >= clipEnd)
+            break; // sorted by start
+        if (on < clip.start)
+            continue;
+        const auto off = std::min(clipEnd, static_cast<juce::int64>(std::llround(origin + note.end() * samplesPerBeat)));
+        if (off < position)
+            continue;
+        add(on, note.pitch, note.velocity);
+        add(std::max(off, on + 1), note.pitch, 0);
+    }
+    return count;
+}
+
 int collectTrackEvents(const ArrangementEngine::TrackRender& track, double samplesPerStep, juce::int64 position, int length,
                        DrumEvent* out, int maxEvents) noexcept
 {
-    if (track.patterns == nullptr)
-        return 0;
     int count = 0;
+    for (const auto& clip : track.clips)
+        if (clip.notes != nullptr && clip.start < position + length && clip.start + clip.length > position)
+            count += collectMidiEvents(clip, samplesPerStep * 4.0, position, length, out + count, maxEvents - count);
+    if (track.patterns == nullptr)
+        return count;
     for (const auto& clip : track.clips)
         if (clip.pattern >= 0 && clip.pattern < static_cast<int>(track.patterns->size())
             && clip.start < position + length && clip.start + clip.length > position)
@@ -183,12 +217,16 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         render.processor = detached ? nullptr : track.fx->processor.get();
         if (track.fx->processor != nullptr)
             snapshot->retainedProcessors.push_back(track.fx->processor);
-        if (track.drums)
+        if (track.hasInstrument())
         {
             render.drums = true;
-            auto patterns = std::make_shared<const std::vector<DrumPattern>>(track.patterns);
-            render.patterns = patterns.get();
-            snapshot->retainedPatterns.push_back(std::move(patterns));
+            render.midi = track.midi;
+            if (track.drums)
+            {
+                auto patterns = std::make_shared<const std::vector<DrumPattern>>(track.patterns);
+                render.patterns = patterns.get();
+                snapshot->retainedPatterns.push_back(std::move(patterns));
+            }
             if (track.instrument->instrument != nullptr)
             {
                 render.instrument = track.instrument->instrument.get();
@@ -202,6 +240,17 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         {
             if (track.isReturn())
                 break;
+            if (clip.isMidi() && clip.length > 0)
+            {
+                ClipRender c;
+                c.start = clip.start;
+                c.length = clip.length;
+                c.offset = clip.offset;
+                c.notes = clip.notes.get();
+                snapshot->retainedNotes.push_back(clip.notes);
+                render.clips.push_back(c);
+                continue;
+            }
             if (clip.isPattern() && clip.length > 0)
             {
                 ClipRender c;
@@ -232,6 +281,8 @@ std::shared_ptr<const ArrangementEngine::Snapshot> ArrangementEngine::buildSnaps
         snapshot->tracks.push_back(std::move(render));
     }
     snapshot->samplesPerStep = state.sampleRate * 60.0 / state.bpm / 4.0;
+    for (const auto& track : snapshot->tracks)
+        snapshot->keyboardTaken = snapshot->keyboardTaken || (track.midi && track.armed);
     // A frozen track would feed its processed render; re-amping needs the dry clips.
     if (const auto* source = state.reampTrack())
         if (const auto index = state.trackIndex(source->id); index >= 0 && ! snapshot->tracks[static_cast<size_t>(index)].frozen)
@@ -297,7 +348,7 @@ juce::Result ArrangementEngine::startRecording(const std::vector<RecordTarget>& 
 {
     if (recording.load() || slotCount.load() != 0)
         return juce::Result::fail(juce::String(juce::CharPointer_UTF8("Aufnahme l\xc3\xa4uft bereits.")));
-    if (targets.empty() || targets.size() > slots.size() || rate <= 0.0)
+    if (targets.size() > slots.size() || rate <= 0.0) // no targets: only MIDI tracks record
         return juce::Result::fail(juce::String(juce::CharPointer_UTF8("Keine g\xc3\xbcltige Aufnahmespur.")));
 
     juce::WavAudioFormat wav;
@@ -325,6 +376,7 @@ juce::Result ArrangementEngine::startRecording(const std::vector<RecordTarget>& 
         slot.writer.store(slot.owner.get());
     }
     slotCount.store(static_cast<int>(targets.size()));
+    recordedMidiCount.store(0);
     punchIn.store(punch);
     punchedIn.store(false);
     recording.store(true);
@@ -374,6 +426,54 @@ void ArrangementEngine::prepare(double rate, int maximumBlockSize)
     }
     currentMaster = juce::Decibels::decibelsToGain(masterDb.load(), -60.0f);
     sampleRate.store(rate);
+}
+
+bool ArrangementEngine::takesKeyboard() const noexcept
+{
+    const auto* snapshot = live.load();
+    return snapshot != nullptr && snapshot->keyboardTaken;
+}
+
+int ArrangementEngine::keyboardEvents(int inputOffset, int length, DrumEvent* out, int maxEvents) const noexcept
+{
+    int count = 0;
+    if (keyboardInput == nullptr)
+        return 0;
+    for (const auto metadata : *keyboardInput)
+    {
+        const auto at = metadata.samplePosition - inputOffset;
+        if (at < 0 || at >= length || count >= maxEvents)
+            continue;
+        const auto message = metadata.getMessage();
+        if (message.isNoteOn())
+            out[count++] = { at, static_cast<juce::uint8>(message.getNoteNumber()), static_cast<juce::uint8>(std::max(1, static_cast<int>(message.getVelocity()))) };
+        else if (message.isNoteOff())
+            out[count++] = { at, static_cast<juce::uint8>(message.getNoteNumber()), 0 };
+        else if (message.isAllNotesOff() || message.isAllSoundOff())
+            out[count++] = { at, allNotesOffNote, 0 };
+    }
+    return count;
+}
+
+void ArrangementEngine::recordKeyboard(juce::int64 position, int inputOffset, int length) noexcept
+{
+    DrumEvent events[256];
+    const auto count = keyboardEvents(inputOffset, length, events, 256);
+    for (int index = 0; index < count; ++index)
+    {
+        const auto at = position + events[index].offset;
+        const auto slot = recordedMidiCount.load(std::memory_order_relaxed);
+        if (at < punchIn.load() || events[index].note == allNotesOffNote || slot >= maximumRecordedMidi)
+            continue;
+        recordedMidi[static_cast<size_t>(slot)] = { at, events[index].note, events[index].velocity };
+        recordedMidiCount.store(slot + 1, std::memory_order_release);
+    }
+}
+
+std::vector<edit::RecordedMidiEvent> ArrangementEngine::takeRecordedMidi()
+{
+    const auto count = recordedMidiCount.exchange(0);
+    return { recordedMidi.begin(), recordedMidi.begin() + count };
 }
 
 bool ArrangementEngine::renderReampInput(float* mono, int numSamples) noexcept
@@ -427,7 +527,10 @@ void ArrangementEngine::processChunk(const float* const* inputs, int numInputs, 
     const auto* snapshot = live.load();
     auto position = playhead.load(std::memory_order_relaxed);
     if (const auto locate = pendingLocate.exchange(std::numeric_limits<juce::int64>::min()); locate != std::numeric_limits<juce::int64>::min())
+    {
         position = locate;
+        flushNotes = true;
+    }
 
     auto* mixLeft = mixBuffer.getWritePointer(0);
     auto* mixRight = mixBuffer.getWritePointer(1);
@@ -436,6 +539,9 @@ void ArrangementEngine::processChunk(const float* const* inputs, int numInputs, 
 
     const auto isPlaying = playing.load();
     const auto isRecording = recording.load() && isPlaying;
+    if (wasPlaying && ! isPlaying)
+        flushNotes = true; // stopped: no note may hang
+    wasPlaying = isPlaying;
     if (isRecording && punchIn.load() == punchAtNextBlock)
         punchIn.store(position);
 
@@ -456,6 +562,8 @@ void ArrangementEngine::processChunk(const float* const* inputs, int numInputs, 
                 length = static_cast<int>(std::min<juce::int64>(length, loopTo - position));
             if (snapshot != nullptr)
                 renderTracks(*snapshot, inputs, numInputs, rigLeft, rigRight, position, offset + done, done, length, true, isRecording, mixLeft, mixRight);
+            if (isRecording && snapshot != nullptr && snapshot->keyboardTaken)
+                recordKeyboard(position, offset + done, length);
             const auto countIn = isRecording && ! punchedIn.load() && position < punchIn.load();
             if (metronome.load() || countIn)
                 renderClick(position, mixLeft + done, mixRight + done, length);
@@ -464,7 +572,10 @@ void ArrangementEngine::processChunk(const float* const* inputs, int numInputs, 
             position += length;
             done += length;
             if (wraps && position >= loopTo)
+            {
                 position = loopFrom;
+                flushNotes = true; // notes running over the loop end
+            }
         }
     }
 
@@ -490,6 +601,7 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                                      float* mixLeft, float* mixRight) noexcept
 {
     const auto solo = anySolo(snapshot);
+    const auto flush = std::exchange(flushNotes, false);
     auto* left = trackBuffer.getWritePointer(0);
     auto* right = trackBuffer.getWritePointer(1);
     auto* mono = monoBuffer.getWritePointer(0);
@@ -561,8 +673,11 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                     {
                         // The instrument always runs, so hits ring out and previews sound.
                         int count = 0;
+                        if (flush)
+                            events[static_cast<size_t>(count++)] = { 0, allNotesOffNote, 0 };
+                        // Like audio, a recording MIDI track does not play what it replaces.
                         if (playingNow && ! (recordingNow && track.armed))
-                            count = collectTrackEvents(track, snapshot.samplesPerStep, position, length, events.data(), maximumEvents);
+                            count += collectTrackEvents(track, snapshot.samplesPerStep, position, length, events.data() + count, maximumEvents - count);
                         else if (! playingNow && audition == static_cast<int>(trackIndex) && track.patterns != nullptr && ! track.patterns->empty())
                         {
                             const auto& pattern = (*track.patterns)[static_cast<size_t>(std::min(auditionPatternIndex.load(), static_cast<int>(track.patterns->size()) - 1))];
@@ -572,6 +687,8 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                             const auto step = static_cast<int>(static_cast<double>(auditionPosition) / snapshot.samplesPerStep) % std::max(1, pattern.steps);
                             auditionStepNow.store(step);
                         }
+                        if (track.midi && track.armed)
+                            count += keyboardEvents(inputOffset, length, events.data() + count, maximumEvents - count);
                         sortEvents(events.data(), count);
                         auto* instrumentLeft = instrumentBuffer.getWritePointer(0);
                         auto* instrumentRight = instrumentBuffer.getWritePointer(1);
@@ -584,7 +701,7 @@ void ArrangementEngine::renderTracks(const Snapshot& snapshot, const float* cons
                     // instrument, in stereo.
                     if (fxOn && ! print && audible)
                         track.processor->processStereo(left, right, mono, length);
-                    if (recordingNow && track.armed && track.inputChannel < 0)
+                    if (recordingNow && track.armed && track.inputChannel < 0 && ! track.drums)
                         recordTrack(track.id, rigLeft != nullptr ? rigLeft + inputOffset : silence.data(),
                                     rigRight != nullptr ? rigRight + inputOffset : silence.data(), position, length);
                 }

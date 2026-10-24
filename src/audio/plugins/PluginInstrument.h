@@ -6,8 +6,9 @@
 
 #include "daw/Drums.h"
 
-/** A VST3 instrument as the sound source of a drum track (e.g. JDrummer).
-    Pattern hits are sent as General MIDI percussion on channel 10.
+/** A VST3 instrument as the sound source of a drum track (e.g. JDrummer) or
+    a MIDI track (e.g. Vital). Drum hits go out as General MIDI percussion on
+    channel 10, MIDI tracks play on channel 1.
 
     Creation, state and editor: message thread. render(): audio thread,
     guarded by a try-lock so a reconfiguring plugin outputs silence instead
@@ -19,7 +20,7 @@ public:
 
     /** Message thread. Settings: Instrument { type="vst3", stateBase64, PLUGIN }. */
     [[nodiscard]] static std::shared_ptr<PluginInstrument> fromSettings(const juce::ValueTree& settings, juce::String& error);
-    [[nodiscard]] static juce::ValueTree settingsFor(const juce::PluginDescription&, const juce::MemoryBlock& state = {});
+    [[nodiscard]] static juce::ValueTree settingsFor(const juce::PluginDescription&, const juce::MemoryBlock& state = {}, int channel = 10);
 
     void prepare(double sampleRate, int maximumBlockSize) override;
     void render(const daw::DrumEvent* events, int numEvents, float* left, float* right, int numSamples) noexcept override;
@@ -40,4 +41,5 @@ private:
     juce::AudioBuffer<float> buffer;
     juce::MidiBuffer midi;
     int maximumBlock = 0;
+    int channel = 10;
 };

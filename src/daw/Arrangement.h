@@ -89,6 +89,20 @@ struct FrozenRender
     juce::String signature;
 };
 
+/** A note of a MIDI clip. Times are in beats (quarter notes) from the clip's
+    content start, so notes follow the tempo. */
+struct MidiNote
+{
+    double start = 0.0;
+    double length = 1.0;
+    int pitch = 60;       // MIDI note number
+    int velocity = 100;   // 1 ... 127
+
+    [[nodiscard]] double end() const noexcept { return start + length; }
+    bool operator==(const MidiNote&) const = default;
+};
+using MidiNotes = std::vector<MidiNote>;
+
 /** One region of a source file placed on the timeline.
 
     Timeline values (start, length, fades) are in project samples. offset is
@@ -114,6 +128,9 @@ struct Clip
     juce::int64 fadeIn = 0;
     juce::int64 fadeOut = 0;
     int pattern = -1;                // >= 0: drum pattern clip (no audio source)
+    // MIDI clip (no audio source): its notes, shared and replaced as a whole on edits.
+    // Like a pattern, offset is the content time in samples at the clip start.
+    std::shared_ptr<const MidiNotes> notes;
     // Loop recording: every pass is a take in the same file. takes[i] is the
     // source position of take i at the clip's start; offset belongs to activeTake.
     std::vector<double> takes;
@@ -121,6 +138,9 @@ struct Clip
 
     static constexpr juce::int64 patternSourceSamples = juce::int64(1) << 40;
     [[nodiscard]] bool isPattern() const noexcept { return pattern >= 0; }
+    [[nodiscard]] bool isMidi() const noexcept { return notes != nullptr; }
+    /** Pattern and MIDI clips: no audio, played by the track's instrument, follow the tempo. */
+    [[nodiscard]] bool isGenerated() const noexcept { return isPattern() || isMidi(); }
     [[nodiscard]] bool hasTakes() const noexcept { return takes.size() > 1; }
     [[nodiscard]] juce::int64 end() const noexcept { return start + length; }
     [[nodiscard]] bool needsStretch() const noexcept;
@@ -143,12 +163,15 @@ struct Track
     int inputChannel = -1;           // -1 = processed NAM rig (stereo), >= 0 = dry device input
     std::vector<Clip> clips;         // sorted by start, never overlapping
     bool drums = false;              // drum track: pattern clips played by its instrument
+    bool midi = false;               // MIDI track: MIDI clips played by its instrument
     std::vector<DrumPattern> patterns;
     std::shared_ptr<InstrumentSlot> instrument = std::make_shared<InstrumentSlot>();
     int returnSlot = -1;             // >= 0: return track (send effect A-D), fed only by sends
     std::shared_ptr<const FrozenRender> frozen;
 
     [[nodiscard]] bool isReturn() const noexcept { return returnSlot >= 0; }
+    /** Drum and MIDI tracks: an instrument makes the sound. */
+    [[nodiscard]] bool hasInstrument() const noexcept { return drums || midi; }
     /** True when the track has a frozen render that matches its current content. */
     [[nodiscard]] bool isFrozen(const ArrangementState& state) const;
     [[nodiscard]] juce::int64 contentEnd() const noexcept;
@@ -229,6 +252,22 @@ std::optional<Track> makeReturnTrack(const ArrangementState& state);
 int addTrack(ArrangementState& state, Track track);
 /** A clip repeating pattern patternIndex for length samples. */
 Clip makePatternClip(int patternIndex, const juce::String& name, juce::int64 start, juce::int64 length);
+/** A MIDI track, played by the built-in synth until another instrument is chosen. */
+Track makeMidiTrack(const ArrangementState& state, const juce::String& name);
+/** A MIDI clip of length samples with these notes (beats from the clip start). */
+Clip makeMidiClip(const juce::String& name, juce::int64 start, juce::int64 length, MidiNotes notes = {});
+/** Replaces the notes of a MIDI clip (sorted by start). */
+bool setNotes(ArrangementState&, const juce::Uuid& clipId, MidiNotes notes);
+/** Recorded note events (transport positions) as notes: note-ons paired with
+    the following note-off of the same pitch, open notes end at end. Positions
+    relative to clipStart, in beats. Several loop passes simply add up (overdub). */
+struct RecordedMidiEvent
+{
+    juce::int64 position = 0;
+    int note = 0;
+    int velocity = 0; // 0 = note off
+};
+MidiNotes notesFromEvents(const std::vector<RecordedMidiEvent>& events, juce::int64 clipStart, juce::int64 end, double samplesPerBeat);
 
 /** Splits at timeline position; returns the id of the right part. */
 std::optional<juce::Uuid> split(ArrangementState&, const juce::Uuid& clipId, juce::int64 at);

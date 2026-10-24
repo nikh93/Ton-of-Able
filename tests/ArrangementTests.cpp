@@ -6,6 +6,7 @@
 #include "../src/daw/Arrangement.h"
 #include "../src/daw/ArrangementEngine.h"
 #include "../src/daw/AudioCodecs.h"
+#include "../src/daw/Synth.h"
 #include "../src/daw/TimeStretcher.h"
 #include "../src/audio/effects/GraphicEQProcessor.h"
 #include "../src/audio/effects/LivePitchShifter.h"
@@ -467,6 +468,149 @@ public:
 };
 
 PlayStartTests playStartTests;
+
+// Records the events an instrument receives (offsets made absolute by the test).
+struct EventLog final : TrackInstrument
+{
+    void prepare(double, int) override {}
+    void render(const DrumEvent* events, int count, float* left, float* right, int numSamples) noexcept override
+    {
+        for (int index = 0; index < count; ++index)
+            log.push_back({ blockStart + events[index].offset, events[index].note, events[index].velocity });
+        juce::FloatVectorOperations::clear(left, numSamples);
+        juce::FloatVectorOperations::clear(right, numSamples);
+        blockStart += numSamples;
+    }
+    std::shared_ptr<TrackInstrument> createOfflineCopy() const override { return std::make_shared<EventLog>(); }
+    juce::String name() const override { return "log"; }
+    struct Entry { juce::int64 at; int note, velocity; };
+    std::vector<Entry> log;
+    juce::int64 blockStart = 0;
+};
+
+class MidiTrackTests final : public juce::UnitTest
+{
+public:
+    MidiTrackTests() : UnitTest("MIDI tracks", "DAW") {}
+
+    void runTest() override
+    {
+        // 120 bpm at 48 kHz: a beat is 24000 samples.
+        constexpr double beat = 24000.0;
+        const auto makeState = [](std::shared_ptr<TrackInstrument> instrument)
+        {
+            ArrangementState state;
+            state.tracks.push_back(edit::makeMidiTrack(state, "Keys"));
+            state.tracks[0].instrument->instrument = std::move(instrument);
+            edit::insert(state, edit::makeMidiClip("A", 48000, 4 * 24000, { { 0.0, 1.0, 60, 100 }, { 2.0, 4.0, 64, 90 } }), 0);
+            return state;
+        };
+
+        beginTest("Notes play at their beats, a note cut by the clip end stops there");
+        {
+            auto log = std::make_shared<EventLog>();
+            auto state = makeState(log);
+            juce::AudioBuffer<float> mix(2, 4096), scratch;
+            std::vector<TrackInstrument*> instruments { log.get() };
+            const auto snapshot = ArrangementEngine::buildSnapshot(state);
+            for (juce::int64 at = 0; at < 200000; at += 4096)
+                ArrangementEngine::renderOffline(*snapshot, at, 4096, mix.getWritePointer(0), mix.getWritePointer(1), scratch,
+                                                 { .instruments = &instruments });
+            expectEquals(static_cast<int>(log->log.size()), 4);
+            if (log->log.size() == 4)
+            {
+                expect(log->log[0].at == 48000 && log->log[0].note == 60 && log->log[0].velocity == 100);
+                expect(log->log[1].at == 48000 + static_cast<juce::int64>(beat) && log->log[1].velocity == 0);
+                expect(log->log[2].at == 48000 + static_cast<juce::int64>(2 * beat) && log->log[2].note == 64);
+                expect(log->log[3].at == 48000 + static_cast<juce::int64>(4 * beat) && log->log[3].velocity == 0); // clip end, not beat 6
+            }
+        }
+
+        beginTest("A split clip keeps every note at its place");
+        {
+            auto log = std::make_shared<EventLog>();
+            auto state = makeState(log);
+            expect(edit::split(state, state.tracks[0].clips[0].id, 48000 + static_cast<juce::int64>(1.5 * beat)).has_value());
+            juce::AudioBuffer<float> mix(2, 4096), scratch;
+            std::vector<TrackInstrument*> instruments { log.get() };
+            const auto snapshot = ArrangementEngine::buildSnapshot(state);
+            for (juce::int64 at = 0; at < 200000; at += 4096)
+                ArrangementEngine::renderOffline(*snapshot, at, 4096, mix.getWritePointer(0), mix.getWritePointer(1), scratch,
+                                                 { .instruments = &instruments });
+            int ons = 0;
+            for (const auto& entry : log->log)
+                if (entry.velocity > 0)
+                {
+                    ++ons;
+                    expect(entry.at == 48000 || entry.at == 48000 + static_cast<juce::int64>(2 * beat));
+                }
+            expectEquals(ons, 2);
+        }
+
+        beginTest("MIDI tracks and notes survive the project file");
+        {
+            auto state = makeState(nullptr);
+            state.tracks[0].instrument->settings = synthInstrumentSettings(Synth::Preset::bass);
+            const auto loaded = fromValueTree(toValueTree(state, {}), {});
+            expect(loaded.tracks[0].midi && ! loaded.tracks[0].drums);
+            expect(Synth::presetFromSettings(loaded.tracks[0].instrument->settings) == Synth::Preset::bass);
+            expect(loaded.tracks[0].clips[0].isMidi());
+            expect(*loaded.tracks[0].clips[0].notes == *state.tracks[0].clips[0].notes);
+            expect(! edit::setStretchRatio(const_cast<ArrangementState&>(loaded), loaded.tracks[0].clips[0].id, 2.0));
+        }
+
+        beginTest("Recorded keyboard events become notes, also across a loop jump");
+        {
+            std::vector<edit::RecordedMidiEvent> events { { 1000, 60, 100 }, { 1000 + 24000, 60, 0 },
+                                                          { 30000, 62, 80 }, { 90000, 64, 70 }, { 5000, 64, 0 } };
+            const auto notes = edit::notesFromEvents(events, 0, 96000, beat);
+            expectEquals(static_cast<int>(notes.size()), 3);
+            if (notes.size() == 3)
+            {
+                expectWithinAbsoluteError(notes[0].start, 1000.0 / beat, 1.0e-9);
+                expectWithinAbsoluteError(notes[0].length, 1.0, 1.0e-9);
+                expectEquals(notes[1].pitch, 62); // never released: runs to the end
+                expectWithinAbsoluteError(notes[1].end(), 4.0, 1.0e-9);
+                expectEquals(notes[2].pitch, 64); // released after the jump: to the end as well
+                expectWithinAbsoluteError(notes[2].end(), 4.0, 1.0e-9);
+            }
+        }
+
+        beginTest("Stopping releases every note; the synth sounds");
+        {
+            auto log = std::make_shared<EventLog>();
+            auto state = makeState(log);
+            ArrangementEngine engine;
+            engine.prepare(48000.0, 512);
+            engine.publish(ArrangementEngine::buildSnapshot(state));
+            engine.setPosition(48000);
+            engine.play();
+            juce::AudioBuffer<float> out(2, 512);
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 512);
+            engine.stop();
+            engine.process(nullptr, 0, nullptr, nullptr, out.getWritePointer(0), out.getWritePointer(1), 512);
+            // Locating also releases notes, so the first event is "all off", then the note.
+            expect(std::any_of(log->log.begin(), log->log.end(), [](const EventLog::Entry& e) { return e.note == 60 && e.velocity > 0; }));
+            expect(! log->log.empty() && log->log.back().note == allNotesOffNote);
+
+            Synth synth(Synth::Preset::keys);
+            synth.prepare(48000.0, 512);
+            DrumEvent on { 0, 60, 110 };
+            synth.render(&on, 1, out.getWritePointer(0), out.getWritePointer(1), 512);
+            synth.render(nullptr, 0, out.getWritePointer(0), out.getWritePointer(1), 512);
+            expect(out.getMagnitude(0, 512) > 0.01f);
+            expect(out.getMagnitude(0, 512) < 1.0f);
+            DrumEvent off { 0, 60, 0 };
+            synth.render(&off, 1, out.getWritePointer(0), out.getWritePointer(1), 512);
+            for (int block = 0; block < 200; ++block)
+                synth.render(nullptr, 0, out.getWritePointer(0), out.getWritePointer(1), 512);
+            expect(out.getMagnitude(0, 512) < 1.0e-4f); // released
+        }
+    }
+};
+
+MidiTrackTests midiTrackTests;
+
 
 
 // Doubles the signal and adds a constant, so tests can tell where it ran.

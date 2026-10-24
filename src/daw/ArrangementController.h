@@ -79,15 +79,22 @@ public:
     [[nodiscard]] bool isFreezing(const juce::Uuid& trackId) const noexcept { return freezing.count(trackId) > 0; }
     [[nodiscard]] bool isTrackFrozen(const juce::Uuid& trackId) const;
 
-    // Drum machine. Without a factory every drum track uses the built-in DrumSynth.
+    // Drum machine and MIDI tracks. The factory creates kits and plugin instruments;
+    // the built-in synth of MIDI tracks ("synth") and DrumSynth need none.
     using InstrumentFactory = std::function<std::shared_ptr<TrackInstrument>(const juce::ValueTree& settings)>;
     void setInstrumentFactory(InstrumentFactory factory);
     juce::Uuid addDrumTrack(const juce::String& name = {});
-    /** Replaces the sound source of a drum track (built-in kit or VST3 settings). */
-    juce::Result setDrumInstrument(const juce::Uuid& trackId, const juce::ValueTree& settings);
+    juce::Uuid addMidiTrack(const juce::String& name = {});
+    /** Replaces the sound source of a drum or MIDI track (kit, synth or VST3 settings). */
+    juce::Result setTrackInstrument(const juce::Uuid& trackId, const juce::ValueTree& settings);
     /** Inserts a clip playing patternIndex for the given number of bars. */
     juce::Uuid insertPatternClip(const juce::Uuid& trackId, int patternIndex, juce::int64 start, int bars);
-    void previewDrum(const juce::Uuid& trackId, int note, int velocity);
+    /** Inserts an empty MIDI clip of the given number of bars on a MIDI track. */
+    juce::Uuid insertMidiClip(const juce::Uuid& trackId, juce::int64 start, int bars);
+    /** Plays (velocity > 0) or releases a note on the track's instrument, e.g. from the piano roll. */
+    void previewNote(const juce::Uuid& trackId, int note, int velocity);
+    /** Replaces the notes of a MIDI clip as one undo step. */
+    void setClipNotes(const juce::Uuid& clipId, MidiNotes notes, const juce::String& description);
     /** Loops a pattern while the transport is stopped; null id stops it. */
     void setPatternAudition(const juce::Uuid& trackId, int patternIndex);
 
@@ -155,6 +162,8 @@ private:
     void forEachState(const std::function<void(ArrangementState&)>& visit);
     void loadAsync(const juce::File& file, std::function<void(AudioDataPtr, juce::String)> done);
     void finishRecording();
+    /** Turns the notes played during the recording into clips on the armed MIDI tracks; returns the note count. */
+    int finishMidiRecording();
     void message(const juce::String& text) const { if (onMessage) onMessage(text); }
     [[nodiscard]] double manualLatency() const noexcept { return latencyOffsetMs; }
     [[nodiscard]] juce::File audioDirectory() const { return project.getParentDirectory().getChildFile("Audio"); }

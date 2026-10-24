@@ -289,7 +289,9 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     keyboardMidi.clear();
     keyboardCollector.removeNextBlockOfMessages(keyboardMidi, numSamples);
     crashlog::setAudioStage("rig");
-    inPeak = rig.processWithInputPeak(mono, left, right, numSamples, &keyboardMidi);
+    // An armed MIDI track takes the keyboards; otherwise they play the rig's instruments.
+    const auto keysToArrangement = arrangementEngine.takesKeyboard();
+    inPeak = rig.processWithInputPeak(mono, left, right, numSamples, keysToArrangement ? nullptr : &keyboardMidi);
     crashlog::setAudioStage("recorder");
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
@@ -298,7 +300,9 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     // live rig. Tracks recording the rig read left/right before the mix is
     // added at the end of the arrangement block.
     crashlog::setAudioStage("arrangement");
+    arrangementEngine.setKeyboard(keysToArrangement ? &keyboardMidi : nullptr);
     arrangementEngine.process(inputChannelData, numInputChannels, left, right, left, right, numSamples);
+    arrangementEngine.setKeyboard(nullptr);
     crashlog::setAudioStage("output");
 
     for (int sample = 0; sample < numSamples; ++sample)

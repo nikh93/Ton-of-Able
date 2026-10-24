@@ -1,4 +1,5 @@
 #include "Arrangement.h"
+#include "Synth.h"
 #include "SampleKit.h"
 
 #include <algorithm>
@@ -69,7 +70,7 @@ juce::int64 ArrangementState::endSample() const noexcept
 const Track* ArrangementState::reampTrack() const noexcept
 {
     const auto* track = reampSource.isNull() ? nullptr : findTrack(reampSource);
-    return track != nullptr && ! track->drums && ! track->isReturn() ? track : nullptr;
+    return track != nullptr && ! track->hasInstrument() && ! track->isReturn() ? track : nullptr;
 }
 
 std::pair<juce::int64, juce::int64> ArrangementState::exportRange() const noexcept
@@ -151,17 +152,21 @@ bool Track::isFrozen(const ArrangementState& state) const
 juce::String freezeSignature(const Track& track, const ArrangementState& state)
 {
     juce::String text;
-    text << state.sampleRate << '|' << state.bpm << '|' << (track.drums ? 1 : 0);
+    text << state.sampleRate << '|' << state.bpm << '|' << (track.drums ? 1 : 0) << (track.midi ? 1 : 0);
     for (const auto& clip : track.clips)
+    {
         text << "|c" << clip.file.getFullPathName() << ',' << clip.start << ',' << clip.length << ',' << clip.offset << ','
              << clip.stretchRatio << ',' << clip.pitchSemitones << ',' << clip.gainDb << ',' << clip.fadeIn << ','
              << clip.fadeOut << ',' << clip.pattern;
+        if (clip.isMidi())
+            for (const auto& note : *clip.notes)
+                text << ";n" << note.start << ',' << note.length << ',' << note.pitch << ',' << note.velocity;
+    }
     if (track.drums)
-    {
         for (const auto& pattern : track.patterns)
             text << "|p" << pattern.toValueTree().toXmlString(juce::XmlElement::TextFormat().singleLine());
+    if (track.hasInstrument())
         text << "|i" << track.instrument->settings.toXmlString(juce::XmlElement::TextFormat().singleLine());
-    }
     // Only an active insert chain changes the sound; printed effects are in the recording.
     if (track.fx->enabled.load() && ! track.fx->printWhileRecording.load() && track.fx->settings.isValid())
         text << "|f" << track.fx->settings.toXmlString(juce::XmlElement::TextFormat().singleLine());
@@ -234,6 +239,77 @@ int addTrack(ArrangementState& state, Track track)
             ++index;
     state.tracks.insert(state.tracks.begin() + index, std::move(track));
     return index;
+}
+
+Track makeMidiTrack(const ArrangementState& state, const juce::String& name)
+{
+    auto track = makeTrack(state, name);
+    track.midi = true;
+    track.instrument->settings = synthInstrumentSettings();
+    return track;
+}
+
+Clip makeMidiClip(const juce::String& name, juce::int64 start, juce::int64 length, MidiNotes notes)
+{
+    Clip clip;
+    clip.name = name;
+    std::stable_sort(notes.begin(), notes.end(), [](const MidiNote& a, const MidiNote& b) { return a.start < b.start; });
+    clip.notes = std::make_shared<const MidiNotes>(std::move(notes));
+    clip.sourceSamples = Clip::patternSourceSamples;
+    clip.start = std::max<juce::int64>(0, start);
+    clip.length = std::max<juce::int64>(1, length);
+    return clip;
+}
+
+bool setNotes(ArrangementState& state, const juce::Uuid& clipId, MidiNotes notes)
+{
+    auto* clip = state.findClip(clipId);
+    if (clip == nullptr || ! clip->isMidi())
+        return false;
+    for (auto& note : notes)
+    {
+        note.start = std::max(0.0, note.start);
+        note.length = std::max(1.0 / 64.0, note.length);
+        note.pitch = juce::jlimit(0, 127, note.pitch);
+        note.velocity = juce::jlimit(1, 127, note.velocity);
+    }
+    std::stable_sort(notes.begin(), notes.end(), [](const MidiNote& a, const MidiNote& b) { return a.start < b.start; });
+    clip->notes = std::make_shared<const MidiNotes>(std::move(notes));
+    return true;
+}
+
+MidiNotes notesFromEvents(const std::vector<RecordedMidiEvent>& events, juce::int64 clipStart, juce::int64 end, double samplesPerBeat)
+{
+    MidiNotes notes;
+    std::array<juce::int64, 128> onAt;
+    std::array<int, 128> velocity {};
+    onAt.fill(-1);
+    const auto toBeats = [&](juce::int64 position) { return static_cast<double>(position - clipStart) / samplesPerBeat; };
+    const auto close = [&](int pitch, juce::int64 at)
+    {
+        if (onAt[static_cast<size_t>(pitch)] < 0)
+            return;
+        const auto on = onAt[static_cast<size_t>(pitch)];
+        const auto start = toBeats(on);
+        // A note-off before its note-on came after a loop jump: the note ran to the end.
+        notes.push_back({ start, std::max(1.0 / 64.0, toBeats(at > on ? at : end) - start), pitch, velocity[static_cast<size_t>(pitch)] });
+        onAt[static_cast<size_t>(pitch)] = -1;
+    };
+    for (const auto& event : events)
+    {
+        if (event.note < 0 || event.note > 127 || event.position < clipStart)
+            continue;
+        close(event.note, event.position); // a repeated note-on ends the previous one
+        if (event.velocity > 0)
+        {
+            onAt[static_cast<size_t>(event.note)] = event.position;
+            velocity[static_cast<size_t>(event.note)] = juce::jlimit(1, 127, event.velocity);
+        }
+    }
+    for (int pitch = 0; pitch < 128; ++pitch)
+        close(pitch, std::max(end, onAt[static_cast<size_t>(pitch)] + 1));
+    std::stable_sort(notes.begin(), notes.end(), [](const MidiNote& a, const MidiNote& b) { return a.start < b.start; });
+    return notes;
 }
 
 Clip makePatternClip(int patternIndex, const juce::String& name, juce::int64 start, juce::int64 length)
@@ -379,8 +455,8 @@ bool applyStretch(ArrangementState& state, const juce::Uuid& clipId, juce::int64
 {
     Clip* clip = nullptr;
     auto* track = trackOf(state, clipId, clip);
-    if (track == nullptr || clip->length <= 0 || clip->isPattern())
-        return false; // patterns follow the tempo instead of being stretched
+    if (track == nullptr || clip->length <= 0 || clip->isGenerated())
+        return false; // patterns and MIDI follow the tempo instead of being stretched
     const auto oldLength = clip->length;
     const auto oldEnd = clip->end();
     const auto ratio = clampRatio(clip->stretchRatio * static_cast<double>(std::max(minimumLength, requestedLength)) / static_cast<double>(oldLength));
@@ -421,7 +497,7 @@ bool setStretchRatio(ArrangementState& state, const juce::Uuid& clipId, double r
 bool setPitch(ArrangementState& state, const juce::Uuid& clipId, double semitones)
 {
     auto* clip = state.findClip(clipId);
-    if (clip == nullptr || clip->isPattern())
+    if (clip == nullptr || clip->isGenerated())
         return false;
     clip->pitchSemitones = juce::jlimit(-24.0, 24.0, semitones);
     return true;
@@ -630,6 +706,11 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
             node.addChild(patterns, -1, nullptr);
             node.addChild(track.instrument->settings.createCopy(), -1, nullptr);
         }
+        if (track.midi)
+        {
+            node.setProperty("midi", true, nullptr);
+            node.addChild(track.instrument->settings.createCopy(), -1, nullptr);
+        }
         if (track.fx->settings.isValid())
         {
             juce::ValueTree fx("Fx");
@@ -657,6 +738,14 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
             c.setProperty("fadeOut", clip.fadeOut, nullptr);
             if (clip.isPattern())
                 c.setProperty("pattern", clip.pattern, nullptr);
+            if (clip.isMidi())
+            {
+                juce::ValueTree notes("Notes");
+                for (const auto& note : *clip.notes)
+                    notes.appendChild(juce::ValueTree("n").setProperty("s", note.start, nullptr).setProperty("l", note.length, nullptr)
+                                          .setProperty("p", note.pitch, nullptr).setProperty("v", note.velocity, nullptr), nullptr);
+                c.appendChild(notes, nullptr);
+            }
             if (clip.hasTakes())
             {
                 juce::StringArray takes;
@@ -715,6 +804,13 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
                 track.frozen = std::move(render);
         }
         track.drums = static_cast<bool>(node.getProperty("drums", false));
+        track.midi = ! track.drums && static_cast<bool>(node.getProperty("midi", false));
+        if (track.midi)
+        {
+            track.instrument->settings = synthInstrumentSettings();
+            if (const auto instrument = node.getChildWithName("Instrument"); instrument.isValid())
+                track.instrument->settings = instrument.createCopy();
+        }
         if (track.drums)
         {
             for (const auto& pattern : node.getChildWithName("Patterns"))
@@ -755,7 +851,22 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
             clip.activeTake = juce::jlimit(0, std::max(0, static_cast<int>(clip.takes.size()) - 1), static_cast<int>(c.getProperty("activeTake", 0)));
             if (clip.takes.size() < 2)
                 clip.takes.clear();
-            if (clip.isPattern())
+            if (const auto notes = c.getChildWithName("Notes"); notes.isValid() && ! clip.isPattern())
+            {
+                MidiNotes read;
+                for (const auto& n : notes)
+                {
+                    MidiNote note;
+                    note.start = std::max(0.0, static_cast<double>(n.getProperty("s", 0.0)));
+                    note.length = std::max(1.0 / 64.0, static_cast<double>(n.getProperty("l", 1.0)));
+                    note.pitch = juce::jlimit(0, 127, static_cast<int>(n.getProperty("p", 60)));
+                    note.velocity = juce::jlimit(1, 127, static_cast<int>(n.getProperty("v", 100)));
+                    read.push_back(note);
+                }
+                std::stable_sort(read.begin(), read.end(), [](const MidiNote& a, const MidiNote& b) { return a.start < b.start; });
+                clip.notes = std::make_shared<const MidiNotes>(std::move(read));
+            }
+            if (clip.isGenerated())
             {
                 clip.sourceSamples = Clip::patternSourceSamples;
                 clip.stretchRatio = 1.0;
@@ -765,7 +876,7 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
                 track.clips.push_back(std::move(clip));
         }
         edit::sortClips(track);
-        if (track.isReturn() && (state.returnTrackIndex(track.returnSlot) >= 0 || track.drums))
+        if (track.isReturn() && (state.returnTrackIndex(track.returnSlot) >= 0 || track.hasInstrument()))
             track.returnSlot = -1; // a damaged file must not create two returns for one slot
         if (track.isReturn())
             track.clips.clear();
@@ -787,7 +898,7 @@ void changeSampleRate(ArrangementState& state, double newRate)
             clip.length = scale(clip.length);
             clip.fadeIn = scale(clip.fadeIn);
             clip.fadeOut = scale(clip.fadeOut);
-            if (! clip.isPattern())
+            if (! clip.isGenerated())
                 clip.sourceSamples = scale(clip.sourceSamples);
             clip.offset *= factor;
             clip.source.reset();

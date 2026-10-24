@@ -40,6 +40,7 @@ public:
         const AudioData* stretched = nullptr; // preferred when present
         float gain = 1.0f;
         int pattern = -1;                     // drum pattern clip
+        const MidiNotes* notes = nullptr;     // MIDI clip
     };
 
     struct TrackRender
@@ -52,7 +53,8 @@ public:
         bool armed = false;
         bool monitorInput = false;
         int inputChannel = -1;
-        bool drums = false;
+        bool drums = false;           // drum or MIDI track: its instrument plays the clips
+        bool midi = false;            // MIDI track: armed, it plays the MIDI keyboards
         TrackInstrument* instrument = nullptr;
         const std::vector<DrumPattern>* patterns = nullptr;
         int returnSlot = -1;          // >= 0: return track fed by the sends
@@ -68,9 +70,11 @@ public:
         std::vector<std::shared_ptr<TrackProcessor>> retainedProcessors;
         std::vector<std::shared_ptr<TrackInstrument>> retainedInstruments;
         std::vector<std::shared_ptr<const std::vector<DrumPattern>>> retainedPatterns;
+        std::vector<std::shared_ptr<const MidiNotes>> retainedNotes;
         double samplesPerStep = 6000.0;       // one sixteenth note
         std::array<int, maximumReturns> returnTracks { -1, -1, -1, -1 }; // index into tracks per slot
         int reampTrack = -1;                  // index of the track feeding the live rig, or -1
+        bool keyboardTaken = false;           // an armed MIDI track plays the MIDI keyboards
     };
 
 
@@ -138,6 +142,13 @@ public:
         track's clips (dry, at the position process() will play next) into mono
         and returns true; otherwise leaves mono alone and returns false. */
     bool renderReampInput(float* mono, int numSamples) noexcept;
+    /** Audio thread: an armed MIDI track takes the MIDI keyboards (the live rig then does not). */
+    [[nodiscard]] bool takesKeyboard() const noexcept;
+    /** Audio thread, before process(): the MIDI keyboard input of this callback, or null. */
+    void setKeyboard(const juce::MidiBuffer* keyboard) noexcept { keyboardInput = keyboard; }
+    /** Message thread, after stopRecording(): what was played into armed MIDI tracks
+        (transport positions, from the punch-in on). */
+    [[nodiscard]] std::vector<edit::RecordedMidiEvent> takeRecordedMidi();
 
     // Device lifecycle and audio thread.
     void prepare(double sampleRate, int maximumBlockSize);
@@ -172,6 +183,9 @@ private:
                       float* mixLeft, float* mixRight) noexcept;
     void recordTrack(const juce::Uuid& trackId, const float* left, const float* right, juce::int64 position, int length) noexcept;
     void renderClick(juce::int64 position, float* outLeft, float* outRight, int length) const noexcept;
+    /** Keyboard note-ons/offs inside [inputOffset, inputOffset + length) of the callback as events. */
+    int keyboardEvents(int inputOffset, int length, DrumEvent* out, int maxEvents) const noexcept;
+    void recordKeyboard(juce::int64 position, int inputOffset, int length) noexcept;
 
     std::atomic<const Snapshot*> live { nullptr };
     std::shared_ptr<const Snapshot> owned;
@@ -190,6 +204,13 @@ private:
     std::atomic<float> masterDb { 0.0f };
     std::atomic<float> masterMeter { 0.0f };
     std::atomic<double> sampleRate { 0.0 };
+
+    const juce::MidiBuffer* keyboardInput = nullptr;
+    bool flushNotes = false;   // stop, jump or loop pass: release every instrument note once
+    bool wasPlaying = false;
+    static constexpr int maximumRecordedMidi = 16384;
+    std::array<edit::RecordedMidiEvent, maximumRecordedMidi> recordedMidi;
+    std::atomic<int> recordedMidiCount { 0 };
 
     float currentMaster = 1.0f;
     int maximumBlock = 0;

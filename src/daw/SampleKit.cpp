@@ -330,7 +330,8 @@ void SampleKit::render(const DrumEvent* events, int numEvents, float* left, floa
     DrumEvent previews[16];
     const auto previewCount = takePreviews(previews, 16);
     for (int index = 0; index < previewCount; ++index)
-        trigger(previews[index].note, previews[index].velocity);
+        if (previews[index].velocity > 0)
+            trigger(previews[index].note, previews[index].velocity);
 
     std::fill(left, left + numSamples, 0.0f);
     std::fill(right, right + numSamples, 0.0f);
@@ -343,7 +344,7 @@ void SampleKit::render(const DrumEvent* events, int numEvents, float* left, floa
     {
         // Render up to the next event, then trigger it.
         for (; next < numEvents && events[next].offset <= start; ++next)
-            if (events[next].velocity > 0)
+            if (events[next].velocity > 0 && events[next].note != allNotesOffNote)
                 trigger(events[next].note, events[next].velocity);
         const auto end = next < numEvents ? std::min(numSamples, std::max(start + 1, events[next].offset)) : numSamples;
         for (auto& voice : voices)

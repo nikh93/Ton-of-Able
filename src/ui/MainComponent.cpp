@@ -1235,7 +1235,7 @@ void MainComponent::configureArrangement()
         host.setKit = [this](const juce::Uuid& id, const juce::String& kitId)
         {
             instrumentEditors.erase(id);
-            return arrangementController.setDrumInstrument(id, kitId.isEmpty() ? daw::builtInInstrumentSettings() : daw::SampleKit::settingsFor(kitId));
+            return arrangementController.setTrackInstrument(id, kitId.isEmpty() ? daw::builtInInstrumentSettings() : daw::SampleKit::settingsFor(kitId));
         };
         host.openEditor = [this](const juce::Uuid& id) { openInstrumentEditor(id); };
         return std::make_unique<nam::ui::DrumMachineComponent>(arrangementController, trackId, pattern, std::move(host));
@@ -1522,7 +1522,7 @@ void MainComponent::showGraphicEq(juce::Rectangle<int> anchor)
 juce::Result MainComponent::setDrumSource(const juce::Uuid& trackId, const juce::PluginDescription* description)
 {
     instrumentEditors.erase(trackId); // the editor belongs to the old instrument
-    const auto result = arrangementController.setDrumInstrument(trackId,
+    const auto result = arrangementController.setTrackInstrument(trackId,
         description != nullptr ? PluginInstrument::settingsFor(*description) : daw::builtInInstrumentSettings());
     if (result.wasOk() && description != nullptr)
         openInstrumentEditor(trackId);

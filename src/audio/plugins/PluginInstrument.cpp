@@ -12,10 +12,11 @@ PluginInstrument::~PluginInstrument()
     }
 }
 
-juce::ValueTree PluginInstrument::settingsFor(const juce::PluginDescription& description, const juce::MemoryBlock& state)
+juce::ValueTree PluginInstrument::settingsFor(const juce::PluginDescription& description, const juce::MemoryBlock& state, int channel)
 {
     juce::ValueTree settings("Instrument");
     settings.setProperty("type", "vst3", nullptr);
+    settings.setProperty("channel", juce::jlimit(1, 16, channel), nullptr);
     settings.setProperty("name", description.name, nullptr);
     settings.setProperty("stateBase64", state.toBase64Encoding(), nullptr);
     if (const auto xml = description.createXml())
@@ -59,6 +60,7 @@ std::shared_ptr<PluginInstrument> PluginInstrument::fromSettings(const juce::Val
     if (state.fromBase64Encoding(settings.getProperty("stateBase64").toString()) && state.getSize() > 0)
         instrument->plugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
     instrument->description = description;
+    instrument->channel = juce::jlimit(1, 16, static_cast<int>(settings.getProperty("channel", 10)));
     return instrument;
 }
 
@@ -100,12 +102,16 @@ void PluginInstrument::render(const daw::DrumEvent* events, int numEvents, float
         midi.clear();
         if (position == 0)
             for (int index = 0; index < previewCount; ++index)
-                midi.addEvent(juce::MidiMessage::noteOn(10, previews[index].note, previews[index].velocity), 0);
+                midi.addEvent(previews[index].velocity > 0 ? juce::MidiMessage::noteOn(channel, previews[index].note, previews[index].velocity)
+                                                          : juce::MidiMessage::noteOff(channel, previews[index].note), 0);
         for (; eventIndex < numEvents && events[eventIndex].offset <= position; ++eventIndex)
         {
             const auto& event = events[eventIndex];
-            midi.addEvent(event.velocity > 0 ? juce::MidiMessage::noteOn(10, event.note, event.velocity)
-                                             : juce::MidiMessage::noteOff(10, event.note), 0);
+            if (event.note == daw::allNotesOffNote)
+                midi.addEvent(juce::MidiMessage::allNotesOff(channel), 0);
+            else
+                midi.addEvent(event.velocity > 0 ? juce::MidiMessage::noteOn(channel, event.note, event.velocity)
+                                                 : juce::MidiMessage::noteOff(channel, event.note), 0);
         }
         const auto next = eventIndex < numEvents ? juce::jlimit(position + 1, numSamples, events[eventIndex].offset) : numSamples;
         const auto length = next - position;
@@ -135,7 +141,7 @@ juce::ValueTree PluginInstrument::currentSettings()
         if (plugin != nullptr)
             plugin->getStateInformation(state);
     }
-    return settingsFor(description, state);
+    return settingsFor(description, state, channel);
 }
 
 std::shared_ptr<daw::TrackInstrument> PluginInstrument::createOfflineCopy() const

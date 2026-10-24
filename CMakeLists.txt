@@ -49,6 +49,8 @@ set(DAW_SOURCES
     src/audio/effects/FlipFlopOctaver.h
     src/daw/DawText.h
     src/daw/Drums.cpp
+    src/daw/Synth.cpp
+    src/daw/Synth.h
     src/daw/Drums.h
     src/presets/ChainLayout.cpp
     src/presets/ChainLayout.h
