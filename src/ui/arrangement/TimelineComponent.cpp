@@ -520,6 +520,11 @@ void TimelineComponent::paintRuler(juce::Graphics& g)
         const auto x1 = sampleToX(static_cast<double>(state.loopEnd));
         g.setColour(state.loopEnabled ? Theme::amber() : Theme::subduedText().withAlpha(0.5f));
         g.fillRoundedRectangle(juce::Rectangle<float>(x0, 1.0f, x1 - x0, 10.0f), 3.0f);
+        // Grips at both ends: drag them to change start or end alone.
+        g.setColour(juce::Colours::black.withAlpha(0.45f));
+        for (const auto x : { x0 + 3.0f, x1 - 4.0f })
+            if (x1 - x0 > 12.0f)
+                g.fillRect(juce::Rectangle<float>(x, 3.0f, 1.0f, 6.0f));
     }
 
     const auto bar = grid.samplesPerBar();
@@ -674,11 +679,28 @@ void TimelineComponent::paintPattern(juce::Graphics& g, const daw::Clip& clip, c
 }
 
 //==============================================================================
+int TimelineComponent::loopEdgeAt(float x) const
+{
+    const auto& state = controller.state();
+    if (state.loopEnd <= state.loopStart)
+        return 0;
+    const auto x0 = sampleToX(static_cast<double>(state.loopStart));
+    const auto x1 = sampleToX(static_cast<double>(state.loopEnd));
+    // On a very short loop the inner half stays for moving it.
+    const auto grab = std::min(7.0f, (x1 - x0) / 3.0f);
+    if (std::abs(x - x0) <= std::max(grab, 3.0f) && x < x0 + grab)
+        return -1;
+    if (std::abs(x - x1) <= std::max(grab, 3.0f) && x > x1 - grab)
+        return 1;
+    return 0;
+}
+
 void TimelineComponent::mouseMove(const juce::MouseEvent& event)
 {
     if (event.y < rulerHeight)
     {
-        setMouseCursor(juce::MouseCursor::NormalCursor);
+        setMouseCursor(event.y < 12 && loopEdgeAt(event.position.x) != 0 ? juce::MouseCursor::LeftRightResizeCursor
+                                                                         : juce::MouseCursor::NormalCursor);
         return;
     }
     if (currentTool == Tool::split)
@@ -717,7 +739,8 @@ void TimelineComponent::mouseDown(const juce::MouseEvent& event)
         if (event.y < 12)
         {
             const auto inside = state.loopEnd > state.loopStart && at >= state.loopStart && at <= state.loopEnd;
-            drag = inside ? Drag::loopMove : Drag::loopCreate;
+            const auto edge = loopEdgeAt(event.position.x);
+            drag = edge < 0 ? Drag::loopStart : edge > 0 ? Drag::loopEnd : inside ? Drag::loopMove : Drag::loopCreate;
             dragAnchorSample = inside ? at : snap(at, event.mods);
             loopDragStart = state.loopStart;
             loopDragEnd = state.loopEnd;
@@ -832,6 +855,17 @@ void TimelineComponent::mouseDrag(const juce::MouseEvent& event)
             dragMoved = true;
             return;
         }
+        case Drag::loopStart:
+        case Drag::loopEnd:
+        {
+            // One edge follows the mouse; past the other one they swap roles.
+            const auto edge = snap(std::max<juce::int64>(0, at), event.mods);
+            const auto fixed = drag == Drag::loopStart ? loopDragEnd : loopDragStart;
+            if (edge != fixed)
+                controller.setLoop(state.loopEnabled, std::min(edge, fixed), std::max(edge, fixed));
+            dragMoved = true;
+            return;
+        }
         case Drag::loopMove:
         {
             const auto length = loopDragEnd - loopDragStart;
@@ -939,7 +973,7 @@ void TimelineComponent::mouseUp(const juce::MouseEvent& event)
     {
         if (finished == Drag::marquee)
             controller.locate(snap(xToSample(event.position.x), event.mods)); // click on empty space sets the insert marker
-        if (finished == Drag::loopCreate || finished == Drag::loopMove)
+        if (finished == Drag::loopCreate || finished == Drag::loopMove || finished == Drag::loopStart || finished == Drag::loopEnd)
         {
             // A click on the loop strip toggles the loop.
             const auto& state = controller.state();

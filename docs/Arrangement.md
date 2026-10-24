@@ -146,7 +146,7 @@ Beides rechnet die Rubber Band Library (R3-Engine, Offline-Modus) im Hintergrund
 - **Ctrl + Mausrad**: horizontal zoomen um die Mausposition, auch per Touchpad-Pinch, **Ctrl + / Ctrl -** oder die Lupen-Buttons. Der dritte Zoom-Button bzw. **Z** zeigt das ganze Arrangement.
 - **Mausrad**: Spuren scrollen · **Shift + Mausrad**: horizontal scrollen · **Alt + Mausrad**: Spurhöhe.
 - Klick ins Lineal oder in eine freie Fläche setzt die Abspielposition. **Pos1** springt zum Anfang. **Stop** zweimal = zurück zum Anfang. **F** schaltet das Mitlaufen der Ansicht an/aus.
-- **Loop**: oberen Lineal-Streifen ziehen, Klick auf den Streifen bzw. **Ctrl+L** schaltet an/aus. Während einer Aufnahme läuft der Transport linear weiter.
+- **Loop**: im oberen Lineal-Streifen außerhalb des Balkens ziehen legt einen neuen Bereich an; den Balken in der Mitte ziehen verschiebt ihn, **an Anfang oder Ende ziehen** (Mauszeiger ↔) verändert nur diese Grenze. Alles rastet am Raster ein (Alt: frei). Klick auf den Streifen bzw. **Ctrl+L** schaltet an/aus. Auch während einer Aufnahme läuft der Loop weiter – jede Runde wird ein Take.
 - Raster (1 Takt … 1/32 oder aus), Tempo (Doppelklick auf BPM), Taktart, Metronom (**Click**).
 
 ## Import

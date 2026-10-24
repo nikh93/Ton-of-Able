@@ -57,6 +57,8 @@ public:
 
     void paint(juce::Graphics&) override;
     void mouseMove(const juce::MouseEvent&) override;
+    /** In the loop strip: -1 near the loop start, 1 near its end, 0 elsewhere. */
+    [[nodiscard]] int loopEdgeAt(float x) const;
     void mouseDown(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
@@ -70,7 +72,7 @@ public:
 
 private:
     enum class Zone { none, body, leftEdge, rightEdge, fadeIn, fadeOut };
-    enum class Drag { none, move, trimStart, trimEnd, stretchStart, stretchEnd, fadeIn, fadeOut, marquee, scrub, loopCreate, loopMove };
+    enum class Drag { none, move, trimStart, trimEnd, stretchStart, stretchEnd, fadeIn, fadeOut, marquee, scrub, loopCreate, loopMove, loopStart, loopEnd };
 
     struct Hit
     {
