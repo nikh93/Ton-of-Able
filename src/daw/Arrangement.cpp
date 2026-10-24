@@ -72,6 +72,12 @@ const Track* ArrangementState::reampTrack() const noexcept
     return track != nullptr && ! track->drums && ! track->isReturn() ? track : nullptr;
 }
 
+juce::int64 ArrangementState::playStart(juce::int64 position) const noexcept
+{
+    const auto inside = position >= loopStart && position < loopEnd;
+    return loopEnabled && loopEnd > loopStart && ! inside ? loopStart : position;
+}
+
 Track* ArrangementState::findTrack(const juce::Uuid& id) noexcept
 {
     return const_cast<Track*>(std::as_const(*this).findTrack(id));
