@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_data_structures/juce_data_structures.h>
@@ -50,6 +51,8 @@ private:
     juce::AudioPluginFormatManager formats; // Outlives the instance.
     std::unique_ptr<juce::AudioPluginInstance> plugin;
     juce::PluginDescription description;
+    // Plugin name for crash reports; read by the crash handler without locking.
+    std::array<char, 96> crashName {};
     juce::AudioBuffer<float> work, dryDelay;
     juce::MidiBuffer midi;
     std::atomic<bool> bypassed { false };

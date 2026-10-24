@@ -10,4 +10,10 @@
 namespace crashlog
 {
 void install(const juce::File& logFile);
+
+// Breadcrumbs written into the crash report: what the audio callback was doing
+// and which plugin it was inside. Lock- and allocation-free; the strings must
+// stay valid (literals or storage owned by the caller).
+void setAudioStage(const char* stage) noexcept;
+void setCurrentPlugin(const char* name) noexcept;
 }

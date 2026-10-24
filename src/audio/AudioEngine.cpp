@@ -134,6 +134,13 @@ juce::String AudioEngine::lastError() const
 
 void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
+    const auto* messageManager = juce::MessageManager::getInstanceWithoutCreating();
+    const auto onMessageThread = messageManager != nullptr && messageManager->isThisTheMessageThread();
+    logger.log(onMessageThread ? Logger::Level::info : Logger::Level::warning,
+               "[Device] about to start called on " + juce::String(onMessageThread ? "the message thread" : "a driver thread")
+               + (callbacksInFlight.load() > 0 ? ", WHILE an audio callback is still running" : "")
+               + (deviceRunning.load() ? ", without a stop since the last start" : ""));
+    deviceRunning.store(false);
     const auto rate = device->getCurrentSampleRate();
     const auto block = device->getCurrentBufferSizeSamples();
     activeSampleRate.store(rate, std::memory_order_relaxed);
@@ -147,9 +154,15 @@ void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
     outputPeak.store(0.0f, std::memory_order_relaxed);
     firstCallbackLogged.store(false, std::memory_order_relaxed);
     oversizedBlockLogged.store(false, std::memory_order_relaxed);
+    concurrentCallbackLogged.store(false);
+    callbackWhileStoppedLogged.store(false);
+    channelMismatchLogged.store(false);
+    announcedInputs.store(device->getActiveInputChannels().countNumberOfSetBits());
+    announcedOutputs.store(device->getActiveOutputChannels().countNumberOfSetBits());
     logger.log(Logger::Level::info, "[Device] about to start: " + device->getTypeName() + " \"" + device->getName() + "\", "
                + juce::String(rate) + " Hz, buffer " + juce::String(block) + ", in " + device->getActiveInputChannels().toString(2)
                + " / out " + device->getActiveOutputChannels().toString(2) + ", rig prepared");
+    deviceRunning.store(true);
 }
 
 void AudioEngine::audioDeviceError(const juce::String& errorMessage)
@@ -164,7 +177,9 @@ void AudioEngine::changeListenerCallback(juce::ChangeBroadcaster*)
 
 void AudioEngine::audioDeviceStopped()
 {
-    logger.log(Logger::Level::info, "[Device] stopped");
+    deviceRunning.store(false);
+    logger.log(callbacksInFlight.load() > 0 ? Logger::Level::warning : Logger::Level::info,
+               juce::String("[Device] stopped") + (callbacksInFlight.load() > 0 ? " WHILE an audio callback is still running" : ""));
     inputPeak.store(0.0f, std::memory_order_relaxed);
     outputPeak.store(0.0f, std::memory_order_relaxed);
 }
@@ -179,6 +194,30 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     // Host-owned processing avoids allocation, blocking waits, UI and file I/O.
     // VST3 slots use try-locks and dry fallback; third-party plugin internals
     // remain outside that guarantee. Models and IRs are prepared off-thread.
+    // Leaves the in-flight count and the crash breadcrumb on every return path.
+    struct CallbackScope
+    {
+        explicit CallbackScope(std::atomic<int>& counter) : count(counter), previous(counter.fetch_add(1)) {}
+        ~CallbackScope() { crashlog::setAudioStage("idle"); count.fetch_sub(1); }
+        std::atomic<int>& count;
+        const int previous;
+    } scope(callbacksInFlight);
+    crashlog::setAudioStage("callback entry");
+
+    if (scope.previous > 0 && ! concurrentCallbackLogged.exchange(true))
+        logger.logRealtime(Logger::Level::error, "[Device] two audio callbacks run at the same time (e.g. an old driver thread still active)");
+    if (! deviceRunning.load(std::memory_order_relaxed) && ! callbackWhileStoppedLogged.exchange(true))
+        logger.logRealtime(Logger::Level::error, "[Device] audio callback outside aboutToStart/stopped (rig may be preparing)");
+    if ((numInputChannels != announcedInputs.load(std::memory_order_relaxed)
+         || numOutputChannels != announcedOutputs.load(std::memory_order_relaxed))
+        && ! channelMismatchLogged.exchange(true))
+    {
+        char text[160];
+        std::snprintf(text, sizeof(text), "[Device] callback channels %d in / %d out differ from announced %d / %d",
+                      numInputChannels, numOutputChannels, announcedInputs.load(), announcedOutputs.load());
+        logger.logRealtime(Logger::Level::warning, text);
+    }
+
     performanceMonitor.beginBlock();
     float inPeak = 0.0f;
     float outPeak = 0.0f;
@@ -207,6 +246,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
         return;
     }
 
+    crashlog::setAudioStage("input");
     auto* mono = monoBuffer.getWritePointer(0);
     if (sourceMode.load(std::memory_order_relaxed) == SourceMode::wav)
         filePlayer.process(mono, numSamples);
@@ -221,14 +261,18 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     auto* right = stereoBuffer.getWritePointer(1);
     keyboardMidi.clear();
     keyboardCollector.removeNextBlockOfMessages(keyboardMidi, numSamples);
+    crashlog::setAudioStage("rig");
     inPeak = rig.processWithInputPeak(mono, left, right, numSamples, &keyboardMidi);
+    crashlog::setAudioStage("recorder");
     float* stereoChannels[] { left, right };
     juce::AudioBuffer<float> stereoView(stereoChannels, 2, numSamples);
     recorder.process(stereoView);
     // Multitrack playback, input monitoring and click are added on top of the
     // live rig. Tracks recording the rig read left/right before the mix is
     // added at the end of the arrangement block.
+    crashlog::setAudioStage("arrangement");
     arrangementEngine.process(inputChannelData, numInputChannels, left, right, left, right, numSamples);
+    crashlog::setAudioStage("output");
 
     for (int sample = 0; sample < numSamples; ++sample)
     {

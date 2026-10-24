@@ -1,5 +1,7 @@
 #include "Vst3Slot.h"
 
+#include "diagnostics/CrashHandler.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -52,6 +54,8 @@ void Vst3Slot::prepare(double rate, int blockSize)
         // Drivers may invoke device lifecycle callbacks from their own thread.
         // Never enter VST3 setup there while holding a lock needed by the UI.
         pendingRate=rate; pendingBlock=blockSize;
+        juce::Logger::writeToLog("[Plugin] prepare of \"" + description.name + "\" (" + juce::String(rate) + " Hz, block "
+                                 + juce::String(blockSize) + ") called off the message thread; deferred, slot inactive until then");
         triggerAsyncUpdate();
         return;
     }
@@ -63,6 +67,8 @@ void Vst3Slot::prepare(double rate, int blockSize)
         || blockSize < 1 || blockSize > maximumSupportedBlock)
     {
         jassertfalse;
+        juce::Logger::writeToLog("[Plugin] prepare of \"" + description.name + "\" rejected: " + juce::String(rate) + " Hz, block "
+                                 + juce::String(blockSize));
         return; // Unsupported format: process leaves input untouched.
     }
     sampleRate = rate;
@@ -82,6 +88,10 @@ void Vst3Slot::prepare(double rate, int blockSize)
             if (currentLatency < 0 || currentLatency > maximumLatency)
                 throw std::runtime_error("Plugin latency exceeds slot capacity");
             reportedLatency.store(currentLatency, std::memory_order_relaxed);
+            juce::Logger::writeToLog("[Plugin] prepared \"" + description.name + "\": " + juce::String(rate) + " Hz, block "
+                                     + juce::String(blockSize) + ", in " + juce::String(plugin->getTotalNumInputChannels())
+                                     + " / out " + juce::String(plugin->getTotalNumOutputChannels())
+                                     + ", latency " + juce::String(currentLatency));
         }
         prepared = true;
     }
@@ -89,6 +99,7 @@ void Vst3Slot::prepare(double rate, int blockSize)
     {
         release(plugin.get());
         faulted = true;
+        juce::Logger::writeToLog("[Plugin] prepare of \"" + description.name + "\" threw; slot faulted");
     }
 }
 
@@ -175,6 +186,11 @@ juce::Result Vst3Slot::install(const juce::PluginDescription& desc,
         release(plugin.get());
         plugin = std::move(candidate);
         description = desc;
+        crashName.fill('\0');
+        desc.name.copyToUTF8(crashName.data(), crashName.size() - 1);
+        juce::Logger::writeToLog("[Plugin] loaded \"" + desc.name + "\" (" + desc.fileOrIdentifier + "): " + juce::String(sampleRate)
+                                 + " Hz, block " + juce::String(maximumBlockSize) + ", in " + juce::String(plugin->getTotalNumInputChannels())
+                                 + " / out " + juce::String(plugin->getTotalNumOutputChannels()) + ", latency " + juce::String(latency));
         bypassed.store(bypass, std::memory_order_relaxed);
         faulted = false;
         currentLatency = latency;
@@ -207,6 +223,7 @@ void Vst3Slot::clear()
     release(plugin.get());
     plugin.reset();
     description = {};
+    crashName.fill('\0');
     faulted = false;
     currentLatency = 0;
     reportedLatency.store(0, std::memory_order_relaxed);
@@ -274,10 +291,13 @@ void Vst3Slot::process(juce::AudioBuffer<float>& audio, juce::MidiBuffer* notes)
     try
     {
         // Run wet even when bypassed so tails and latency stay continuous.
+        crashlog::setCurrentPlugin(crashName.data());
         plugin->processBlock(block, events);
+        crashlog::setCurrentPlugin(nullptr);
     }
     catch (...)
     {
+        crashlog::setCurrentPlugin(nullptr);
         faulted = true;
         reportedLatency.store(0, std::memory_order_relaxed);
         return dropMidi(); // Original caller buffer is still intact.

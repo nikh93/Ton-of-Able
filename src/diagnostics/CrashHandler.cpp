@@ -22,6 +22,18 @@ juce::File& target()
 }
 
 std::atomic<bool> reported { false };
+std::atomic<const char*> audioStage { nullptr };
+std::atomic<const char*> currentPlugin { nullptr };
+std::atomic<juce::Thread::ThreadID> audioThread { nullptr };
+
+juce::String breadcrumbs()
+{
+    const auto* stage = audioStage.load();
+    const auto* plugin = currentPlugin.load();
+    return "audio callback thread " + juce::String(static_cast<juce::int64>(reinterpret_cast<juce::pointer_sized_int>(audioThread.load())))
+         + ", last audio stage \"" + juce::String(stage != nullptr ? stage : "none")
+         + "\", inside plugin \"" + juce::String(plugin != nullptr ? plugin : "none") + "\"";
+}
 
 void write(const juce::String& text)
 {
@@ -163,6 +175,7 @@ LONG WINAPI unhandledException(EXCEPTION_POINTERS* info)
     if (! reported.exchange(true))
     {
         write("Unhandled exception " + describeRecord(*info->ExceptionRecord));
+        write("Breadcrumbs: " + breadcrumbs());
         write("Stack of the crashing thread:\n" + stackFrom(*info->ContextRecord));
         writeMinidump(info);
     }
@@ -176,7 +189,7 @@ LONG WINAPI firstChanceException(EXCEPTION_POINTERS* info)
     const auto& record = *info->ExceptionRecord;
     if (isSevere(record.ExceptionCode) && firstChanceReports.fetch_add(1) < 20)
         write("First-chance exception " + describeRecord(record)
-              + " (fatal if nobody handles it; ASIO drivers sometimes catch their own)");
+              + " (fatal if nobody handles it; ASIO drivers sometimes catch their own); " + breadcrumbs());
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -202,7 +215,7 @@ void signalCrash(void* signal)
 void abortSignal(int)
 {
     if (! reported.exchange(true))
-        write("abort() called. Stack:\n" + juce::SystemStats::getStackBacktrace());
+        write("abort() called; " + breadcrumbs() + ". Stack:\n" + juce::SystemStats::getStackBacktrace());
 }
 
 void terminateHandler()
@@ -218,6 +231,17 @@ void terminateHandler()
     reported = true;
     std::abort();
 }
+}
+
+void setAudioStage(const char* stage) noexcept
+{
+    audioStage.store(stage, std::memory_order_relaxed);
+    audioThread.store(juce::Thread::getCurrentThreadId(), std::memory_order_relaxed);
+}
+
+void setCurrentPlugin(const char* name) noexcept
+{
+    currentPlugin.store(name, std::memory_order_relaxed);
 }
 
 void install(const juce::File& logFile)

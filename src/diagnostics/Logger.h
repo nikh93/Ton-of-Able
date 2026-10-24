@@ -9,7 +9,8 @@
 
 // Diagnostic logger. log() writes synchronously, so the last lines before a
 // crash reach the file. logRealtime() is SPSC and bounded (audio callback
-// producer, logger-thread consumer); it neither allocates nor locks.
+// producer, logger-thread consumer); it neither allocates nor locks. Every
+// line names the thread that logged it.
 class Logger final : private juce::Thread
 {
 public:
@@ -37,11 +38,11 @@ public:
 private:
     static constexpr size_t realtimeCapacity = 256;
     static constexpr size_t realtimeMessageLength = 192;
-    struct RealtimeEntry { Level level; std::array<char, realtimeMessageLength> text {}; };
-    struct PendingEntry { Level level; juce::String text; juce::Time timestamp; };
+    struct RealtimeEntry { Level level; juce::Thread::ThreadID thread {}; std::array<char, realtimeMessageLength> text {}; };
+    struct PendingEntry { Level level; juce::String text; juce::Time timestamp; juce::Thread::ThreadID thread; };
 
     void run() override;
-    void append(Level level, const juce::String& message, const juce::Time& timestamp);
+    void append(Level level, const juce::String& message, const juce::Time& timestamp, juce::Thread::ThreadID thread);
     static const char* levelName(Level level) noexcept;
 
     std::atomic<bool> accepting { false };

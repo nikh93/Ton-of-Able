@@ -127,6 +127,15 @@ private:
     PerformanceMonitor performanceMonitor;
     std::atomic<bool> firstCallbackLogged { false };
     std::atomic<bool> oversizedBlockLogged { false };
+    // Driver contract checks: callbacks only between aboutToStart and stopped,
+    // never two at once, with the announced channel counts.
+    std::atomic<bool> deviceRunning { false };
+    std::atomic<int> callbacksInFlight { 0 };
+    std::atomic<int> announcedInputs { 0 };
+    std::atomic<int> announcedOutputs { 0 };
+    std::atomic<bool> concurrentCallbackLogged { false };
+    std::atomic<bool> callbackWhileStoppedLogged { false };
+    std::atomic<bool> channelMismatchLogged { false };
     juce::String lastDeviceError;
     juce::CriticalSection errorLock;
 };

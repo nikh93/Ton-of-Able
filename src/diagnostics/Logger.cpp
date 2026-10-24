@@ -38,7 +38,7 @@ void Logger::log(const Level level, juce::String message)
 {
     if (! accepting.load(std::memory_order_acquire))
         return;
-    append(level, message, juce::Time::getCurrentTime());
+    append(level, message, juce::Time::getCurrentTime(), juce::Thread::getCurrentThreadId());
 }
 
 void Logger::logRealtime(const Level level, const char* message) noexcept
@@ -54,6 +54,7 @@ void Logger::logRealtime(const Level level, const char* message) noexcept
     }
     auto& entry = realtimeQueue[write];
     entry.level = level;
+    entry.thread = juce::Thread::getCurrentThreadId();
     std::strncpy(entry.text.data(), message, entry.text.size() - 1);
     entry.text.back() = '\0';
     realtimeWrite.store(next, std::memory_order_release);
@@ -78,21 +79,22 @@ void Logger::run()
         while (read != write)
         {
             const auto& item = realtimeQueue[read];
-            work.push_back({ item.level, juce::String::fromUTF8(item.text.data()), juce::Time::getCurrentTime() });
+            work.push_back({ item.level, juce::String::fromUTF8(item.text.data()), juce::Time::getCurrentTime(), item.thread });
             read = (read + 1) % realtimeCapacity;
         }
         realtimeRead.store(read, std::memory_order_release);
         for (const auto& item : work)
-            append(item.level, item.text, item.timestamp);
+            append(item.level, item.text, item.timestamp, item.thread);
         if (threadShouldExit())
             break;
     }
 }
 
-void Logger::append(const Level level, const juce::String& message, const juce::Time& timestamp)
+void Logger::append(const Level level, const juce::String& message, const juce::Time& timestamp, const juce::Thread::ThreadID thread)
 {
     const auto line = timestamp.formatted("%Y-%m-%d %H:%M:%S") + juce::String::formatted(".%03d", timestamp.getMilliseconds())
-        + " [" + levelName(level) + "] " + message + "\n";
+        + " [" + levelName(level) + "] [T" + juce::String(static_cast<juce::int64>(reinterpret_cast<juce::pointer_sized_int>(thread)))
+        + "] " + message + "\n";
     if (logFile != juce::File())
     {
         const std::scoped_lock fileLock(fileMutex);
