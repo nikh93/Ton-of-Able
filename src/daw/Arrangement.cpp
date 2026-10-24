@@ -3,6 +3,7 @@
 #include "SampleKit.h"
 
 #include <algorithm>
+#include <regex>
 #include <cmath>
 
 namespace daw
@@ -404,6 +405,59 @@ std::optional<juce::Uuid> split(ArrangementState& state, const juce::Uuid& clipI
     return rightId;
 }
 
+void setChord(ArrangementState& state, double bar, double length, const juce::String& name)
+{
+    bar = std::max(0.0, bar);
+    length = std::max(0.25, length);
+    const auto end = bar + length;
+    std::vector<ChordSymbol> kept;
+    for (auto chord : state.chords)
+    {
+        if (chord.end() <= bar + 1.0e-9 || chord.bar >= end - 1.0e-9)
+        {
+            kept.push_back(chord);
+            continue;
+        }
+        // Partly covered: keep the part before and the part after the new range.
+        if (chord.bar < bar - 1.0e-9)
+            kept.push_back({ chord.bar, bar - chord.bar, chord.name });
+        if (chord.end() > end + 1.0e-9)
+            kept.push_back({ end, chord.end() - end, chord.name });
+    }
+    if (const auto tidy = tidyChordName(name); tidy.isNotEmpty())
+        kept.push_back({ bar, length, tidy });
+    std::sort(kept.begin(), kept.end(), [](const ChordSymbol& a, const ChordSymbol& b) { return a.bar < b.bar; });
+    state.chords = std::move(kept);
+}
+
+const ChordSymbol* chordAt(const ArrangementState& state, double bar)
+{
+    for (const auto& chord : state.chords)
+        if (bar >= chord.bar - 1.0e-9 && bar < chord.end() - 1.0e-9)
+            return &chord;
+    return nullptr;
+}
+
+juce::String tidyChordName(const juce::String& typed)
+{
+    auto name = typed.trim().removeCharacters(" \t");
+    if (name.isEmpty())
+        return {};
+    if (name.equalsIgnoreCase("nc") || name.equalsIgnoreCase("n.c."))
+        return "N.C.";
+    // Root (and slash bass) upper case: "am7" -> "Am7", "c/e" -> "C/E".
+    name = name.substring(0, 1).toUpperCase() + name.substring(1);
+    if (const auto slash = name.lastIndexOfChar('/'); slash >= 0 && slash + 1 < name.length())
+        name = name.substring(0, slash + 1) + name.substring(slash + 1, slash + 2).toUpperCase() + name.substring(slash + 2);
+    return name;
+}
+
+bool isChordName(const juce::String& name)
+{
+    static const std::regex pattern(R"(^[A-H](#|b)?(m|min|maj|M|dim|aug|sus|add|°|ø|\+|-|[0-9]|#|b|\(|\)|,)*(/[A-H](#|b)?)?$)");
+    return name == "N.C." || std::regex_match(name.toStdString(), pattern); // N.C.: no chord
+}
+
 bool canHold(const ArrangementState& state, int trackIndex, const Clip& clip)
 {
     if (trackIndex < 0 || trackIndex >= static_cast<int>(state.tracks.size()))
@@ -671,6 +725,14 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
     root.setProperty("loopEnabled", state.loopEnabled, nullptr);
     root.setProperty("loopStart", state.loopStart, nullptr);
     root.setProperty("loopEnd", state.loopEnd, nullptr);
+    if (! state.chords.empty())
+    {
+        juce::ValueTree chords("Chords");
+        for (const auto& chord : state.chords)
+            chords.appendChild(juce::ValueTree("c").setProperty("bar", chord.bar, nullptr).setProperty("length", chord.length, nullptr)
+                                   .setProperty("name", chord.name, nullptr), nullptr);
+        root.appendChild(chords, nullptr);
+    }
     if (state.hasExportRange())
     {
         root.setProperty("exportStart", state.exportStart, nullptr);
@@ -781,6 +843,9 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
     state.loopEnd = static_cast<juce::int64>(root.getProperty("loopEnd", 0));
     state.exportStart = std::max<juce::int64>(0, static_cast<juce::int64>(root.getProperty("exportStart", 0)));
     state.exportEnd = static_cast<juce::int64>(root.getProperty("exportEnd", 0));
+    for (const auto& chord : root.getChildWithName("Chords"))
+        edit::setChord(state, static_cast<double>(chord.getProperty("bar", 0.0)), static_cast<double>(chord.getProperty("length", 1.0)),
+                       chord.getProperty("name").toString());
     for (const auto& node : root)
     {
         if (! node.hasType("Track"))

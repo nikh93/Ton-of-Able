@@ -159,6 +159,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/arrangement/TrackHeaderComponent.cpp
     src/ui/arrangement/ExportRangeBar.cpp
     src/ui/arrangement/ExportRangeBar.h
+    src/ui/arrangement/ChordTrackBar.cpp
+    src/ui/arrangement/ChordTrackBar.h
     src/ui/arrangement/TrackHeaderComponent.h
     ${DAW_SOURCES}
     ${RUBBERBAND_SOURCES}
@@ -209,6 +211,7 @@ endif()
 juce_add_plugin(TonTuner
     PRODUCT_NAME "Ton Tuner"
     COMPANY_NAME "Ton of Able"
+    BUNDLE_ID de.tonofable.tontuner
     PLUGIN_MANUFACTURER_CODE Tona
     PLUGIN_CODE TTun
     FORMATS VST3

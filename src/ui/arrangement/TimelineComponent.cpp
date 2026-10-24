@@ -663,7 +663,7 @@ void TimelineComponent::paintMidi(juce::Graphics& g, const daw::Clip& clip, cons
     low = std::max(0, low - 2);
     high = std::min(127, high + 2);
     const auto rowHeight = std::min(6.0f, area.getHeight() / static_cast<float>(high - low + 1));
-    const auto spb = controller.grid().samplesPerBeat();
+    const auto spb = controller.grid().samplesPerQuarter();
     const auto origin = static_cast<double>(clip.start) - clip.offset;
     juce::Graphics::ScopedSaveState save(g);
     g.reduceClipRegion(area.toNearestInt());

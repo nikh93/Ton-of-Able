@@ -1121,7 +1121,7 @@ int ArrangementController::finishMidiRecording()
     const auto looped = recordLoopEnd > recordLoopStart && first >= recordLoopStart && last <= recordLoopEnd;
     const auto start = looped ? recordLoopStart : static_cast<juce::int64>(std::floor(static_cast<double>(first) / bar) * bar);
     const auto end = looped ? recordLoopEnd : static_cast<juce::int64>(std::ceil(static_cast<double>(last + 1) / bar) * bar);
-    auto notes = edit::notesFromEvents(events, start, end, grid.samplesPerBeat());
+    auto notes = edit::notesFromEvents(events, start, end, grid.samplesPerQuarter());
     if (notes.empty())
         return 0;
     const auto count = static_cast<int>(notes.size());

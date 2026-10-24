@@ -7,6 +7,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "TimelineComponent.h"
+#include "ChordTrackBar.h"
 #include "ExportRangeBar.h"
 #include "PianoRollComponent.h"
 #include "ui/components/Icons.h"
@@ -76,6 +77,7 @@ private:
     daw::ArrangementController& controller;
     TimelineComponent timeline { controller };
     ExportRangeBar exportRange { controller, timeline, headerWidth };
+    ChordTrackBar chordBar { controller, timeline, headerWidth };
     std::unique_ptr<HeaderColumn> headerColumn;
     std::vector<std::unique_ptr<TrackHeaderComponent>> headers;
     juce::ScrollBar horizontal { false }, vertical { true };

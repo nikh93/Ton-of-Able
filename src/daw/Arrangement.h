@@ -89,8 +89,8 @@ struct FrozenRender
     juce::String signature;
 };
 
-/** A note of a MIDI clip. Times are in beats (quarter notes) from the clip's
-    content start, so notes follow the tempo. */
+/** A note of a MIDI clip. Times are in quarter notes ("beats" below) from the
+    clip's content start, so notes follow the tempo. */
 struct MidiNote
 {
     double start = 0.0;
@@ -102,6 +102,18 @@ struct MidiNote
     bool operator==(const MidiNote&) const = default;
 };
 using MidiNotes = std::vector<MidiNote>;
+
+/** A chord of the lead sheet, in bars from the song start (0.5 = second half
+    of the first bar), so it follows tempo and time signature. */
+struct ChordSymbol
+{
+    double bar = 0.0;
+    double length = 1.0; // 1 = whole bar, 0.5 = half bar
+    juce::String name;   // e.g. "Am7", "G/H", "F#m7b5"
+
+    [[nodiscard]] double end() const noexcept { return bar + length; }
+    bool operator==(const ChordSymbol&) const = default;
+};
 
 /** One region of a source file placed on the timeline.
 
@@ -187,6 +199,8 @@ struct ArrangementState
     bool loopEnabled = false;
     juce::int64 loopStart = 0;
     juce::int64 loopEnd = 0;
+    /** Lead sheet: chords sorted by bar, never overlapping. */
+    std::vector<ChordSymbol> chords;
     /** Export range; empty (end <= start) means the whole song. */
     juce::int64 exportStart = 0;
     juce::int64 exportEnd = 0;
@@ -232,6 +246,8 @@ struct TimeGrid
     static TimeGrid of(const ArrangementState& state) noexcept { return { state.sampleRate, state.bpm, state.beatsPerBar, state.beatUnit }; }
     [[nodiscard]] double samplesPerBeat() const noexcept { return sampleRate * 60.0 / bpm * 4.0 / beatUnit; }
     [[nodiscard]] double samplesPerBar() const noexcept { return samplesPerBeat() * beatsPerBar; }
+    /** A quarter note, the unit of MIDI note times (independent of the time signature). */
+    [[nodiscard]] double samplesPerQuarter() const noexcept { return sampleRate * 60.0 / bpm; }
     /** division in bars, e.g. 1.0 = bar, 0.25 = quarter of a 4/4 bar; <= 0 disables snapping. */
     [[nodiscard]] juce::int64 snap(juce::int64 position, double divisionInBars) const noexcept;
     /** "Bar.Beat.Sixteenth", 1-based. */
@@ -269,6 +285,15 @@ struct RecordedMidiEvent
 };
 MidiNotes notesFromEvents(const std::vector<RecordedMidiEvent>& events, juce::int64 clipStart, juce::int64 end, double samplesPerBeat);
 
+/** Sets the chord of [bar, bar + length): chords inside are replaced, partly
+    covered ones shortened. An empty name only clears the range. */
+void setChord(ArrangementState&, double bar, double length, const juce::String& name);
+/** The chord sounding at bar (fractional), or null. */
+[[nodiscard]] const ChordSymbol* chordAt(const ArrangementState&, double bar);
+/** Chord names as typed are tidied up ("am7" -> "Am7", "Bb" stays, German H allowed). */
+[[nodiscard]] juce::String tidyChordName(const juce::String&);
+/** Whether a name looks like a chord symbol (root A-H with #/b, quality, extensions, slash bass). */
+[[nodiscard]] bool isChordName(const juce::String&);
 /** Whether a clip may lie on a track (no clips on returns, MIDI clips only on MIDI tracks). */
 [[nodiscard]] bool canHold(const ArrangementState&, int trackIndex, const Clip&);
 /** Splits at timeline position; returns the id of the right part. */

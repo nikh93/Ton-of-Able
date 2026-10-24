@@ -469,6 +469,47 @@ public:
 
 PlayStartTests playStartTests;
 
+class ChordTests final : public juce::UnitTest
+{
+public:
+    ChordTests() : juce::UnitTest("Lead sheet chords", "DAW") {}
+
+    void runTest() override
+    {
+        beginTest("Whole and half bars replace and trim each other");
+        ArrangementState state;
+        edit::setChord(state, 0.0, 1.0, "am");
+        edit::setChord(state, 1.0, 1.0, "F");
+        expectEquals(static_cast<int>(state.chords.size()), 2);
+        expectEquals(state.chords[0].name, juce::String("Am"));
+        edit::setChord(state, 1.5, 0.5, "G");
+        expectEquals(static_cast<int>(state.chords.size()), 3);
+        expectEquals(state.chords[1].length, 0.5); // F trimmed to the first half
+        expectEquals(edit::chordAt(state, 1.7)->name, juce::String("G"));
+        edit::setChord(state, 1.0, 1.0, "C");       // whole bar replaces both halves
+        expectEquals(static_cast<int>(state.chords.size()), 2);
+        expectEquals(edit::chordAt(state, 1.7)->name, juce::String("C"));
+        edit::setChord(state, 0.0, 1.0, {});        // empty clears
+        expect(edit::chordAt(state, 0.2) == nullptr);
+        expectEquals(static_cast<int>(state.chords.size()), 1);
+
+        beginTest("Names are tidied and checked");
+        expectEquals(edit::tidyChordName(" f#m7/c# "), juce::String("F#m7/C#"));
+        expectEquals(edit::tidyChordName("hmaj7"), juce::String("Hmaj7"));
+        for (const auto* good : { "C", "Am7", "G/H", "Bbmaj7", "F#m7b5", "Dsus4", "E7#9", "Cdim", "Aadd9", "N.C." })
+            expect(edit::isChordName(good), good);
+        for (const auto* bad : { "X", "Am7x", "C//G", "" })
+            expect(! edit::isChordName(bad), bad);
+
+        beginTest("Chords are saved with the project");
+        edit::setChord(state, 3.0, 0.5, "Dm");
+        const auto loaded = fromValueTree(toValueTree(state, {}), {});
+        expect(loaded.chords == state.chords);
+    }
+};
+
+ChordTests chordTests;
+
 // Records the events an instrument receives (offsets made absolute by the test).
 struct EventLog final : TrackInstrument
 {

@@ -123,7 +123,7 @@ daw::MidiNotes PianoRollComponent::notes() const
     return clip != nullptr && clip->notes != nullptr ? *clip->notes : daw::MidiNotes {};
 }
 
-double PianoRollComponent::samplesPerBeat() const { return controller.grid().samplesPerBeat(); }
+double PianoRollComponent::samplesPerBeat() const { return controller.grid().samplesPerQuarter(); } // note times are quarters
 double PianoRollComponent::firstClipBeat() const
 {
     const auto* clip = clipData();
@@ -223,7 +223,7 @@ void PianoRollComponent::paint(juce::Graphics& g)
             g.drawHorizontalLine(static_cast<int>(y + rowHeight), static_cast<float>(grid.getX()), static_cast<float>(grid.getRight()));
         }
         // Beats and bars; the step grid where it is wide enough.
-        const auto beatsPerBar = static_cast<double>(std::max(1, controller.state().beatsPerBar));
+        const auto beatsPerBar = controller.grid().samplesPerBar() / controller.grid().samplesPerQuarter(); // bar length in quarters
         const auto step = gridBeats();
         const auto from = std::floor(xToBeat(static_cast<float>(grid.getX())) / step) * step;
         for (auto beat = from; beatToX(beat) < static_cast<float>(grid.getRight()); beat += step)

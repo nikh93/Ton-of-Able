@@ -182,6 +182,16 @@ Während des Exports ersetzt ein Fortschrittsbalken die Buttons Import/Export (b
 - `Ton of Able.exe Pfad\zum\Projekt.tonproj` öffnet ein Projekt direkt, z. B. per Dateizuordnung.
 - Ändert sich die Samplerate des Audiogeräts, bleiben die musikalischen Positionen erhalten und das Audio wird neu geladen.
 
+## Akkorde (Lead-Sheet)
+
+Die Leiste **AKKORDE** über dem Lineal hält die Akkordfolge des Songs fest – pro Takt ein Akkord oder pro halbem Takt zwei.
+
+- **Takt anklicken und tippen**, z. B. `Am7`, `G/H`, `F#m7b5`, `Dsus4`, `N.C.`. **Enter** übernimmt, **Tab** übernimmt und springt in den nächsten Takt (so tippt man eine ganze Folge durch), **Esc** bricht ab, ein leeres Feld löscht den Akkord.
+- **Zwei Akkorde in einem Takt:** einfach mit Leerzeichen tippen (`Am G`) – der Takt wird in zwei halbe Takte geteilt. **Shift+Klick** bearbeitet gezielt eine Takthälfte; in einem geteilten Takt bearbeitet ein Klick die angeklickte Hälfte.
+- **Rechtsklick:** *Ganzer Takt (ein Akkord)*, *Halbe Takte (zwei Akkorde)*, *Akkord löschen*, *Alle Akkorde löschen*.
+- Grundton und Bass werden großgeschrieben (`am` → `Am`, `c/e` → `C/E`); H ist der deutsche Name für B, beide werden akzeptiert. Nicht erkannte Namen erscheinen rot.
+- Akkorde hängen an Takten, nicht an Sekunden: Bei Tempowechseln bleiben sie auf ihrem Takt. Sie werden mit dem Projekt gespeichert, jede Änderung lässt sich rückgängig machen.
+
 ## MIDI-Spuren und Piano-Roll
 
 **+ Spur → MIDI-Spur** legt eine Instrumentspur an. Ihr Klang kommt vom Knopf im Spurkopf: der **eingebaute Synth** (Pad, Keys, Bass, Lead – funktioniert ohne Plugins) oder ein **VST3-Instrument** wie Vital oder Surge XT (dort auch „Plugin-Fenster öffnen“). VST3-Instrumente empfangen die Noten auf MIDI-Kanal 1.

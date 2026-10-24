@@ -83,6 +83,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     addAndMakeVisible(*headerColumn);
     addAndMakeVisible(timeline);
     addAndMakeVisible(exportRange);
+    addAndMakeVisible(chordBar);
     for (auto* bar : { &horizontal, &vertical })
     {
         bar->setAutoHide(false);
@@ -523,6 +524,7 @@ void ArrangementView::timerCallback()
         updateScrollBars();
     }
     exportRange.update();
+    chordBar.update();
     // Export progress replaces Import/Export while it runs.
     const auto progress = controller.exportProgress();
     const auto exportRunning = progress >= 0.0;
@@ -632,6 +634,7 @@ void ArrangementView::resized()
 
     horizontal.setBounds(area.removeFromBottom(12).withTrimmedLeft(headerWidth).withTrimmedRight(12));
     exportRange.setBounds(area.removeFromBottom(24).withTrimmedRight(12));
+    chordBar.setBounds(area.removeFromTop(28).withTrimmedRight(12));
     vertical.setBounds(area.removeFromRight(12).withTrimmedTop(TimelineComponent::rulerHeight));
     headerColumn->setBounds(area.removeFromLeft(headerWidth));
     timeline.setBounds(area);
