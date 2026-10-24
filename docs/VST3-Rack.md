@@ -17,6 +17,10 @@ Die Signalkette oben im Rig (und im Spur-Effekt-Fenster jeder Arrangement-Spur) 
 - **Rechtsklick auf OUT:** *Pegel der Kette in den Ausgang* – „aus“ lässt nur die Verbindungen hören (z. B. nur den Synth).
 - Mehrere Verbindungen in denselben Eingang werden addiert. Eingeschaltete eingebaute Effekte arbeiten mono (Stereo davor wird zusammengemischt), ausgeschaltete lassen Stereo durch; Plugins und der Ausgang sind stereo.
 
+## Stimmgerät „Ton Tuner“
+
+Ton of Able bringt ein eigenes Stimmgerät als VST3-Plugin mit (auch in anderen DAWs nutzbar). Einfügen über „+“ → *Effekt* → **Ton Tuner**; am besten in die **untere Reihe neben der Kette**: Dort hört es automatisch die trockene Gitarre, ist aber nicht im Ausgang. Klick auf den Block öffnet die Anzeige: Notenname (deutsch, mit H), Oktave, Frequenz, Abweichung in Cent mit Nadel (grün = gestimmt, ±3 Cent), Kammerton A einstellbar (430–450 Hz). In der Kette eingesetzt kann es mit „Stumm beim Stimmen“ den Ton abschalten.
+
 ## Plugins verwalten
 
 „+“ → *Plugins verwalten / importieren …* zeigt alle bekannten VST3-Plugins mit Hersteller, Art und Datei.

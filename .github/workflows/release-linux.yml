@@ -49,7 +49,7 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          cmake --build build --target NamTestProgram NamTestProgramTests --parallel 2>&1 | tee build.log || {
+          cmake --build build --target NamTestProgram NamTestProgramTests TonTuner_VST3 --parallel 2>&1 | tee build.log || {
             grep -E 'error|Error' build.log | head -15 | sed 's/^/::error title=Build::/'
             exit 1
           }
@@ -70,6 +70,7 @@ jobs:
           cp -r resources "$pkg/resources"
           cp packaging/LIESMICH.txt packaging/LIESMICH-Linux.txt "$pkg/"
           cp packaging/icon/app-icon.png "$pkg/ton-of-able.png"
+          cp -r "build/TonTuner_artefacts/Release/VST3/Ton Tuner.vst3" "$pkg/"
           cp third_party/rubberband/COPYING "$pkg/licenses/RubberBand-GPL.txt"
           cp third_party/NeuralAmpModelerCore/LICENSE "$pkg/licenses/NeuralAmpModelerCore-MIT.txt"
           cp third_party/JUCE/LICENSE.md "$pkg/licenses/JUCE-LICENSE.md"

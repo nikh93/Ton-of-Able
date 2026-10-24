@@ -36,7 +36,7 @@ jobs:
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 
       - name: Build
-        run: cmake --build build --config Release --target NamTestProgram NamTestProgramTests --parallel
+        run: cmake --build build --config Release --target NamTestProgram NamTestProgramTests TonTuner_VST3 --parallel
 
       - name: Unit tests
         shell: pwsh
@@ -57,6 +57,8 @@ jobs:
           Copy-Item 'build/NamTestProgram_artefacts/Release/Ton of Able.exe' $pkg
           Copy-Item resources "$pkg/resources" -Recurse
           Copy-Item packaging/LIESMICH.txt $pkg
+          # Our own tuner plugin.
+          Copy-Item 'build/TonTuner_artefacts/Release/VST3/Ton Tuner.vst3' $pkg -Recurse
 
           # Plugins and their licences from the previous package.
           gh release download $env:PLUGIN_SOURCE_RELEASE -p '*.zip' -D previous

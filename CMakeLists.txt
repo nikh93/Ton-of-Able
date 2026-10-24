@@ -205,6 +205,24 @@ if (MSVC)
     target_compile_options(NamTestProgram PRIVATE /W4 /permissive- /utf-8)
 endif()
 
+# "Ton Tuner": the tuner as a VST3 plugin, shipped next to the app (and usable in other hosts).
+juce_add_plugin(TonTuner
+    PRODUCT_NAME "Ton Tuner"
+    COMPANY_NAME "Ton of Able"
+    PLUGIN_MANUFACTURER_CODE Tona
+    PLUGIN_CODE TTun
+    FORMATS VST3
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    VST3_CATEGORIES Fx Analyzer
+    COPY_PLUGIN_AFTER_BUILD FALSE)
+target_sources(TonTuner PRIVATE src/tuner/TunerPlugin.cpp src/tuner/PitchDetector.cpp)
+target_include_directories(TonTuner PRIVATE src)
+target_compile_definitions(TonTuner PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(TonTuner PRIVATE juce::juce_audio_utils juce::juce_audio_processors
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+
 option(NAM_TEST_PROGRAM_BUILD_TESTS "Build NAM Test Program unit tests" ON)
 if (NAM_TEST_PROGRAM_BUILD_TESTS)
     enable_testing()
@@ -225,8 +243,10 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/MixingTests.cpp
         tests/DrumKitTests.cpp
         tests/ChainLayoutTests.cpp
+        tests/TunerTests.cpp
         src/audio/plugins/PluginCatalog.cpp
         src/audio/plugins/WindowsPluginBridge.cpp
+        src/tuner/PitchDetector.cpp
             src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}

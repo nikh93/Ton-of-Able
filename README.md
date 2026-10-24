@@ -21,7 +21,7 @@ Ableton-style arrangement. The interface is in German.
   (with levels) — e.g. guitar → audio-to-MIDI VST3 (TONIQ, MIDI Guitar, Transkr, MiGiC) → Vital,
   parallel effects, synth only. MIDI keyboards and virtual MIDI ports play along. Track effect
   chains in the arrangement use the same editor. A plugin manager imports single `.vst3` files,
-  adds search folders, hides plugins and lists the ones that failed to load. Bundled: BYOD, Valhalla Supermassive, Freq Echo and Space Modulator, Dragonfly Hall/Room/Plate Reverb and Early Reflections
+  adds search folders, hides plugins and lists the ones that failed to load. Bundled: the **Ton Tuner** tuner plugin (VST3, also for other hosts), BYOD, Valhalla Supermassive, Freq Echo and Space Modulator, Dragonfly Hall/Room/Plate Reverb and Early Reflections
 - Presets with A/B, complete rigs
 - ASIO first, WASAPI exclusive as fallback; meters, latency and CPU diagnostics
 

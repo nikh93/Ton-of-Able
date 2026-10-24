@@ -47,6 +47,9 @@ Signalkette bearbeiten
 - Beispiel Gitarre -> Synth: TONIQ neben die Kette (hoert die Gitarre),
   Vital einfuegen (geht in den Ausgang), Rechtsklick auf TONIQ ->
   "MIDI senden an" -> Vital. Nur Synth: Rechtsklick auf OUT -> Pegel aus.
+- Stimmgeraet: "Ton Tuner" (eigenes VST3, liegt bei). "+" -> Effekt ->
+  Ton Tuner, am besten neben die Kette (untere Reihe): hoert die Gitarre,
+  ist aber nicht zu hoeren. Klick auf den Block zeigt Note und Cent.
 - "VST3-Plugins suchen" durchsucht C:\Program Files\Common Files\VST3,
   Dokumente\VST3 und den Programmordner.
 - "+" -> "Plugins verwalten / importieren": einzelne .vst3-Dateien
