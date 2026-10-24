@@ -695,6 +695,23 @@ int TimelineComponent::loopEdgeAt(float x) const
     return 0;
 }
 
+std::pair<juce::int64, juce::int64> TimelineComponent::visibleRange() const noexcept
+{
+    return { static_cast<juce::int64>(firstSample), static_cast<juce::int64>(firstSample + getWidth() * zoom) };
+}
+
+std::optional<std::pair<juce::int64, juce::int64>> TimelineComponent::selectionRange() const
+{
+    std::optional<std::pair<juce::int64, juce::int64>> range;
+    for (const auto& id : selection)
+        if (const auto* clip = controller.state().findClip(id))
+        {
+            const auto start = clip->start, end = clip->start + clip->length;
+            range = range ? std::make_pair(std::min(range->first, start), std::max(range->second, end)) : std::make_pair(start, end);
+        }
+    return range;
+}
+
 void TimelineComponent::mouseMove(const juce::MouseEvent& event)
 {
     if (event.y < rulerHeight)

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <optional>
+#include <utility>
+
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "daw/ArrangementController.h"
@@ -34,6 +37,10 @@ public:
     [[nodiscard]] int contentHeight() const;
     [[nodiscard]] double contentLengthSamples() const;
     void followPlayhead();
+    /** Samples shown from the left to the right edge. */
+    [[nodiscard]] std::pair<juce::int64, juce::int64> visibleRange() const noexcept;
+    /** Start and end of the selected clips, or nothing without a selection. */
+    [[nodiscard]] std::optional<std::pair<juce::int64, juce::int64>> selectionRange() const;
 
     // Selection and commands (also reached through keyboard shortcuts).
     [[nodiscard]] int selectedTrack() const noexcept { return currentTrack; }
