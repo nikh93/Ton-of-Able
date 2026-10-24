@@ -7,7 +7,7 @@ name: Linux release
 on:
   push:
     tags: ['v*']
-    branches: ['feature/**', 'main']
+    branches: ['main']
   workflow_dispatch:
     inputs:
       tag:

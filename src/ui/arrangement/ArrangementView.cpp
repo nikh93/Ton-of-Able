@@ -100,7 +100,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     play.setTooltip("Abspielen / Stoppen (Leertaste)");
     stopButton.setTooltip(text("Stopp – zweimal: zurück zum Anfang"));
     record.setTooltip(text("Aufnahme auf allen scharfen Spuren (F9). Ohne scharfe Spur wird die ausgewählte Spur verwendet."));
-    loop.setTooltip(text("Loop an/aus (Ctrl+L). Loop-Bereich oben im Lineal ziehen."));
+    loop.setTooltip(text("Loop an/aus (Ctrl+L). Einschalten nimmt die ausgewählten Clips, sonst den bisherigen Bereich (wenn sichtbar), sonst 4 Takte ab dem Takt der Abspielposition. Im Lineal oben ziehen: Bereich neu, Mitte verschiebt, Enden ändern die Grenzen."));
     metronome.setTooltip("Metronom (Klick)");
     countIn.setTooltip(text("Ein Takt Vorzähler vor der Aufnahme"));
     undo.setTooltip(text("Rückgängig (Ctrl+Z)"));
@@ -152,14 +152,29 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     loop.onClick = [this]
     {
         const auto& state = controller.state();
-        auto start = state.loopStart, end = state.loopEnd;
-        if (end <= start)
+        if (state.loopEnabled)
         {
-            // No loop yet: four bars from the playhead.
-            start = controller.grid().snap(controller.engine().position(), 1.0);
-            end = start + static_cast<juce::int64>(controller.grid().samplesPerBar() * 4.0);
+            controller.setLoop(false, state.loopStart, state.loopEnd); // the range stays for next time
+            return;
         }
-        controller.setLoop(! state.loopEnabled, start, end);
+        // Switching on: the selected clips, else the previous range if it is in view,
+        // else four bars from the bar of the playhead (or the first bar in view).
+        auto start = state.loopStart, end = state.loopEnd;
+        const auto [viewFrom, viewTo] = timeline.visibleRange();
+        if (const auto selected = timeline.selectionRange())
+        {
+            start = selected->first;
+            end = selected->second;
+        }
+        else if (end <= start || end <= viewFrom || start >= viewTo)
+        {
+            const auto bar = controller.grid().samplesPerBar();
+            const auto barOf = [bar](juce::int64 at) { return static_cast<juce::int64>(std::floor(static_cast<double>(at) / bar) * bar); };
+            const auto playhead = controller.engine().position();
+            start = playhead >= viewFrom && playhead < viewTo ? barOf(playhead) : barOf(viewFrom + static_cast<juce::int64>(bar) - 1);
+            end = start + static_cast<juce::int64>(bar * 4.0);
+        }
+        controller.setLoop(true, start, end);
     };
     metronome.onClick = [this] { controller.engine().setMetronome(! controller.engine().isMetronomeOn()); controller.markDirty(); updateTransportButtons(); };
     countIn.onClick = [this] { controller.setCountIn(! controller.isCountInEnabled()); controller.markDirty(); updateTransportButtons(); };
