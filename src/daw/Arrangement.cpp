@@ -72,6 +72,11 @@ const Track* ArrangementState::reampTrack() const noexcept
     return track != nullptr && ! track->drums && ! track->isReturn() ? track : nullptr;
 }
 
+std::pair<juce::int64, juce::int64> ArrangementState::exportRange() const noexcept
+{
+    return hasExportRange() ? std::make_pair(exportStart, exportEnd) : std::make_pair(juce::int64 { 0 }, endSample());
+}
+
 juce::int64 ArrangementState::playStart(juce::int64 position) const noexcept
 {
     const auto inside = position >= loopStart && position < loopEnd;
@@ -584,6 +589,11 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
     root.setProperty("loopEnabled", state.loopEnabled, nullptr);
     root.setProperty("loopStart", state.loopStart, nullptr);
     root.setProperty("loopEnd", state.loopEnd, nullptr);
+    if (state.hasExportRange())
+    {
+        root.setProperty("exportStart", state.exportStart, nullptr);
+        root.setProperty("exportEnd", state.exportEnd, nullptr);
+    }
     for (const auto& track : state.tracks)
     {
         juce::ValueTree node("Track");
@@ -674,6 +684,8 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
     state.loopEnabled = root.getProperty("loopEnabled", false);
     state.loopStart = static_cast<juce::int64>(root.getProperty("loopStart", 0));
     state.loopEnd = static_cast<juce::int64>(root.getProperty("loopEnd", 0));
+    state.exportStart = std::max<juce::int64>(0, static_cast<juce::int64>(root.getProperty("exportStart", 0)));
+    state.exportEnd = static_cast<juce::int64>(root.getProperty("exportEnd", 0));
     for (const auto& node : root)
     {
         if (! node.hasType("Track"))
@@ -783,6 +795,8 @@ void changeSampleRate(ArrangementState& state, double newRate)
         }
     state.loopStart = scale(state.loopStart);
     state.loopEnd = scale(state.loopEnd);
+    state.exportStart = scale(state.exportStart);
+    state.exportEnd = scale(state.exportEnd);
     state.sampleRate = newRate;
 }
 } // namespace daw

@@ -37,6 +37,12 @@ public:
     [[nodiscard]] int contentHeight() const;
     [[nodiscard]] double contentLengthSamples() const;
     void followPlayhead();
+    // Mapping between timeline x and samples (shared by the export range bar).
+    [[nodiscard]] double xToSampleExact(float x) const noexcept { return firstSample + static_cast<double>(x) * zoom; }
+    [[nodiscard]] juce::int64 xToSample(float x) const noexcept;
+    [[nodiscard]] float sampleToX(double sample) const noexcept { return static_cast<float>((sample - firstSample) / zoom); }
+    /** Snaps to the grid set in the toolbar; Alt disables it. */
+    [[nodiscard]] juce::int64 snapPosition(juce::int64 position, const juce::ModifierKeys& mods) const { return snap(position, mods); }
     /** Samples shown from the left to the right edge. */
     [[nodiscard]] std::pair<juce::int64, juce::int64> visibleRange() const noexcept;
     /** Start and end of the selected clips, or nothing without a selection. */
@@ -96,9 +102,6 @@ private:
         int track = 0;
     };
 
-    [[nodiscard]] double xToSampleExact(float x) const noexcept { return firstSample + static_cast<double>(x) * zoom; }
-    [[nodiscard]] juce::int64 xToSample(float x) const noexcept;
-    [[nodiscard]] float sampleToX(double sample) const noexcept { return static_cast<float>((sample - firstSample) / zoom); }
     [[nodiscard]] int laneTop(int track) const noexcept { return rulerHeight + track * laneHeight - verticalOffset; }
     [[nodiscard]] int trackAt(int y) const noexcept;
     [[nodiscard]] juce::Rectangle<float> clipBounds(const daw::Clip&, int track) const noexcept;

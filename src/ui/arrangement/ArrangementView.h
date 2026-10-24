@@ -7,6 +7,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "TimelineComponent.h"
+#include "ExportRangeBar.h"
 #include "ui/components/Icons.h"
 #include "TrackHeaderComponent.h"
 
@@ -60,7 +61,7 @@ private:
 
     void chooseImport();
     void showExportMenu();
-    void exportTo(bool stems, bool loopOnly, const juce::Uuid& singleTrack = juce::Uuid::null());
+    void exportTo(bool stems, const juce::Uuid& singleTrack = juce::Uuid::null());
     void showProjectMenu();
     void showAddTrackMenu(juce::Component& target);
     void openProject();
@@ -70,6 +71,7 @@ private:
 
     daw::ArrangementController& controller;
     TimelineComponent timeline { controller };
+    ExportRangeBar exportRange { controller, timeline, headerWidth };
     std::unique_ptr<HeaderColumn> headerColumn;
     std::vector<std::unique_ptr<TrackHeaderComponent>> headers;
     juce::ScrollBar horizontal { false }, vertical { true };
