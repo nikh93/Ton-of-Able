@@ -94,7 +94,7 @@ jobs:
           # plus every VST3 from the release "plugin-extras" (e.g. Valhalla Freq Echo).
           gh release download "$PLUGIN_SOURCE_RELEASE" -p '*.zip' -D previous
           python3 tools/ci/extract_zip.py previous/*.zip previous/x
-          old="$(find previous/x -mindepth 1 -maxdepth 1 -type d | head -1)"
+          old="$(find previous/x -mindepth 1 -maxdepth 1 -type d | sed -n 1p)"
           cp -r "$old/ValhallaSupermassive.vst3" "$pkg/windows-plugins/"
           cp -r "$old/Supermassive-Presets" "$pkg/"
           if gh release view plugin-extras > /dev/null 2>&1; then
@@ -105,12 +105,12 @@ jobs:
           echo "::notice title=Windows plugins (yabridge)::$(ls "$pkg/windows-plugins" | tr '\n' ' ')"
 
           # FFmpeg (LGPL, static) for AAC, Opus, MP3 export and audio from video files.
-          url="$(gh api repos/BtbN/FFmpeg-Builds/releases/tags/latest --jq '.assets[] | select(.name | test("^ffmpeg-n[0-9.]+-latest-linux64-lgpl-[0-9.]+\\.tar\\.xz$")) | .browser_download_url' | head -1)"
+          url="$(gh api repos/BtbN/FFmpeg-Builds/releases/tags/latest --jq '.assets[] | select(.name | test("^ffmpeg-n[0-9.]+-latest-linux64-lgpl-[0-9.]+\\.tar\\.xz$")) | .browser_download_url' | sed -n 1p)"
           test -n "$url"
           curl -sSfL -o ffmpeg.tar.xz "$url"
           mkdir ffmpeg && tar xf ffmpeg.tar.xz -C ffmpeg
-          cp "$(find ffmpeg -type f -name ffmpeg -path '*/bin/*' | head -1)" "$pkg/ffmpeg"
-          cp "$(find ffmpeg -name LICENSE.txt | head -1)" "$pkg/licenses/FFmpeg-LICENSE.txt"
+          cp "$(find ffmpeg -type f -name ffmpeg -path '*/bin/*' | sed -n 1p)" "$pkg/ffmpeg"
+          cp "$(find ffmpeg -name LICENSE.txt | sed -n 1p)" "$pkg/licenses/FFmpeg-LICENSE.txt"
 
           tarball="Ton-of-Able-$TAG-linux-x86_64.tar.gz"
           tar czf "$tarball" -C dist "Ton of Able"
