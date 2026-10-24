@@ -833,7 +833,10 @@ void ArrangementController::togglePlay()
     if (audio.isPlaying())
         stop();
     else
+    {
+        audio.setPosition(current.playStart(audio.position()));
         audio.play();
+    }
     if (onChanged) onChanged();
 }
 
@@ -934,7 +937,8 @@ void ArrangementController::toggleRecord(int fallbackTrack)
     auto punch = ArrangementEngine::punchAtNextBlock;
     if (! audio.isPlaying())
     {
-        punch = audio.position();
+        punch = current.playStart(audio.position());
+        audio.setPosition(punch);
         if (countIn)
             audio.setPosition(punch - static_cast<juce::int64>(std::llround(grid().samplesPerBar())));
     }

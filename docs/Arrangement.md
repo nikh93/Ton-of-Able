@@ -42,7 +42,7 @@ Loop einschalten (**Ctrl+L**, Bereich oben im Lineal ziehen) und aufnehmen (**F9
 - **]** / **[** (frei belegbar): nächster / vorheriger Take der ausgewählten Clips – auf mehreren Spuren zugleich.
 - **Comping:** Clip mit der Schere (oder **Ctrl+E**) teilen, dann für jeden Teil den besten Take wählen – z. B. Takt 1–2 aus Take 2, Takt 3–4 aus Take 5. Fades an den Schnitten glätten die Übergänge.
 - **Andere Takes verwerfen** (im Take-Menü) behält nur den gewählten.
-- Wer vor dem Loop startet, behält den Vorlauf als eigenen Clip; eine angefangene erste Runde (Start mitten im Loop) und eine letzte Runde unter einer halben Loop-Länge werden kein Take.
+- Steht die Abspielposition außerhalb des Loops, beginnen Wiedergabe und Aufnahme am Loop-Anfang (mit Vorzähler einen Takt davor). Innerhalb des Loops beginnen sie an der Abspielposition; diese angefangene erste Runde wird kein Take, ebenso eine letzte Runde unter einer halben Loop-Länge. Wird die Aufnahme bei laufender Wiedergabe vor dem Loop gestartet, bleibt der Vorlauf ein eigener Clip.
 - Alle Takes liegen in derselben Aufnahmedatei; Wechseln kostet nichts und ist rückgängig machbar. Takes werden mit dem Projekt gespeichert.
 
 ## Effekte pro Spur (NAM, IR, EQ, Graphic EQ, Effekte, VST3)
@@ -146,7 +146,7 @@ Beides rechnet die Rubber Band Library (R3-Engine, Offline-Modus) im Hintergrund
 - **Ctrl + Mausrad**: horizontal zoomen um die Mausposition, auch per Touchpad-Pinch, **Ctrl + / Ctrl -** oder die Lupen-Buttons. Der dritte Zoom-Button bzw. **Z** zeigt das ganze Arrangement.
 - **Mausrad**: Spuren scrollen · **Shift + Mausrad**: horizontal scrollen · **Alt + Mausrad**: Spurhöhe.
 - Klick ins Lineal oder in eine freie Fläche setzt die Abspielposition. **Pos1** springt zum Anfang. **Stop** zweimal = zurück zum Anfang. **F** schaltet das Mitlaufen der Ansicht an/aus.
-- **Loop**: im oberen Lineal-Streifen außerhalb des Balkens ziehen legt einen neuen Bereich an; den Balken in der Mitte ziehen verschiebt ihn, **an Anfang oder Ende ziehen** (Mauszeiger ↔) verändert nur diese Grenze. Alles rastet am Raster ein (Alt: frei). Klick auf den Streifen schaltet an/aus. Der **Loop-Button** bzw. **Ctrl+L** nimmt beim Einschalten die ausgewählten Clips als Bereich; ohne Auswahl den bisherigen Bereich, wenn er im Bild ist, sonst 4 Takte ab dem Takt der Abspielposition (bzw. ab dem ersten sichtbaren Takt). Auch während einer Aufnahme läuft der Loop weiter – jede Runde wird ein Take.
+- **Loop**: im oberen Lineal-Streifen außerhalb des Balkens ziehen legt einen neuen Bereich an; den Balken in der Mitte ziehen verschiebt ihn, **an Anfang oder Ende ziehen** (Mauszeiger ↔) verändert nur diese Grenze. Alles rastet am Raster ein (Alt: frei). Klick auf den Streifen schaltet an/aus. Der **Loop-Button** bzw. **Ctrl+L** nimmt beim Einschalten die ausgewählten Clips als Bereich; ohne Auswahl den bisherigen Bereich, wenn er im Bild ist, sonst 4 Takte ab dem Takt der Abspielposition (bzw. ab dem ersten sichtbaren Takt). Auch während einer Aufnahme läuft der Loop weiter – jede Runde wird ein Take. Play außerhalb des Loops springt an den Loop-Anfang.
 - Raster (1 Takt … 1/32 oder aus), Tempo (Doppelklick auf BPM), Taktart, Metronom (**Click**).
 
 ## Import

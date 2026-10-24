@@ -426,6 +426,32 @@ public:
 
 LoopTakeTests loopTakeTests;
 
+class PlayStartTests final : public juce::UnitTest
+{
+public:
+    PlayStartTests() : UnitTest("Play start with the loop on", "DAW") {}
+
+    void runTest() override
+    {
+        beginTest("Outside the loop play starts at the loop start, inside where it is");
+        ArrangementState state;
+        state.loopStart = 1000;
+        state.loopEnd = 2000;
+        expectEquals(state.playStart(500), static_cast<juce::int64>(500)); // loop off
+        state.loopEnabled = true;
+        expectEquals(state.playStart(500), static_cast<juce::int64>(1000));
+        expectEquals(state.playStart(2500), static_cast<juce::int64>(1000));
+        expectEquals(state.playStart(2000), static_cast<juce::int64>(1000)); // the end belongs to the next pass
+        expectEquals(state.playStart(1500), static_cast<juce::int64>(1500));
+        expectEquals(state.playStart(1000), static_cast<juce::int64>(1000));
+        state.loopEnd = 1000; // empty loop: ignored
+        expectEquals(state.playStart(500), static_cast<juce::int64>(500));
+    }
+};
+
+PlayStartTests playStartTests;
+
+
 // Doubles the signal and adds a constant, so tests can tell where it ran.
 struct MarkerProcessor final : TrackProcessor
 {

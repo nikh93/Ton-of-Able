@@ -170,6 +170,9 @@ struct ArrangementState
 
     /** The re-amp source track, if set and usable (an audio track). */
     [[nodiscard]] const Track* reampTrack() const noexcept;
+    /** Where play and record start from: with the loop on, a position outside
+        the loop jumps to the loop start; inside it playback starts where it is. */
+    [[nodiscard]] juce::int64 playStart(juce::int64 position) const noexcept;
 
     [[nodiscard]] juce::int64 endSample() const noexcept;
     [[nodiscard]] Track* findTrack(const juce::Uuid& id) noexcept;

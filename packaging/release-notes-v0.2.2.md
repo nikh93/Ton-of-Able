@@ -10,7 +10,7 @@ Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 
 - **Wah per Maus in Spur-Effekten:** „MAUS“ beim Wah einer Spurkette lässt die Maus das Pedal auch bei der Wiedergabe dieser Spur steuern.
 - **Neue mitgelieferte Plugins:** Dragonfly Reverb (Hall, Room, Plate, Early Reflections) für natürliche Räume, Valhalla Freq Echo und Valhalla Space Modulator (Flanger). In der Kette über „+“ einfügen.
 - **Linux-Version:** AppImage und tar.gz für x86_64 (ALSA/JACK, PipeWire). BYOD und Dragonfly laufen nativ; Valhalla Supermassive und eigene Windows-VST3-Plugins laufen über das mitgelieferte yabridge, sobald Wine (Staging) installiert ist – Einrichtung automatisch, Details in `LIESMICH-Linux.txt`.
-- **Loop-Bereich:** Anfang und Ende lassen sich im Lineal einzeln ziehen (bisher verschob sich immer der ganze Balken). Der Loop-Button nimmt beim Einschalten die ausgewählten Clips, sonst den sichtbaren bisherigen Bereich oder 4 Takte ab der Abspielposition.
+- **Loop-Bereich:** Anfang und Ende lassen sich im Lineal einzeln ziehen (bisher verschob sich immer der ganze Balken). Play und Aufnahme springen bei eingeschaltetem Loop an den Loop-Anfang, wenn die Abspielposition außerhalb liegt. Der Loop-Button nimmt beim Einschalten die ausgewählten Clips, sonst den sichtbaren bisherigen Bereich oder 4 Takte ab der Abspielposition.
 
 **Behoben**
 - Drum-Spuren: Die Spur-Effekte wirken jetzt auch auf das Drum-Instrument (bisher lief es an der Kette vorbei, auch beim Export).
