@@ -60,6 +60,7 @@ AudioEngine::AudioEngine()
                 logger.log(Logger::Level::error, "[Device] setAudioDeviceSetup: " + setupError);
         }
     }
+    activateDefaultChannelsIfNoneActive();
     logger.log(Logger::Level::info, "[Device] in use: " + manager.describeCurrentSetup());
     manager.addChangeListener(this);
     manager.addAudioCallback(this);
@@ -173,6 +174,32 @@ void AudioEngine::audioDeviceError(const juce::String& errorMessage)
 void AudioEngine::changeListenerCallback(juce::ChangeBroadcaster*)
 {
     logger.log(Logger::Level::info, "[Device] changed: " + manager.describeCurrentSetup());
+    activateDefaultChannelsIfNoneActive();
+}
+
+void AudioEngine::activateDefaultChannelsIfNoneActive()
+{
+    // A channel selection saved for another device (e.g. outputs 3/4 of an
+    // 8-channel driver) can leave none active on a device with fewer channels.
+    // The settings dialog hides the list when there is nothing to choose, so
+    // the user could not fix it there. Once per device, fall back to defaults.
+    auto* device = manager.getCurrentAudioDevice();
+    if (device == nullptr || ! device->isOpen())
+        return;
+    auto setup = manager.getAudioDeviceSetup();
+    const auto noOutputs = ! device->getOutputChannelNames().isEmpty() && setup.outputChannels.isZero();
+    const auto noInputs = ! device->getInputChannelNames().isEmpty() && setup.inputChannels.isZero();
+    const auto key = device->getTypeName() + "/" + device->getName();
+    if (! (noOutputs || noInputs) || defaultChannelsTriedFor == key)
+        return;
+    defaultChannelsTriedFor = key;
+    setup.useDefaultOutputChannels = noOutputs;
+    setup.useDefaultInputChannels = noInputs;
+    const auto error = manager.setAudioDeviceSetup(setup, true);
+    logger.log(error.isEmpty() ? Logger::Level::info : Logger::Level::error,
+               "[Device] no active " + juce::String(noOutputs && noInputs ? "inputs or outputs" : noOutputs ? "outputs" : "inputs")
+               + " on \"" + device->getName() + "\"; enabled the default channels"
+               + (error.isEmpty() ? juce::String() : ": " + error) + "; " + manager.describeCurrentSetup());
 }
 
 void AudioEngine::audioDeviceStopped()

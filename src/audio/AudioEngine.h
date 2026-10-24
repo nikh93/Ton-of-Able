@@ -98,6 +98,7 @@ private:
                                           const juce::AudioIODeviceCallbackContext&) override;
 
     bool preferLowLatencyDeviceType(bool firstStart);
+    void activateDefaultChannelsIfNoneActive();
 
     // Routes JUCE's own log output (ASIO driver diagnostics) into the log file.
     struct JuceLogForwarder final : juce::Logger
@@ -136,6 +137,7 @@ private:
     std::atomic<bool> concurrentCallbackLogged { false };
     std::atomic<bool> callbackWhileStoppedLogged { false };
     std::atomic<bool> channelMismatchLogged { false };
+    juce::String defaultChannelsTriedFor; // device whose empty channel selection was last repaired
     juce::String lastDeviceError;
     juce::CriticalSection errorLock;
 };
