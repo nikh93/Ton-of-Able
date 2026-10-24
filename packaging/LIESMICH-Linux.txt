@@ -1,0 +1,52 @@
+Ton of Able unter Linux
+=======================
+
+Starten
+-------
+AppImage: ausfuehrbar machen und starten
+  chmod +x Ton-of-Able-*-x86_64.AppImage
+  ./Ton-of-Able-*-x86_64.AppImage
+Braucht libfuse2 (Ubuntu/Debian: sudo apt install libfuse2). Ohne FUSE:
+  ./Ton-of-Able-*-x86_64.AppImage --appimage-extract-and-run
+
+tar.gz: entpacken und im Ordner "Ton of Able" ./ton-of-able starten.
+
+Benoetigt werden ALSA, FreeType und Fontconfig - auf Desktop-Systemen
+vorhanden (Ubuntu 22.04 oder neuer bzw. vergleichbar).
+
+Audio
+-----
+In den Einstellungen "ALSA" oder "JACK" waehlen. Mit PipeWire (Standard auf
+aktuellen Distributionen) funktioniert JACK ohne eigenen JACK-Server; fuer
+kleine Latenzen dort die Puffergroesse setzen, z. B.
+  pw-metadata -n settings 0 clock.force-quantum 128
+Mit reinem JACK den Server (z. B. mit QjackCtl) vorher starten.
+
+Plugins
+-------
+Mitgeliefert als Linux-Plugins: BYOD und Dragonfly Reverb (Hall, Room,
+Plate, Early Reflections). Gesucht wird ausserdem in ~/.vst3, /usr/lib/vst3
+und /usr/local/lib/vst3 (z. B. Vital, Surge XT).
+
+Windows-Plugins (Valhalla Supermassive und eigene)
+-------------------------------------------------
+Laufen ueber yabridge und Wine. yabridge liegt dem Programm bei, Wine muss
+installiert sein - am besten Wine Staging:
+  Ubuntu/Debian/Mint: Wine Staging aus den WineHQ-Paketquellen
+                      (https://wiki.winehq.org/Download)
+  Arch/Fedora:        Paket "wine-staging"
+Danach in der Plugin-Verwaltung ("+" -> "Plugins verwalten") auf "Alle neu
+suchen" klicken: yabridge wird nach ~/.local/share/yabridge kopiert, das
+mitgelieferte Supermassive eingerichtet und unter ~/.vst3/yabridge als
+normales Plugin gefunden. Der erste Start eines Windows-Plugins dauert
+etwas, weil Wine seinen Ordner ~/.wine anlegt.
+
+Eigene Windows-Plugins: mit Wine installieren (wine Installer.exe), dann in
+der Plugin-Verwaltung "Windows-Plugins ..." und den Ordner waehlen,
+meist ~/.wine/drive_c/Program Files/Common Files/VST3.
+
+Windows-Plugins laufen nicht immer so stabil wie unter Windows; Plugin-
+Fenster koennen anders skaliert sein. Hilfe: https://github.com/robbert-vdh/yabridge
+
+Projekte, NAM-Modelle, IRs und Presets sind zwischen Windows und Linux
+austauschbar.

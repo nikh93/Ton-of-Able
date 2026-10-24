@@ -2,7 +2,7 @@
 
 # Ton of Able
 
-A guitar amp modeler and multitrack recorder for Windows 10/11: play live through
+A guitar amp modeler and multitrack recorder for Windows 10/11 and Linux: play live through
 [Neural Amp Modeler](https://www.neuralampmodeler.com/) captures, cabinet IRs,
 effects and VST3 plugins, and record, edit and mix whole songs in an
 Ableton-style arrangement. The interface is in German.
@@ -58,6 +58,12 @@ release runs without installing.
 
 The installer is not code-signed: at the SmartScreen warning choose *More info* → *Run anyway*.
 
+**Linux (x86_64):** download `Ton-of-Able-<version>-x86_64.AppImage` (or the `.tar.gz`), make it
+executable and start it. Audio runs through ALSA or JACK (PipeWire works). BYOD and Dragonfly
+Reverb ship as Linux plugins; Valhalla Supermassive and other Windows VST3 plugins run through
+the bundled [yabridge](https://github.com/robbert-vdh/yabridge) once Wine (Staging) is installed.
+See [packaging/LIESMICH-Linux.txt](packaging/LIESMICH-Linux.txt).
+
 ## Quick start
 
 | | |
@@ -94,10 +100,21 @@ ctest --test-dir build -C Release --output-on-failure
 The app is written to `build/NamTestProgram_artefacts/Release/Ton of Able.exe`. It uses the static
 MSVC runtime, so no Visual C++ Redistributable is needed.
 
+On Linux (Ubuntu 22.04 or newer):
+
+```sh
+sudo apt install ninja-build libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev \
+  libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
 Every push runs [.github/workflows/release-windows.yml](.github/workflows/release-windows.yml):
 it builds with MSVC, runs the tests and packs the portable ZIP and the Inno Setup installer
 ([packaging/installer](packaging/installer)) as workflow artifacts. Publishing a GitHub release
 for a tag such as `v0.2.0` attaches both to the release.
+[.github/workflows/release-linux.yml](.github/workflows/release-linux.yml) does the same for Linux
+(AppImage and tar.gz, with BYOD, Dragonfly, yabridge and Supermassive).
 
 ## Licences
 

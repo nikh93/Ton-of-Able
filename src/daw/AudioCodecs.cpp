@@ -21,8 +21,13 @@ juce::String runFfmpeg(const juce::StringArray& arguments, juce::Result& result)
     const auto executable = findFfmpeg();
     if (! executable.existsAsFile())
     {
+       #if JUCE_WINDOWS
         result = juce::Result::fail(text("Für dieses Format wird FFmpeg benötigt. Lege ffmpeg.exe neben \"Ton of Able.exe\", "
                                          "installiere es im PATH oder wähle es im Projektmenü unter \"FFmpeg auswählen\"."));
+       #else
+        result = juce::Result::fail(text("Für dieses Format wird FFmpeg benötigt: installiere es (z. B. \"sudo apt install ffmpeg\") "
+                                         "oder wähle es im Projektmenü unter \"FFmpeg auswählen\"."));
+       #endif
         return {};
     }
     juce::StringArray command { executable.getFullPathName(), "-hide_banner", "-nostdin", "-loglevel", "error", "-y" };

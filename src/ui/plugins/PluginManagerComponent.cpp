@@ -1,5 +1,6 @@
 #include "PluginManagerComponent.h"
 
+#include "audio/plugins/WindowsPluginBridge.h"
 #include "daw/DawText.h"
 #include "ui/components/AmberTheme.h"
 
@@ -32,6 +33,11 @@ PluginManagerComponent::PluginManagerComponent(Host h) : host(std::move(h))
     folderButton.setTooltip(text("Einen Ordner (mit Unterordnern) bei jeder Suche nach Plugins durchsuchen"));
     rescanButton.setButtonText(text("Alle neu suchen"));
     rescanButton.setTooltip(text("Alle Ordner und importierten Dateien neu prüfen (jedes Plugin in einem eigenen Prozess)"));
+    windowsButton.setButtonText(text("Windows-Plugins …"));
+    windowsButton.setTooltip(text("Einen Ordner mit Windows-VST3-Plugins über yabridge und Wine einbinden"));
+    windowsButton.onClick = [this] { addWindowsFolder(); };
+    bridgeInfo.setColour(juce::Label::textColourId, Theme::subduedText());
+    bridgeInfo.setFont(juce::FontOptions(12.5f));
     importButton.onClick = [this] { importFiles(); };
     folderButton.onClick = [this] { addFolder(); };
     rescanButton.onClick = [this] { scan({}, text("Alle Plugins")); };
@@ -61,17 +67,30 @@ PluginManagerComponent::PluginManagerComponent(Host h) : host(std::move(h))
     for (juce::Component* c : std::initializer_list<juce::Component*> { &title, &status, &importButton, &folderButton, &rescanButton,
                                                                          &foldersHeading, &pluginsHeading, &folderList, &table })
         addAndMakeVisible(*c);
+    // Linux only: Windows plugins through yabridge.
+    addChildComponent(windowsButton);
+    addChildComponent(bridgeInfo);
+    windowsButton.setVisible(windowsbridge::isSupportedPlatform());
+    bridgeInfo.setVisible(windowsbridge::isSupportedPlatform());
     setSize(860, 560);
     refresh();
 }
 
-juce::StringArray PluginManagerComponent::allFolders() const
+void PluginManagerComponent::rebuildFolderRows()
 {
-    juce::StringArray result;
+    const auto& catalog = host.catalog();
+    folderRows.clear();
+    juce::StringArray seen;
     for (const auto& folder : PluginCatalog::standardFolders())
-        if (folder.isDirectory())
-            result.addIfNotAlreadyThere(folder.getFullPathName());
-    return result;
+        if (folder.isDirectory() && ! seen.contains(folder.getFullPathName()))
+        {
+            seen.add(folder.getFullPathName());
+            folderRows.push_back({ FolderRow::Kind::standard, folder.getFullPathName() });
+        }
+    for (const auto& folder : catalog.folders)
+        folderRows.push_back({ FolderRow::Kind::user, folder });
+    for (const auto& folder : catalog.windowsFolders)
+        folderRows.push_back({ FolderRow::Kind::windows, folder });
 }
 
 void PluginManagerComponent::refresh()
@@ -90,15 +109,25 @@ void PluginManagerComponent::refresh()
         rows.push_back({ -1, static_cast<int>(index) });
     for (const auto index : order)
         rows.push_back({ index, -1 });
-    standardFolderCount = allFolders().size();
+    rebuildFolderRows();
     folderList.updateContent();
     folderList.repaint();
     table.updateContent();
     table.repaint();
 
     const auto busy = host.scanning();
-    for (auto* button : { &importButton, &folderButton, &rescanButton })
+    for (auto* button : { &importButton, &folderButton, &rescanButton, &windowsButton })
         button->setEnabled(! busy);
+    if (windowsbridge::isSupportedPlatform())
+    {
+        const auto& bridge = catalog.bridgeStatus;
+        bridgeInfo.setText(bridge.isNotEmpty() ? bridge
+                           : text("Windows-Plugins (z. B. das mitgelieferte Supermassive) laufen über yabridge und Wine. "
+                                  "Sie werden bei „Alle neu suchen“ eingerichtet."),
+                           juce::dontSendNotification);
+        const auto problem = bridge.isNotEmpty() && ! bridge.startsWith(text("Windows-Plugins über yabridge eingerichtet"));
+        bridgeInfo.setColour(juce::Label::textColourId, problem ? Theme::danger() : Theme::subduedText());
+    }
     if (busy)
         status.setText(text("Suche läuft … (jedes Plugin wird in einem eigenen Prozess geprüft)"), juce::dontSendNotification);
     else
@@ -128,6 +157,11 @@ void PluginManagerComponent::resized()
     auto area = getLocalBounds().reduced(16);
     auto top = area.removeFromTop(30);
     rescanButton.setBounds(top.removeFromRight(130));
+    if (windowsButton.isVisible())
+    {
+        top.removeFromRight(8);
+        windowsButton.setBounds(top.removeFromRight(150));
+    }
     top.removeFromRight(8);
     folderButton.setBounds(top.removeFromRight(160));
     top.removeFromRight(8);
@@ -135,8 +169,10 @@ void PluginManagerComponent::resized()
     title.setBounds(top);
     area.removeFromTop(10);
     foldersHeading.setBounds(area.removeFromTop(20));
-    const auto folderRows = juce::jlimit(2, 6, standardFolderCount + host.catalog().folders.size());
-    folderList.setBounds(area.removeFromTop(folderRows * folderList.getRowHeight() + 2));
+    const auto rowsShown = juce::jlimit(2, 6, static_cast<int>(folderRows.size()));
+    folderList.setBounds(area.removeFromTop(rowsShown * folderList.getRowHeight() + 2));
+    if (bridgeInfo.isVisible())
+        bridgeInfo.setBounds(area.removeFromTop(40));
     area.removeFromTop(10);
     status.setBounds(area.removeFromBottom(24));
     area.removeFromBottom(4);
@@ -147,17 +183,18 @@ void PluginManagerComponent::resized()
 //==============================================================================
 int PluginManagerComponent::Folders::getNumRows()
 {
-    return owner.standardFolderCount + owner.host.catalog().folders.size();
+    return static_cast<int>(owner.folderRows.size());
 }
 
 void PluginManagerComponent::Folders::paintListBoxItem(int row, juce::Graphics& g, int width, int height, bool)
 {
-    const auto& userFolders = owner.host.catalog().folders;
-    const auto standard = row < owner.standardFolderCount;
-    const auto path = standard ? owner.allFolders()[row] : userFolders[row - owner.standardFolderCount];
+    if (row < 0 || row >= static_cast<int>(owner.folderRows.size()))
+        return;
+    const auto& entry = owner.folderRows[static_cast<size_t>(row)];
+    const auto& path = entry.path;
     auto area = juce::Rectangle<int>(0, 0, width, height).reduced(8, 0);
     g.setFont(juce::FontOptions(13.0f));
-    if (standard)
+    if (entry.kind == FolderRow::Kind::standard)
     {
         g.setColour(Theme::subduedText());
         g.drawText(text("Standard"), area.removeFromRight(70), juce::Justification::centredRight);
@@ -166,6 +203,11 @@ void PluginManagerComponent::Folders::paintListBoxItem(int row, juce::Graphics& 
     {
         g.setColour(Theme::danger());
         g.drawText(text("✕"), area.removeFromRight(removeWidth), juce::Justification::centred);
+        if (entry.kind == FolderRow::Kind::windows)
+        {
+            g.setColour(Theme::amber());
+            g.drawText(text("Windows · yabridge"), area.removeFromRight(130), juce::Justification::centredRight);
+        }
     }
     g.setColour(juce::File(path).isDirectory() ? Theme::text() : Theme::danger());
     g.drawText(path, area, juce::Justification::centredLeft, true);
@@ -173,9 +215,22 @@ void PluginManagerComponent::Folders::paintListBoxItem(int row, juce::Graphics& 
 
 void PluginManagerComponent::Folders::listBoxItemClicked(int row, const juce::MouseEvent& event)
 {
-    if (row < owner.standardFolderCount || event.x < owner.folderList.getVisibleRowWidth() - removeWidth - 8 || owner.host.scanning())
+    if (row < 0 || row >= static_cast<int>(owner.folderRows.size()) || owner.host.scanning()
+        || event.x < owner.folderList.getVisibleRowWidth() - removeWidth - 8)
         return;
-    owner.host.catalog().removeFolder(owner.host.catalog().folders[row - owner.standardFolderCount]);
+    const auto entry = owner.folderRows[static_cast<size_t>(row)];
+    auto& catalog = owner.host.catalog();
+    if (entry.kind == FolderRow::Kind::standard)
+        return;
+    if (entry.kind == FolderRow::Kind::user)
+        catalog.removeFolder(entry.path);
+    else
+    {
+        catalog.windowsFolders.removeString(entry.path);
+        windowsbridge::unbridge(entry.path);
+        // Their bridges are gone from ~/.vst3/yabridge: a full search drops them.
+        owner.scan({}, text("Alle Plugins"));
+    }
     owner.host.changed();
     owner.refresh();
     owner.resized();
@@ -380,6 +435,26 @@ void PluginManagerComponent::addFolder()
             return;
         }
         self->scan(found, folder.getFileName());
+    });
+}
+void PluginManagerComponent::addWindowsFolder()
+{
+    chooser = std::make_shared<juce::FileChooser>(text("Ordner mit Windows-VST3-Plugins wählen (z. B. in ~/.wine/drive_c/Program Files/Common Files/VST3)"),
+                                                  juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+                                                      .getChildFile(".wine/drive_c/Program Files/Common Files/VST3"));
+    const juce::Component::SafePointer<PluginManagerComponent> self(this);
+    chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                         [self](const juce::FileChooser& fc)
+    {
+        const auto folder = fc.getResult();
+        if (self == nullptr || ! folder.isDirectory())
+            return;
+        self->host.catalog().windowsFolders.addIfNotAlreadyThere(folder.getFullPathName());
+        self->host.changed();
+        self->refresh();
+        self->resized();
+        // Bridging happens with the full search.
+        self->scan({}, text("Windows-Plugins"));
     });
 }
 } // namespace nam::ui

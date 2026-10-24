@@ -26,7 +26,8 @@ public:
     /** A chosen file inside a VST3 bundle stands for the bundle (".../X.vst3/Contents/..." → ".../X.vst3"). */
     [[nodiscard]] static juce::File bundleOf(const juce::File&);
 
-    /** Blocking: scans the files one after another in child processes (worker thread). */
+    /** Blocking: scans the files one after another in child processes (worker thread).
+        Bridged Windows plugins get more time: their first load starts Wine. */
     [[nodiscard]] static ScanResult scan(const juce::StringArray& files);
     /** Takes a scan result: the scanned files' old entries and failures are replaced. */
     void merge(const juce::StringArray& scannedFiles, const ScanResult&);
@@ -45,8 +46,10 @@ public:
     [[nodiscard]] static PluginCatalog fromUiState(const juce::ValueTree& uiState);
 
     juce::StringArray folders;                // added by the user
+    juce::StringArray windowsFolders;         // Linux: folders of Windows plugins, bridged with yabridge
     juce::StringArray files;                  // single imported plugin files
     juce::StringArray hidden;                 // plugin identifiers left out of the menus
     juce::Array<juce::PluginDescription> plugins;
     std::vector<Failure> failures;
+    juce::String bridgeStatus;                // Linux: result of the last yabridge setup (not saved)
 };

@@ -21,6 +21,7 @@
 #include "ui/plugins/NamPedalPanel.h"
 #include "ui/plugins/PluginManagerComponent.h"
 #include "audio/plugins/PluginCatalog.h"
+#include "audio/plugins/WindowsPluginBridge.h"
 #include "ui/arrangement/ArrangementView.h"
 #include "ui/arrangement/TrackFxComponent.h"
 #include "ui/effects/PitchShiftComponent.h"

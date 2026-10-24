@@ -1555,19 +1555,29 @@ void MainComponent::scanPlugins(const juce::StringArray& only, std::function<voi
     scanningPlugins = true;
     status.setText(uiText("Suche VST3-Plugins (in separaten Prozessen) …"), juce::dontSendNotification);
     const auto everything = only.isEmpty();
-    const auto files = everything ? pluginCatalog.filesToScan() : only;
     if (pluginManager != nullptr)
         pluginManager->refresh();
     const juce::Component::SafePointer<MainComponent> self(this);
-    pluginScanPool.addJob([self, files, everything, done]
+    pluginScanPool.addJob([self, catalogCopy = pluginCatalog, only, everything, done]
     {
+        // Linux: a full search first sets up the Windows plugins (yabridge), whose
+        // bridges then turn up in ~/.vst3 like any other plugin.
+        juce::String bridgeStatus = catalogCopy.bridgeStatus;
+        if (everything && windowsbridge::isSupportedPlatform()
+            && (windowsbridge::bundledPluginFolder().isDirectory() || ! catalogCopy.windowsFolders.isEmpty()))
+        {
+            const auto error = windowsbridge::bridge(catalogCopy.windowsFolders);
+            bridgeStatus = error.isNotEmpty() ? error : uiText("Windows-Plugins über yabridge eingerichtet (") + windowsbridge::wineVersion() + ").";
+        }
+        const auto files = everything ? catalogCopy.filesToScan() : only;
         auto result = PluginCatalog::scan(files);
-        juce::MessageManager::callAsync([self, files, everything, result = std::move(result), done]
+        juce::MessageManager::callAsync([self, files, everything, result = std::move(result), bridgeStatus, done]
         {
             if (self == nullptr)
                 return;
             self->scanningPlugins = false;
             auto& catalog = self->pluginCatalog;
+            catalog.bridgeStatus = bridgeStatus;
             if (everything)
             {
                 // Plugins that are gone leave the catalog with a full scan.

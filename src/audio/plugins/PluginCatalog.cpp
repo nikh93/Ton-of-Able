@@ -1,5 +1,7 @@
 #include "PluginCatalog.h"
 
+#include "WindowsPluginBridge.h"
+
 namespace
 {
 juce::String utf8(const char* text) { return juce::String(juce::CharPointer_UTF8(text)); }
@@ -13,10 +15,16 @@ bool isInside(const juce::String& file, const juce::String& folder)
 juce::Array<juce::File> PluginCatalog::standardFolders()
 {
     const auto appDirectory = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+   #if JUCE_WINDOWS
     return { appDirectory, appDirectory.getChildFile("plugins"),
              juce::File("C:/Program Files/Common Files/VST3"),
-             juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("VST3"),
-             juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".vst3") };
+             juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("VST3") };
+   #else
+    // ~/.vst3 includes ~/.vst3/yabridge with the bridged Windows plugins.
+    return { appDirectory, appDirectory.getChildFile("plugins"),
+             juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".vst3"),
+             juce::File("/usr/lib/vst3"), juce::File("/usr/local/lib/vst3") };
+   #endif
 }
 
 juce::StringArray PluginCatalog::filesToScan() const
@@ -35,6 +43,11 @@ juce::StringArray PluginCatalog::filesToScan() const
     for (const auto& file : files)
         if (juce::File(file).exists())
             result.addIfNotAlreadyThere(file);
+    // Linux: the shipped Windows plugins only run through their yabridge bridges.
+    if (windowsbridge::isSupportedPlatform())
+        for (int index = result.size(); --index >= 0;)
+            if (juce::File(result[index]).isAChildOf(windowsbridge::bundledPluginFolder()))
+                result.remove(index);
     return result;
 }
 
@@ -57,8 +70,8 @@ PluginCatalog::ScanResult PluginCatalog::scan(const juce::StringArray& filesToRe
         juce::String reason;
         if (! child.start(juce::StringArray { executable, "--scan-vst3-all", file, report.getFullPathName() }))
             reason = utf8("Der Scanner ließ sich nicht starten.");
-        else if (! child.waitForProcessToFinish(30000))
-            reason = utf8("Keine Antwort nach 30 Sekunden – das Plugin hängt beim Laden.");
+        else if (! child.waitForProcessToFinish(windowsbridge::isBridged(file) ? 180000 : 30000))
+            reason = utf8("Keine Antwort – das Plugin hängt beim Laden.");
         else if (const auto xml = juce::XmlDocument::parse(report); xml == nullptr)
             reason = utf8("Das Plugin ist beim Laden abgestürzt.");
         else
@@ -144,6 +157,7 @@ juce::ValueTree PluginCatalog::toValueTree() const
         tree.appendChild(list, nullptr);
     };
     addStrings("folders", folders);
+    addStrings("windowsFolders", windowsFolders);
     addStrings("files", files);
     addStrings("hidden", hidden);
     juce::ValueTree list("plugins");
@@ -181,6 +195,7 @@ PluginCatalog PluginCatalog::fromUiState(const juce::ValueTree& uiState)
                 into.addIfNotAlreadyThere(value);
     };
     readStrings("folders", catalog.folders);
+    readStrings("windowsFolders", catalog.windowsFolders);
     readStrings("files", catalog.files);
     readStrings("hidden", catalog.hidden);
     readPlugins(tree.getChildWithName("plugins"));

@@ -1,0 +1,167 @@
+name: Linux release
+
+# Builds "Ton of Able" for Linux (x86_64), runs the unit tests and packages an
+# AppImage and a tar.gz. Branch pushes keep both as workflow artifacts; tags
+# (or a manual run) attach them to the GitHub release, which the Windows
+# workflow creates if it does not exist yet.
+on:
+  push:
+    tags: ['v*']
+    branches: ['feature/**', 'main']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build and publish
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    # The oldest supported runner, so the AppImage runs on as many distros as possible.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      TAG: ${{ github.event.inputs.tag || (github.ref_type == 'tag' && github.ref_name) || format('build-{0}', github.run_number) }}
+      GH_TOKEN: ${{ github.token }}
+      # Windows plugins (Valhalla Supermassive and its presets) come from this release; they run through yabridge.
+      PLUGIN_SOURCE_RELEASE: v0.1.0
+      DRAGONFLY: '3.2.10'
+      BYOD: '1.3.0'
+      YABRIDGE: '5.1.1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          submodules: recursive
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libgl1-mesa-dev xvfb p7zip-full file desktop-file-utils
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --target NamTestProgram NamTestProgramTests --parallel
+
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xvfb-run -a build/NamTestProgramTests_artefacts/Release/NamTestProgramTests | tee tests.log
+          echo "::notice title=Unit tests (Linux)::$(grep 'test sections' tests.log | tail -1)"
+          grep '^!!! ' tests.log | head -20 | sed 's/^/::error title=Test failure::/' || true
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          pkg="dist/Ton of Able"
+          mkdir -p "$pkg/licenses" "$pkg/windows-plugins"
+          cp "build/NamTestProgram_artefacts/Release/Ton of Able" "$pkg/ton-of-able"
+          cp -r resources "$pkg/resources"
+          cp packaging/LIESMICH.txt packaging/LIESMICH-Linux.txt "$pkg/"
+          cp packaging/icon/app-icon.png "$pkg/ton-of-able.png"
+          cp third_party/rubberband/COPYING "$pkg/licenses/RubberBand-GPL.txt"
+          cp third_party/NeuralAmpModelerCore/LICENSE "$pkg/licenses/NeuralAmpModelerCore-MIT.txt"
+          cp third_party/JUCE/LICENSE.md "$pkg/licenses/JUCE-LICENSE.md"
+
+          # BYOD (Linux build).
+          curl -sSfL -o byod.deb "https://github.com/Chowdhury-DSP/BYOD/releases/download/v$BYOD/BYOD-Linux-x64-$BYOD.deb"
+          dpkg-deb -x byod.deb byod
+          cp -r byod/usr/lib/vst3/BYOD.vst3 "$pkg/"
+
+          # Dragonfly Reverb (Linux build).
+          curl -sSfL -o dragonfly.tar.xz "https://github.com/michaelwillis/dragonfly-reverb/releases/download/$DRAGONFLY/dragonfly-reverb-$DRAGONFLY-linux-x86_64.tar.xz"
+          tar xf dragonfly.tar.xz
+          cp -r dragonfly-reverb-$DRAGONFLY/*.vst3 "$pkg/"
+          curl -sSfL -o "$pkg/licenses/DragonflyReverb-GPL3.txt" "https://raw.githubusercontent.com/michaelwillis/dragonfly-reverb/$DRAGONFLY/LICENSE"
+
+          # yabridge: Windows plugins through Wine; the app installs it to ~/.local/share/yabridge.
+          curl -sSfL -o yabridge.tar.gz "https://github.com/robbert-vdh/yabridge/releases/download/$YABRIDGE/yabridge-$YABRIDGE.tar.gz"
+          tar xzf yabridge.tar.gz -C "$pkg"
+          curl -sSfL -o "$pkg/licenses/yabridge-GPL3.txt" "https://raw.githubusercontent.com/robbert-vdh/yabridge/$YABRIDGE/COPYING"
+
+          # Windows plugins: Supermassive (and its presets) from the previous package,
+          # plus every VST3 from the release "plugin-extras" (e.g. Valhalla Freq Echo).
+          gh release download "$PLUGIN_SOURCE_RELEASE" -p '*.zip' -D previous
+          python3 tools/ci/extract_zip.py previous/*.zip previous/x
+          old="$(find previous/x -mindepth 1 -maxdepth 1 -type d | head -1)"
+          cp -r "$old/ValhallaSupermassive.vst3" "$pkg/windows-plugins/"
+          cp -r "$old/Supermassive-Presets" "$pkg/"
+          if gh release view plugin-extras > /dev/null 2>&1; then
+            gh release download plugin-extras -p '*.zip' -D extras
+            for archive in extras/*.zip; do python3 tools/ci/extract_zip.py "$archive" extras/x; done
+            find extras/x -name '*.vst3' -not -path '*.vst3/*' -exec cp -r {} "$pkg/windows-plugins/" \;
+          fi
+          echo "::notice title=Windows plugins (yabridge)::$(ls "$pkg/windows-plugins" | tr '\n' ' ')"
+
+          # FFmpeg (LGPL, static) for AAC, Opus, MP3 export and audio from video files.
+          url="$(gh api repos/BtbN/FFmpeg-Builds/releases/tags/latest --jq '.assets[] | select(.name | test("^ffmpeg-n[0-9.]+-latest-linux64-lgpl-[0-9.]+\\.tar\\.xz$")) | .browser_download_url' | head -1)"
+          test -n "$url"
+          curl -sSfL -o ffmpeg.tar.xz "$url"
+          mkdir ffmpeg && tar xf ffmpeg.tar.xz -C ffmpeg
+          cp "$(find ffmpeg -type f -name ffmpeg -path '*/bin/*' | head -1)" "$pkg/ffmpeg"
+          cp "$(find ffmpeg -name LICENSE.txt | head -1)" "$pkg/licenses/FFmpeg-LICENSE.txt"
+
+          tarball="Ton-of-Able-$TAG-linux-x86_64.tar.gz"
+          tar czf "$tarball" -C dist "Ton of Able"
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+          echo "::notice title=Package contents::$(cd "$pkg" && du -sh * | awk '{print $2" ("$1")"}' | tr '\n' ' ')"
+
+      - name: AppImage
+        run: |
+          set -euo pipefail
+          app=AppDir/usr/bin
+          mkdir -p "$app"
+          cp -r "dist/Ton of Able/." "$app/"
+          cat > ton-of-able.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Ton of Able
+          Comment=Gitarren-Rig mit NAM-Amps und Mehrspur-Arrangement
+          Exec=ton-of-able %f
+          Icon=ton-of-able
+          Categories=AudioVideo;Audio;Music;
+          MimeType=application/x-tonproj;
+          Terminal=false
+          EOF
+          pip3 install -q pillow
+          python3 -c "from PIL import Image; Image.open('packaging/icon/app-icon.png').resize((256, 256)).save('AppDir/ton-of-able.png')"
+          cp ton-of-able.desktop AppDir/
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          here="$(dirname "$(readlink -f "$0")")"
+          exec "$here/usr/bin/ton-of-able" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          # No library bundling (linuxdeploy would also rewrite the plugins and yabridge's
+          # Wine binaries): the app needs ALSA, FreeType and Fontconfig, present on desktop distros.
+          curl -sSfL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          LDAI_OUTPUT="Ton-of-Able-$TAG-x86_64.AppImage"
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir "$LDAI_OUTPUT"
+          echo "APPIMAGE=$LDAI_OUTPUT" >> "$GITHUB_ENV"
+          echo "::notice title=AppImage::$LDAI_OUTPUT ($(du -h "$LDAI_OUTPUT" | cut -f1))"
+
+      - name: Keep AppImage and tar.gz as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ton-of-Able-linux-x86_64
+          path: |
+            ${{ env.APPIMAGE }}
+            ${{ env.TARBALL }}
+          retention-days: 14
+
+      - name: Attach to the release
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        run: |
+          # The Windows workflow creates the release when it does not exist; wait for it.
+          for attempt in $(seq 1 90); do
+            gh release view "$TAG" > /dev/null 2>&1 && break
+            sleep 30
+          done
+          gh release upload "$TAG" "$APPIMAGE" "$TARBALL" --clobber

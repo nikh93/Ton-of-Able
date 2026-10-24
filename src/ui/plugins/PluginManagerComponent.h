@@ -53,17 +53,24 @@ private:
     void addFolder();
     void scan(const juce::StringArray& files, const juce::String& what);
     [[nodiscard]] juce::String fileOf(const Row&) const;
-    [[nodiscard]] juce::StringArray allFolders() const;
+    void addWindowsFolder();
+    void rebuildFolderRows();
+
+    struct FolderRow
+    {
+        enum class Kind { standard, user, windows } kind;
+        juce::String path;
+    };
 
     Host host;
     std::vector<Row> rows;
     juce::Label title, status;
-    juce::TextButton importButton, folderButton, rescanButton;
-    juce::Label foldersHeading, pluginsHeading;
+    juce::TextButton importButton, folderButton, rescanButton, windowsButton;
+    juce::Label foldersHeading, pluginsHeading, bridgeInfo;
+    std::vector<FolderRow> folderRows;
     Folders folders { *this };
     juce::ListBox folderList;
     juce::TableListBox table;
     std::shared_ptr<juce::FileChooser> chooser;
-    int standardFolderCount = 0;
 };
 } // namespace nam::ui

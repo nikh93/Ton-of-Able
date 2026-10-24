@@ -13,8 +13,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (NOT WIN32)
-    message(FATAL_ERROR "NamTestProgram currently targets Windows 10 and Windows 11 only.")
+if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(FATAL_ERROR "Ton of Able targets Windows 10/11 and Linux.")
 endif()
 
 add_subdirectory(third_party/JUCE)
@@ -83,6 +83,7 @@ target_sources(NamTestProgram PRIVATE
     src/audio/plugins/Vst3Slot.cpp
     src/ui/plugins/NamPedalPanel.cpp
     src/audio/plugins/PluginCatalog.cpp
+    src/audio/plugins/WindowsPluginBridge.cpp
     src/ui/plugins/PluginManagerComponent.cpp
     src/audio/NamPedalProcessor.cpp
     src/audio/effects/DriveProcessor.cpp
@@ -163,10 +164,13 @@ target_include_directories(NamTestProgram PRIVATE
 )
 
 target_compile_definitions(NamTestProgram PRIVATE
-    JUCE_ASIO=1
     JUCE_PLUGINHOST_VST3=1
-    JUCE_WASAPI=1
+    $<$<PLATFORM_ID:Windows>:JUCE_ASIO=1>
+    $<$<PLATFORM_ID:Windows>:JUCE_WASAPI=1>
     JUCE_DIRECTSOUND=0
+    # Linux: ALSA, and JACK (also served by PipeWire) for low latencies.
+    $<$<PLATFORM_ID:Linux>:JUCE_ALSA=1>
+    $<$<PLATFORM_ID:Linux>:JUCE_JACK=1>
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_MODAL_LOOPS_PERMITTED=1
@@ -210,6 +214,7 @@ if (NAM_TEST_PROGRAM_BUILD_TESTS)
         tests/DrumKitTests.cpp
         tests/ChainLayoutTests.cpp
         src/audio/plugins/PluginCatalog.cpp
+        src/audio/plugins/WindowsPluginBridge.cpp
             src/ui/shortcuts/Shortcuts.cpp
         ${DAW_SOURCES}
         ${RUBBERBAND_SOURCES}

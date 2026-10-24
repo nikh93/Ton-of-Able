@@ -125,3 +125,10 @@ Phase 35 abgeschlossen – Re-Amping und Wah per Maus in Spurketten:
 - Anzeige: RE-AMP im Spurkopf (Klick schaltet aus), Hinweis zum Rig-Eingang im Tab RIG.
 - Wah per Maus auch in Spurketten: Spuren mit „MAUS“ beim Wah folgen der Maus bei der Wiedergabe, zusätzlich zum Live-Rig.
 - Tests: Quelle nur beim Abspielen, vor dem Fader, nicht direkt hörbar, Loop-Sprung innerhalb eines Blocks, ungültige Quellen.
+
+Phase 36 abgeschlossen – Linux-Version mit yabridge:
+- Die normale CMakeLists.txt baut jetzt auch unter Linux (ALSA und JACK; PipeWire bedient beides). Plugin-Suche unter Linux: Programmordner, ~/.vst3, /usr/lib/vst3, /usr/local/lib/vst3. FFmpeg-Hinweis plattformgerecht.
+- GitHub Actions: neuer Workflow release-linux.yml (Ubuntu 22.04): Build, Tests unter Xvfb, Paket mit BYOD und Dragonfly (Linux-Builds), yabridge 5.1.1, Supermassive samt Presets (Windows) und statischem FFmpeg; AppImage und tar.gz als Artefakte, bei Tags am Release.
+- yabridge-Anbindung (windowsbridge): Bei „Alle neu suchen“ (und beim ersten Start) kopiert das Programm yabridge nach ~/.local/share/yabridge und die mitgelieferten Windows-Plugins an einen festen Ort (das AppImage wird bei jedem Start woanders eingehängt, yabridge verlinkt aber auf die Dateien), registriert sie samt eigener Windows-Ordner per yabridgectl und synchronisiert; die Brücken in ~/.vst3/yabridge werden wie normale Plugins gefunden (Scan-Zeitlimit 3 Minuten, weil Wine beim ersten Mal seinen Ordner anlegt). Danach kommen die Supermassive-Presets in den Wine-Ordner. WINEDLLOVERRIDES verhindert Mono/Gecko-Nachfragen.
+- Plugin-Verwaltung unter Linux: „Windows-Plugins …“ fügt einen Ordner mit Windows-VST3 hinzu (Kennzeichnung „Windows · yabridge“, ✕ entfernt ihn samt Brücken), Statuszeile zu Wine/yabridge mit verständlicher Meldung, wenn Wine fehlt.
+- Geprüft unter Linux mit Wine 9.0: Supermassive über yabridge im Plugin-Host-Test 71/71, im Programm automatisch eingebunden, als Block geladen, Plugin-Fenster geöffnet, Presets vorhanden.

@@ -18,6 +18,7 @@ public:
 
     void initialise(const juce::String& commandLine) override
     {
+        windowsbridge::prepareEnvironment();
         auto args = juce::StringArray::fromTokens(commandLine, true);
         for (auto& arg : args) arg=arg.unquoted();
         if (args.size()==3 && args[0]=="--rig-audio-test")

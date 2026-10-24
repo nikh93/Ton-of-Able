@@ -1,4 +1,4 @@
-Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 (64 Bit).
+Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 (64 Bit) und – neu – Linux.
 
 **Installation:** `Ton-of-Able-v0.2.2-setup.exe` ausführen – eine vorhandene Installation wird aktualisiert. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen“ → „Trotzdem ausführen“.
 
@@ -9,6 +9,7 @@ Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 
 - **Re-Amping:** Rechtsklick auf eine Audio-Spur → „Re-Amp: ins Live-Rig spielen“. Bei der Wiedergabe spielt die Spur statt der Gitarre durch das Live-Rig, die Effekte (auch Wah per Maus) lassen sich live verändern, eine scharfgeschaltete Rig-Spur nimmt das Ergebnis auf – mit Loop als Takes.
 - **Wah per Maus in Spur-Effekten:** „MAUS“ beim Wah einer Spurkette lässt die Maus das Pedal auch bei der Wiedergabe dieser Spur steuern.
 - **Neue mitgelieferte Plugins:** Dragonfly Reverb (Hall, Room, Plate, Early Reflections) für natürliche Räume, Valhalla Freq Echo und Valhalla Space Modulator (Flanger). In der Kette über „+“ einfügen.
+- **Linux-Version:** AppImage und tar.gz für x86_64 (ALSA/JACK, PipeWire). BYOD und Dragonfly laufen nativ; Valhalla Supermassive und eigene Windows-VST3-Plugins laufen über das mitgelieferte yabridge, sobald Wine (Staging) installiert ist – Einrichtung automatisch, Details in `LIESMICH-Linux.txt`.
 
 **Behoben**
 - Drum-Spuren: Die Spur-Effekte wirken jetzt auch auf das Drum-Instrument (bisher lief es an der Kette vorbei, auch beim Export).
