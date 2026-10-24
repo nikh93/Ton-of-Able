@@ -170,6 +170,8 @@ Formate: WAV 16/24/32-Bit-Float, AIFF 24, FLAC 24, Ogg Vorbis sowie MP3 320 kbps
 Ein Export ist erst möglich, wenn alle Rubber-Band-Berechnungen fertig sind.
 Die Effektketten der Spuren (Insert) und der Return-Spuren werden mitgerendert. Solange der Export läuft, spielen diese Spuren live ohne Effekte.
 
+Während des Exports ersetzt ein Fortschrittsbalken die Buttons Import/Export (bei MP3, AAC und Opus folgt „Konvertiere …“ mit FFmpeg). **Abbrechen** stoppt den Export und löscht die angefangenen Dateien.
+
 ## Projekte
 
 - Ein Projekt ist ein Ordner mit `Name.tonproj` (XML) und dem Unterordner `Audio/` für Aufnahmen und extrahierte Audiodateien. Importierte Dateien außerhalb des Projekts werden referenziert.

@@ -84,6 +84,10 @@ private:
     IconButton undo { Icon::undo }, redo { Icon::redo };
     IconButton importButton { Icon::importFile, "Import" }, exportButton { Icon::exportFile, "Export" };
     IconButton projectButton { Icon::folder }, shortcutsButton { Icon::keyboard };
+    // Shown instead of Import/Export while an export runs.
+    double exportFraction = 0.0;
+    juce::ProgressBar exportBar { exportFraction };
+    juce::TextButton cancelExportButton;
     juce::Rectangle<int> displayArea; // the dark "LCD" behind position, tempo and time signature
 
     daw::codecs::ExportFormat exportFormat = daw::codecs::ExportFormat::wav24;

@@ -129,6 +129,12 @@ public:
         stems = true one file per non-empty track into the folder target. */
     void exportAudio(const juce::File& target, codecs::ExportFormat format, bool loopOnly, bool stems,
                      std::function<void(juce::Result)> done, const juce::Uuid& singleTrack = juce::Uuid::null());
+    /** While exporting: 0 ... 1 over all files, else -1. */
+    [[nodiscard]] double exportProgress() const noexcept { return exporting ? exportStatus->fraction.load() : -1.0; }
+    /** The export is converting with FFmpeg (no finer progress then). */
+    [[nodiscard]] bool exportConverting() const noexcept { return exporting && exportStatus->converting.load(); }
+    /** Stops a running export; its files are removed. */
+    void cancelExport() noexcept { exportStatus->cancel = true; }
 
     [[nodiscard]] int pendingWork() const noexcept { return stretcher.pendingJobs() + loadsInFlight; }
     [[nodiscard]] bool isRendering(const Clip& clip) const noexcept { return clip.needsStretch() && ! clip.hasCurrentRender(); }
@@ -184,6 +190,12 @@ private:
     std::set<juce::Uuid> freezing;
     std::set<juce::Uuid> frozenBefore; // to report tracks that were thawed by an edit
     bool exporting = false;
+    struct ExportStatus
+    {
+        std::atomic<double> fraction { 0.0 };
+        std::atomic<bool> converting { false }, cancel { false };
+    };
+    std::shared_ptr<ExportStatus> exportStatus = std::make_shared<ExportStatus>(); // shared with the export thread
 
     StretchService stretcher;
     juce::ThreadPool loader { juce::ThreadPoolOptions {}.withThreadName("Audio loader").withNumberOfThreads(2) };

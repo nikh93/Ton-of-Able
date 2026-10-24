@@ -186,6 +186,13 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     zoomFit.onClick = [this] { timeline.zoomToFit(); };
     undo.onClick = [this] { controller.undo(); };
     redo.onClick = [this] { controller.redo(); };
+    exportBar.setColour(juce::ProgressBar::foregroundColourId, Theme::amber());
+    exportBar.setColour(juce::ProgressBar::backgroundColourId, Theme::well());
+    cancelExportButton.setButtonText(text("Abbrechen"));
+    cancelExportButton.setTooltip(text("Export abbrechen – angefangene Dateien werden gelöscht"));
+    cancelExportButton.onClick = [this] { controller.cancelExport(); };
+    addChildComponent(exportBar);
+    addChildComponent(cancelExportButton);
     importButton.onClick = [this] { chooseImport(); };
     exportButton.onClick = [this] { showExportMenu(); };
     projectButton.onClick = [this] { showProjectMenu(); };
@@ -486,6 +493,22 @@ void ArrangementView::timerCallback()
         timeline.repaint();
         updateScrollBars();
     }
+    // Export progress replaces Import/Export while it runs.
+    const auto progress = controller.exportProgress();
+    const auto exportRunning = progress >= 0.0;
+    if (exportBar.isVisible() != exportRunning)
+    {
+        exportBar.setVisible(exportRunning);
+        cancelExportButton.setVisible(exportRunning);
+        importButton.setVisible(! exportRunning);
+        exportButton.setVisible(! exportRunning);
+    }
+    if (exportRunning)
+    {
+        const auto converting = controller.exportConverting();
+        exportFraction = converting ? -1.0 : progress; // -1: the bar moves without a value
+        exportBar.setTextToDisplay(converting ? text("Konvertiere …") : text("Export ") + juce::String(juce::roundToInt(progress * 100.0)) + " %");
+    }
     if (engine.isRecording())
         record.setAlpha((juce::Time::getMillisecondCounter() / 400) % 2 == 0 ? 1.0f : 0.55f);
     else
@@ -574,6 +597,8 @@ void ArrangementView::resized()
     exportButton.setBounds(row.removeFromRight(96));
     row.removeFromRight(6);
     importButton.setBounds(row.removeFromRight(96));
+    cancelExportButton.setBounds(exportButton.getBounds());
+    exportBar.setBounds(importButton.getBounds().withLeft(importButton.getX() - 120).reduced(0, 3));
 
     horizontal.setBounds(area.removeFromBottom(12).withTrimmedLeft(headerWidth).withTrimmedRight(12));
     vertical.setBounds(area.removeFromRight(12).withTrimmedTop(TimelineComponent::rulerHeight));

@@ -1211,6 +1211,7 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
         if (track.fx->processor != nullptr && track.fx->enabled.load() && ! track.isFrozen(current))
             chains.insert(track.id);
     exporting = true;
+    exportStatus = std::make_shared<ExportStatus>();
     detachFx(chains);
     const auto snapshot = ArrangementEngine::buildSnapshot(current);
     const auto rate = current.sampleRate;
@@ -1229,9 +1230,11 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
     const auto processorBlock = audio.maximumBlockSize();
     ++loadsInFlight;
     std::weak_ptr<bool> weakAlive = alive;
-    juce::Thread::launch([this, snapshot, jobs, rate, master, from, to, format, done, weakAlive, offline, chains, processorBlock]
+    juce::Thread::launch([this, snapshot, jobs, rate, master, from, to, format, done, weakAlive, offline, chains, processorBlock,
+                          status = exportStatus]
     {
         auto result = juce::Result::ok();
+        const auto total = static_cast<double>(to - from) * static_cast<double>(jobs.size());
         for (size_t jobIndex = 0; jobIndex < jobs.size(); ++jobIndex)
         {
             const auto& job = jobs[jobIndex];
@@ -1261,14 +1264,29 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
             codecs::ExportWriter writer(job.file, format, rate, 2);
             if (result = writer.openResult(); result.failed())
                 break;
+            auto rendered = static_cast<double>(to - from) * static_cast<double>(jobIndex);
             if (! renderRange(*snapshot, options, from, to, job.track < 0 ? master : 1.0f,
-                              [&writer](const float* const* channels, int count) { return writer.write(channels, count); }))
-                result = juce::Result::fail("Schreibfehler beim Export: " + job.file.getFullPathName());
+                              [&writer, &rendered, &status, total](const float* const* channels, int count)
+                              {
+                                  rendered += count;
+                                  status->fraction = rendered / total;
+                                  return ! status->cancel.load() && writer.write(channels, count);
+                              }))
+                result = status->cancel.load() ? juce::Result::fail(text("Export abgebrochen."))
+                                               : juce::Result::fail("Schreibfehler beim Export: " + job.file.getFullPathName());
             if (result.wasOk())
+            {
+                status->converting = codecs::infoFor(format).needsFfmpeg;
                 result = writer.finish();
+                status->converting = false;
+            }
             if (result.failed())
                 break;
         }
+        // A cancelled export leaves no half-written files behind.
+        if (status->cancel.load())
+            for (const auto& job : jobs)
+                job.file.deleteFile();
         juce::MessageManager::callAsync([this, result, done, weakAlive, chains]
         {
             if (weakAlive.expired())
