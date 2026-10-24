@@ -164,6 +164,9 @@ struct ArrangementState
     bool loopEnabled = false;
     juce::int64 loopStart = 0;
     juce::int64 loopEnd = 0;
+    /** Export range; empty (end <= start) means the whole song. */
+    juce::int64 exportStart = 0;
+    juce::int64 exportEnd = 0;
     /** Re-amping: this track's playback feeds the live rig instead of the guitar
         (for this session; not saved with the project). */
     juce::Uuid reampSource;
@@ -173,6 +176,9 @@ struct ArrangementState
     /** Where play and record start from: with the loop on, a position outside
         the loop jumps to the loop start; inside it playback starts where it is. */
     [[nodiscard]] juce::int64 playStart(juce::int64 position) const noexcept;
+    [[nodiscard]] bool hasExportRange() const noexcept { return exportEnd > exportStart; }
+    /** What an export renders: the export range, or the whole song without one. */
+    [[nodiscard]] std::pair<juce::int64, juce::int64> exportRange() const noexcept;
 
     [[nodiscard]] juce::int64 endSample() const noexcept;
     [[nodiscard]] Track* findTrack(const juce::Uuid& id) noexcept;

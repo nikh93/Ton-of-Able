@@ -433,6 +433,7 @@ public:
 
     void runTest() override
     {
+        runExportRangeTest();
         beginTest("Outside the loop play starts at the loop start, inside where it is");
         ArrangementState state;
         state.loopStart = 1000;
@@ -446,6 +447,22 @@ public:
         expectEquals(state.playStart(1000), static_cast<juce::int64>(1000));
         state.loopEnd = 1000; // empty loop: ignored
         expectEquals(state.playStart(500), static_cast<juce::int64>(500));
+    }
+
+    void runExportRangeTest()
+    {
+        beginTest("Export range: whole song by default, saved with the project");
+        ArrangementState state;
+        edit::addTrack(state, edit::makeTrack(state, "Guitar"));
+        edit::insert(state, edit::makeClip({}, makeRamp(4800), 9600), 0);
+        expect(! state.hasExportRange());
+        expect(state.exportRange() == std::make_pair(juce::int64 { 0 }, state.endSample()));
+        state.exportStart = 1000;
+        state.exportEnd = 5000;
+        expect(state.exportRange() == std::make_pair(juce::int64 { 1000 }, juce::int64 { 5000 }));
+        const auto loaded = fromValueTree(toValueTree(state, {}), {});
+        expectEquals(loaded.exportStart, static_cast<juce::int64>(1000));
+        expectEquals(loaded.exportEnd, static_cast<juce::int64>(5000));
     }
 };
 

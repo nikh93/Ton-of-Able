@@ -67,7 +67,7 @@ const std::vector<CommandDefinition>& commandDefinitions()
         { saveAs, "Speichern unter …", "Speichert das Projekt unter neuem Namen", "Projekt", { key('S', ctrl | shift) } },
         { open, "Projekt öffnen …", "Öffnet ein Projekt", "Projekt", { key('O', ctrl) } },
         { import, "Audio/Video importieren …", "Importiert Audiodateien oder den Ton aus Videos", "Projekt", { key('I', ctrl) } },
-        { exportAudio, "Exportieren …", "Mix, Loop-Bereich oder Stems exportieren", "Projekt", { key('E', ctrl | shift) } },
+        { exportAudio, "Exportieren …", "Mix, Stems oder einzelne Spuren im Export-Bereich exportieren", "Projekt", { key('E', ctrl | shift) } },
     };
     return definitions;
 }

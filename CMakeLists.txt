@@ -149,6 +149,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/arrangement/TimelineComponent.cpp
     src/ui/arrangement/TimelineComponent.h
     src/ui/arrangement/TrackHeaderComponent.cpp
+    src/ui/arrangement/ExportRangeBar.cpp
+    src/ui/arrangement/ExportRangeBar.h
     src/ui/arrangement/TrackHeaderComponent.h
     ${DAW_SOURCES}
     ${RUBBERBAND_SOURCES}

@@ -866,6 +866,18 @@ void ArrangementController::setLoop(bool enabled, juce::int64 start, juce::int64
     });
 }
 
+void ArrangementController::setExportRange(juce::int64 start, juce::int64 end)
+{
+    if (start == current.exportStart && end == current.exportEnd)
+        return;
+    modify([&](ArrangementState& state)
+    {
+        state.exportStart = std::max<juce::int64>(0, std::min(start, end));
+        state.exportEnd = std::max(start, end);
+    });
+    markDirty();
+}
+
 void ArrangementController::setReampSource(const juce::Uuid& trackId)
 {
     modify([&trackId](ArrangementState& state) { state.reampSource = trackId; });
@@ -1157,7 +1169,7 @@ juce::Result ArrangementController::saveAs(const juce::File& file)
 }
 
 //==============================================================================
-void ArrangementController::exportAudio(const juce::File& target, codecs::ExportFormat format, bool loopOnly, bool stems,
+void ArrangementController::exportAudio(const juce::File& target, codecs::ExportFormat format, bool stems,
                                         std::function<void(juce::Result)> done, const juce::Uuid& singleTrack)
 {
     for (const auto& track : current.tracks)
@@ -1168,11 +1180,11 @@ void ArrangementController::exportAudio(const juce::File& target, codecs::Export
                 return;
             }
 
-    const auto from = loopOnly && current.loopEnabled ? current.loopStart : 0;
-    const auto to = loopOnly && current.loopEnabled ? current.loopEnd : current.endSample();
+    const auto range = current.exportRange();
+    const auto from = range.first, to = range.second;
     if (to <= from)
     {
-        done(juce::Result::fail("Nichts zu exportieren: das Arrangement ist leer."));
+        done(juce::Result::fail(text("Nichts zu exportieren: das Arrangement ist leer.")));
         return;
     }
 

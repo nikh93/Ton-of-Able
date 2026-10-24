@@ -160,9 +160,11 @@ FFmpeg wird nicht mitgeliefert. Ton of Able findet `ffmpeg.exe` neben `Ton of Ab
 
 ## Export
 
-**Export** bietet:
+**Export-Bereich:** Der Balken **EXPORT-BEREICH** unter den Spuren legt fest, was exportiert wird – für Mix, Stems und einzelne Spuren. Ohne eigene Einstellung (blass, „Ganzer Song“) ist es das ganze Arrangement. Anfang und Ende ziehen (Mauszeiger ↔), die Mitte verschiebt den Bereich, außerhalb des Balkens ziehen legt einen neuen an; alles rastet am Raster ein (Alt: frei). Doppelklick = wieder ganzer Song. Der Bereich wird mit dem Projekt gespeichert und ist unabhängig vom Loop.
 
-- **Mix** (ganzes Arrangement oder nur der Loop-Bereich)
+**Export** bietet (das Menü zeigt oben den aktuellen Bereich):
+
+- **Mix**
 - **Alle Spuren einzeln (Stems)** in einen Ordner. Stems enthalten Lautstärke und Panorama der Spur und ignorieren Mute/Solo. Return-Spuren erscheinen als eigene Stems.
 - **Ausgewählte Spur** (auch per Rechtsklick auf den Spurkopf)
 

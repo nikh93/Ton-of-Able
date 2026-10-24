@@ -108,6 +108,8 @@ public:
     void dropOtherTakes(const juce::Uuid& clipId);
     void locate(juce::int64 position);
     void setLoop(bool enabled, juce::int64 start, juce::int64 end);
+    /** The range exports render (both 0: the whole song). */
+    void setExportRange(juce::int64 start, juce::int64 end);
     /** Re-amping: plays this track into the live rig instead of the guitar (null: off). */
     void setReampSource(const juce::Uuid& trackId);
     void setTempo(double bpm, int beatsPerBar, int beatUnit);
@@ -127,7 +129,7 @@ public:
     void markDirty() noexcept { dirty = true; }
     /** Renders on a background thread: the master mix into target, or with
         stems = true one file per non-empty track into the folder target. */
-    void exportAudio(const juce::File& target, codecs::ExportFormat format, bool loopOnly, bool stems,
+    void exportAudio(const juce::File& target, codecs::ExportFormat format, bool stems,
                      std::function<void(juce::Result)> done, const juce::Uuid& singleTrack = juce::Uuid::null());
     /** While exporting: 0 ... 1 over all files, else -1. */
     [[nodiscard]] double exportProgress() const noexcept { return exporting ? exportStatus->fraction.load() : -1.0; }

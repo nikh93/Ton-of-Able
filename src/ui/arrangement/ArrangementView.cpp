@@ -82,6 +82,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     headerColumn = std::make_unique<HeaderColumn>(*this);
     addAndMakeVisible(*headerColumn);
     addAndMakeVisible(timeline);
+    addAndMakeVisible(exportRange);
     for (auto* bar : { &horizontal, &vertical })
     {
         bar->setAutoHide(false);
@@ -112,7 +113,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     zoomOut.setTooltip("Herauszoomen (Ctrl+Mausrad / Ctrl+-)");
     zoomFit.setTooltip(text("Ganzes Projekt zeigen"));
     importButton.setTooltip(text("Audio oder Video importieren (Ctrl+I) – auch per Drag & Drop auf die Timeline"));
-    exportButton.setTooltip("Mix, Loop-Bereich oder einzelne Spuren exportieren");
+    exportButton.setTooltip(text("Mix, Stems oder einzelne Spuren exportieren – im Bereich des Export-Balkens unten"));
     projectButton.setTooltip(text("Projekt: Neu, Öffnen, Speichern, Speichern unter …"));
     shortcutsButton.setTooltip(text("Tastenkürzel ansehen und frei belegen (F1)"));
 
@@ -420,7 +421,7 @@ void ArrangementView::rebuildHeaders()
             {
                 auto header = std::make_unique<TrackHeaderComponent>(controller, track.id);
                 header->onSelect = [this](const juce::Uuid& id) { timeline.selectTrack(controller.state().trackIndex(id)); };
-                header->onExportTrack = [this](const juce::Uuid& id) { exportTo(false, false, id); };
+                header->onExportTrack = [this](const juce::Uuid& id) { exportTo(false, id); };
                 header->onOpenFx = [this](const juce::Uuid& id) { openTrackFx(id); };
                 header->onOpenDrums = [this](const juce::Uuid& id) { openDrumMachine(id, 0); };
                 headerColumn->addAndMakeVisible(*header);
@@ -493,6 +494,7 @@ void ArrangementView::timerCallback()
         timeline.repaint();
         updateScrollBars();
     }
+    exportRange.update();
     // Export progress replaces Import/Export while it runs.
     const auto progress = controller.exportProgress();
     const auto exportRunning = progress >= 0.0;
@@ -601,6 +603,7 @@ void ArrangementView::resized()
     exportBar.setBounds(importButton.getBounds().withLeft(importButton.getX() - 120).reduced(0, 3));
 
     horizontal.setBounds(area.removeFromBottom(12).withTrimmedLeft(headerWidth).withTrimmedRight(12));
+    exportRange.setBounds(area.removeFromBottom(24).withTrimmedRight(12));
     vertical.setBounds(area.removeFromRight(12).withTrimmedTop(TimelineComponent::rulerHeight));
     headerColumn->setBounds(area.removeFromLeft(headerWidth));
     timeline.setBounds(area);
@@ -701,19 +704,22 @@ void ArrangementView::showExportMenu()
         formats.addItem(info.name, true, info.format == exportFormat, [this, format = info.format] { exportFormat = format; status(text("Exportformat: ") + daw::codecs::infoFor(format).name); });
 
     juce::PopupMenu menu;
+    const auto& state = controller.state();
+    const auto [from, to] = state.exportRange();
     menu.addSectionHeader(text("Format: ") + daw::codecs::infoFor(exportFormat).name);
-    menu.addItem(text("Mix exportieren …"), [this] { exportTo(false, false); });
-    menu.addItem(text("Mix – nur Loop-Bereich …"), controller.state().loopEnabled, false, [this] { exportTo(false, true); });
-    menu.addItem(text("Alle Spuren einzeln (Stems) …"), [this] { exportTo(true, false); });
+    menu.addSectionHeader((state.hasExportRange() ? text("Bereich: ") : text("Bereich: ganzer Song, ")) + controller.grid().formatPosition(from)
+                          + text(" – ") + controller.grid().formatPosition(to) + text(" (Balken unten)"));
+    menu.addItem(text("Mix exportieren …"), [this] { exportTo(false); });
+    menu.addItem(text("Alle Spuren einzeln (Stems) …"), [this] { exportTo(true); });
     if (const auto track = timeline.selectedTrack(); track >= 0 && track < static_cast<int>(controller.state().tracks.size()))
         menu.addItem(text("Ausgewählte Spur \"") + controller.state().tracks[static_cast<size_t>(track)].name + text("\" …"),
-                     [this, id = controller.state().tracks[static_cast<size_t>(track)].id] { exportTo(false, false, id); });
+                     [this, id = controller.state().tracks[static_cast<size_t>(track)].id] { exportTo(false, id); });
     menu.addSeparator();
     menu.addSubMenu("Format", formats);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&exportButton));
 }
 
-void ArrangementView::exportTo(bool stems, bool loopOnly, const juce::Uuid& singleTrack)
+void ArrangementView::exportTo(bool stems, const juce::Uuid& singleTrack)
 {
     const auto& info = daw::codecs::infoFor(exportFormat);
     const auto directory = lastExportDirectory.isDirectory() ? lastExportDirectory : controller.projectFile().getParentDirectory();
@@ -725,7 +731,7 @@ void ArrangementView::exportTo(bool stems, bool loopOnly, const juce::Uuid& sing
                                                   stems ? "*" : juce::String("*.") + info.extension);
     const auto browserFlags = stems ? juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories
                              : juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting;
-    chooser->launchAsync(browserFlags, [safe = juce::Component::SafePointer<ArrangementView>(this), stems, loopOnly, singleTrack](const juce::FileChooser& fileChooser)
+    chooser->launchAsync(browserFlags, [safe = juce::Component::SafePointer<ArrangementView>(this), stems, singleTrack](const juce::FileChooser& fileChooser)
     {
         if (safe == nullptr)
             return;
@@ -735,7 +741,7 @@ void ArrangementView::exportTo(bool stems, bool loopOnly, const juce::Uuid& sing
             return;
         safe->lastExportDirectory = stems ? target : target.getParentDirectory();
         safe->status(text("Exportiere … ") + target.getFileName());
-        safe->controller.exportAudio(target, safe->exportFormat, loopOnly, stems, [safe, target](juce::Result result)
+        safe->controller.exportAudio(target, safe->exportFormat, stems, [safe, target](juce::Result result)
         {
             if (safe != nullptr)
                 safe->status(result.wasOk() ? text("Export fertig: ") + target.getFullPathName() : result.getErrorMessage());
