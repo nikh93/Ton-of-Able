@@ -7,6 +7,7 @@
 #include "RigChain.h"
 #include "config/AppSettings.h"
 #include "daw/ArrangementEngine.h"
+#include "diagnostics/DeviceLogging.h"
 #include "diagnostics/Logger.h"
 #include "diagnostics/PerformanceMonitor.h"
 #include "playback/FilePlayer.h"
@@ -14,7 +15,8 @@
 
 struct SoundState;
 
-class AudioEngine final : private juce::AudioIODeviceCallback, private juce::MidiInputCallback
+class AudioEngine final : private juce::AudioIODeviceCallback, private juce::MidiInputCallback,
+                          private juce::ChangeListener
 {
 public:
     enum class SourceMode : unsigned char { live, wav };
@@ -70,6 +72,7 @@ public:
     double estimatedLatencyMilliseconds() const;
     PerformanceMonitor::Snapshot performanceSnapshot() const noexcept { return performanceMonitor.snapshot(); }
     std::vector<Logger::Entry> recentLogEntries() const { return logger.recentEntries(); }
+    Logger& diagnosticLog() noexcept { return logger; }
     const std::atomic<float>& inputPeakSource() const noexcept { return inputPeak; }
     const std::atomic<float>& outputPeakSource() const noexcept { return outputPeak; }
     juce::String lastError() const;
@@ -84,6 +87,8 @@ public:
 private:
     void audioDeviceAboutToStart(juce::AudioIODevice*) override;
     void audioDeviceStopped() override;
+    void audioDeviceError(const juce::String& errorMessage) override;
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage&) override;
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
                                           int numInputChannels,
@@ -94,8 +99,19 @@ private:
 
     bool preferLowLatencyDeviceType(bool firstStart);
 
+    // Routes JUCE's own log output (ASIO driver diagnostics) into the log file.
+    struct JuceLogForwarder final : juce::Logger
+    {
+        explicit JuceLogForwarder(::Logger& target) : log(target) {}
+        void logMessage(const juce::String& message) override { log.log(::Logger::Level::debug, message); }
+        ::Logger& log;
+    };
+
+    // First, so it outlives the device manager and every other member.
+    Logger logger;
+    JuceLogForwarder juceLogForwarder { logger };
     AppSettings settings;
-    juce::AudioDeviceManager manager;
+    LoggingAudioDeviceManager manager { logger };
     std::atomic<float> inputPeak { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
     RigChain rig;
@@ -109,7 +125,8 @@ private:
     Recorder recorder;
     daw::ArrangementEngine arrangementEngine;
     PerformanceMonitor performanceMonitor;
-    Logger logger;
+    std::atomic<bool> firstCallbackLogged { false };
+    std::atomic<bool> oversizedBlockLogged { false };
     juce::String lastDeviceError;
     juce::CriticalSection errorLock;
 };

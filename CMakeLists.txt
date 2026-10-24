@@ -107,6 +107,10 @@ target_sources(NamTestProgram PRIVATE
     src/diagnostics/PerformanceMonitor.h
     src/diagnostics/Logger.cpp
     src/diagnostics/Logger.h
+    src/diagnostics/CrashHandler.cpp
+    src/diagnostics/CrashHandler.h
+    src/diagnostics/DeviceLogging.cpp
+    src/diagnostics/DeviceLogging.h
     src/config/AppSettings.cpp
     src/config/AppSettings.h
     src/ui/MainComponent.cpp
@@ -166,6 +170,8 @@ target_include_directories(NamTestProgram PRIVATE
 target_compile_definitions(NamTestProgram PRIVATE
     JUCE_PLUGINHOST_VST3=1
     $<$<PLATFORM_ID:Windows>:JUCE_ASIO=1>
+    # ASIO driver diagnostics go to the log file (see AudioEngine).
+    $<$<PLATFORM_ID:Windows>:JUCE_ASIO_DEBUGGING=1>
     $<$<PLATFORM_ID:Windows>:JUCE_WASAPI=1>
     JUCE_DIRECTSOUND=0
     # Linux: ALSA, and JACK (also served by PipeWire) for low latencies.

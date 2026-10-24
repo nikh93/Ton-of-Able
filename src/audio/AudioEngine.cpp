@@ -1,8 +1,10 @@
 #include "AudioEngine.h"
 
+#include "diagnostics/CrashHandler.h"
 #include "presets/PresetManager.h"
 
 #include <algorithm>
+#include <cstdio>
 
 AudioEngine::AudioEngine()
 {
@@ -11,11 +13,20 @@ AudioEngine::AudioEngine()
         .getChildFile("Ton of Able");
     dataDirectory.createDirectory();
     logger.start(dataDirectory.getChildFile("Ton of Able.log"));
+    crashlog::install(logger.file());
+    juce::Logger::setCurrentLogger(&juceLogForwarder);
+    logger.log(Logger::Level::info, "Ton of Able started on " + juce::SystemStats::getOperatingSystemName()
+               + (juce::SystemStats::isOperatingSystem64Bit() ? " (64 bit)" : " (32 bit)") + ", CPU " + juce::SystemStats::getCpuModel()
+               + ", build " + juce::String(__DATE__) + " " + juce::String(__TIME__) + ", log " + logger.file().getFullPathName());
     // The initial device selection happens outside the audio callback. One mono
     // input feeds two physical outputs; processors will operate on mono only.
     // A second input is opened by default for dry arrangement tracks.
     const auto savedDeviceState = settings.loadAudioDeviceState();
+    logger.log(Logger::Level::info, "[Device] saved state: " + (savedDeviceState != nullptr
+        ? savedDeviceState->toString(juce::XmlElement::TextFormat().singleLine().withoutHeader()) : juce::String("none")));
     const auto error = manager.initialise(2, 2, savedDeviceState.get(), true);
+    logger.log(error.isEmpty() ? Logger::Level::info : Logger::Level::error,
+               "[Device] initialise: " + (error.isEmpty() ? juce::String("ok") : error) + "; " + manager.describeCurrentSetup());
     if (error.isNotEmpty())
     {
         const juce::ScopedLock lock(errorLock);
@@ -43,9 +54,14 @@ AudioEngine::AudioEngine()
             if (chosen > 0)
                 setup.bufferSize = chosen;
 
-            manager.setAudioDeviceSetup(setup, true);
+            logger.log(Logger::Level::info, "[Device] choosing " + juce::String(setup.sampleRate) + " Hz, buffer " + juce::String(setup.bufferSize));
+            const auto setupError = manager.setAudioDeviceSetup(setup, true);
+            if (setupError.isNotEmpty())
+                logger.log(Logger::Level::error, "[Device] setAudioDeviceSetup: " + setupError);
         }
     }
+    logger.log(Logger::Level::info, "[Device] in use: " + manager.describeCurrentSetup());
+    manager.addChangeListener(this);
     manager.addAudioCallback(this);
     manager.addMidiInputDeviceCallback({}, this);
     enableMidiInputs();
@@ -53,6 +69,8 @@ AudioEngine::AudioEngine()
 
 AudioEngine::~AudioEngine()
 {
+    logger.log(Logger::Level::info, "Shutting down");
+    manager.removeChangeListener(this);
     manager.removeAudioCallback(this);
     manager.removeMidiInputDeviceCallback({}, this);
     if (const auto state = manager.createStateXml())
@@ -60,6 +78,8 @@ AudioEngine::~AudioEngine()
     manager.closeAudioDevice();
     recorder.stop();
     recorder.finaliseStoppedRecordings();
+    logger.log(Logger::Level::info, "Clean exit");
+    juce::Logger::setCurrentLogger(nullptr);
     logger.stop();
     settings.flush();
 }
@@ -125,10 +145,26 @@ void AudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
     arrangementEngine.prepare(rate, block);
     inputPeak.store(0.0f, std::memory_order_relaxed);
     outputPeak.store(0.0f, std::memory_order_relaxed);
+    firstCallbackLogged.store(false, std::memory_order_relaxed);
+    oversizedBlockLogged.store(false, std::memory_order_relaxed);
+    logger.log(Logger::Level::info, "[Device] about to start: " + device->getTypeName() + " \"" + device->getName() + "\", "
+               + juce::String(rate) + " Hz, buffer " + juce::String(block) + ", in " + device->getActiveInputChannels().toString(2)
+               + " / out " + device->getActiveOutputChannels().toString(2) + ", rig prepared");
+}
+
+void AudioEngine::audioDeviceError(const juce::String& errorMessage)
+{
+    logger.log(Logger::Level::error, "[Device] driver error: " + errorMessage);
+}
+
+void AudioEngine::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    logger.log(Logger::Level::info, "[Device] changed: " + manager.describeCurrentSetup());
 }
 
 void AudioEngine::audioDeviceStopped()
 {
+    logger.log(Logger::Level::info, "[Device] stopped");
     inputPeak.store(0.0f, std::memory_order_relaxed);
     outputPeak.store(0.0f, std::memory_order_relaxed);
 }
@@ -148,8 +184,18 @@ void AudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChan
     float outPeak = 0.0f;
     const auto* input = numInputChannels > 0 ? inputChannelData[0] : nullptr;
 
+    if (! firstCallbackLogged.exchange(true, std::memory_order_relaxed))
+    {
+        char text[160];
+        std::snprintf(text, sizeof(text), "[Device] first audio callback: %d inputs, %d outputs, %d samples (prepared for %d)",
+                      numInputChannels, numOutputChannels, numSamples, monoBuffer.getNumSamples());
+        logger.logRealtime(Logger::Level::info, text);
+    }
+
     if (numSamples > monoBuffer.getNumSamples())
     {
+        if (! oversizedBlockLogged.exchange(true, std::memory_order_relaxed))
+            logger.logRealtime(Logger::Level::warning, "[Device] driver delivered a larger block than announced; output muted");
         // A device must not exceed the buffer size announced in
         // audioDeviceAboutToStart. Fail safely rather than allocate in the
         // callback if a driver violates that contract.
@@ -229,6 +275,7 @@ bool AudioEngine::preferLowLatencyDeviceType(bool firstStart)
             continue;
         if (manager.getCurrentAudioDeviceType() == name && deviceOpen())
             return switched;
+        logger.log(Logger::Level::info, "[Device] trying type " + name);
         manager.setCurrentAudioDeviceType(name, true);
         switched = true;
         if (deviceOpen())

@@ -7,8 +7,9 @@
 
 #include <juce_core/juce_core.h>
 
-// Asynchronous diagnostic logger. logRealtime() is SPSC and bounded (audio
-// callback producer, logger-thread consumer); it neither allocates nor locks.
+// Diagnostic logger. log() writes synchronously, so the last lines before a
+// crash reach the file. logRealtime() is SPSC and bounded (audio callback
+// producer, logger-thread consumer); it neither allocates nor locks.
 class Logger final : private juce::Thread
 {
 public:
@@ -28,9 +29,10 @@ public:
 
     juce::Result start(const juce::File& file);
     void stop();
-    void log(Level level, juce::String message); // non-realtime callers
+    void log(Level level, juce::String message); // non-realtime callers, written immediately
     void logRealtime(Level level, const char* message) noexcept;
     std::vector<Entry> recentEntries() const;
+    juce::File file() const { return logFile; }
 
 private:
     static constexpr size_t realtimeCapacity = 256;
@@ -48,8 +50,8 @@ private:
     std::array<RealtimeEntry, realtimeCapacity> realtimeQueue {};
     std::atomic<unsigned long long> droppedRealtimeMessages { 0 };
 
+    std::mutex fileMutex;
     mutable std::mutex mutex;
-    std::vector<PendingEntry> pending;
     std::vector<Entry> recent;
     juce::File logFile;
 };

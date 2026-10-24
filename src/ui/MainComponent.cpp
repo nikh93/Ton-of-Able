@@ -22,11 +22,11 @@ namespace
 class AudioSettingsDialog final : public juce::DocumentWindow
 {
 public:
-    AudioSettingsDialog(juce::AudioDeviceManager& manager, std::function<void()> closed)
+    AudioSettingsDialog(juce::AudioDeviceManager& manager, const juce::File& logFile, std::function<void()> closed)
         : juce::DocumentWindow("Audio-Einstellungen", Theme::surface(), closeButton), onClosed(std::move(closed))
     {
         setUsingNativeTitleBar(true);
-        content = std::make_unique<Content>(manager);
+        content = std::make_unique<Content>(manager, logFile);
         // The window keeps its own size; the device panel grows inside a scroll area
         // instead of resizing the window from within whenever devices change.
         setContentNonOwned(content.get(), false);
@@ -52,19 +52,26 @@ public:
 private:
     struct Content final : juce::Component
     {
-        explicit Content(juce::AudioDeviceManager& manager) : selector(manager, 1, 16, 2, 2, false, false, false, false)
+        Content(juce::AudioDeviceManager& manager, const juce::File& logFile) : selector(manager, 1, 16, 2, 2, false, false, false, false)
         {
             viewport.setViewedComponent(&selector, false);
             viewport.setScrollBarsShown(true, false);
             addAndMakeVisible(viewport);
+            openLog.setButtonText(uiText("Protokoll-Ordner öffnen"));
+            openLog.setTooltip(logFile.getFullPathName());
+            openLog.onClick = [logFile] { logFile.revealToUser(); };
+            addAndMakeVisible(openLog);
         }
         void resized() override
         {
-            viewport.setBounds(getLocalBounds());
-            selector.setSize(viewport.getMaximumVisibleWidth(), std::max(selector.getHeight(), getHeight()));
+            auto bounds = getLocalBounds();
+            openLog.setBounds(bounds.removeFromBottom(36).reduced(8, 5).removeFromRight(200));
+            viewport.setBounds(bounds);
+            selector.setSize(viewport.getMaximumVisibleWidth(), std::max(selector.getHeight(), bounds.getHeight()));
         }
         juce::AudioDeviceSelectorComponent selector;
         juce::Viewport viewport;
+        juce::TextButton openLog;
     };
     std::unique_ptr<Content> content;
     std::function<void()> onClosed;
@@ -555,12 +562,14 @@ void MainComponent::showAudioSettings()
 {
     if (audioSettingsWindow != nullptr)
     {
+        audioEngine.diagnosticLog().log(Logger::Level::info, "[UI] audio settings shown again");
         audioSettingsWindow->setVisible(true);
         audioSettingsWindow->toFront(true);
         return;
     }
 
-    audioSettingsWindow.reset(new AudioSettingsDialog(audioEngine.deviceManager(), [this]
+    audioEngine.diagnosticLog().log(Logger::Level::info, "[UI] audio settings opened");
+    audioSettingsWindow.reset(new AudioSettingsDialog(audioEngine.deviceManager(), audioEngine.diagnosticLog().file(), [this]
     {
         audioSettingsWindow->setVisible(false);
         audioSummaryLabel.setText(audioSummary(), juce::dontSendNotification);

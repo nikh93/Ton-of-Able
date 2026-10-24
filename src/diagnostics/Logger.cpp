@@ -10,7 +10,17 @@ juce::Result Logger::start(const juce::File& file)
     stop();
     if (! file.getParentDirectory().exists() && ! file.getParentDirectory().createDirectory())
         return juce::Result::fail("Log directory cannot be created.");
+    // Keep one previous log so the run before a crash survives the restart.
+    constexpr juce::int64 maximumLogBytes = 4 * 1024 * 1024;
+    if (file.getSize() > maximumLogBytes)
+    {
+        const auto previous = file.getSiblingFile(file.getFileNameWithoutExtension() + ".old" + file.getFileExtension());
+        previous.deleteFile();
+        file.moveFileTo(previous);
+    }
     logFile = file;
+    logFile.appendText("\n========== " + juce::Time::getCurrentTime().formatted("%Y-%m-%d %H:%M:%S") + " session start ==========\n",
+                       false, false, "UTF-8");
     accepting.store(true, std::memory_order_release);
     startThread();
     return juce::Result::ok();
@@ -28,11 +38,7 @@ void Logger::log(const Level level, juce::String message)
 {
     if (! accepting.load(std::memory_order_acquire))
         return;
-    {
-        const std::scoped_lock lock(mutex);
-        pending.push_back({ level, std::move(message), juce::Time::getCurrentTime() });
-    }
-    notify();
+    append(level, message, juce::Time::getCurrentTime());
 }
 
 void Logger::logRealtime(const Level level, const char* message) noexcept
@@ -67,10 +73,6 @@ void Logger::run()
         if (! threadShouldExit())
             wait(200);
         std::vector<PendingEntry> work;
-        {
-            const std::scoped_lock lock(mutex);
-            work.swap(pending);
-        }
         auto read = realtimeRead.load(std::memory_order_relaxed);
         const auto write = realtimeWrite.load(std::memory_order_acquire);
         while (read != write)
@@ -89,9 +91,13 @@ void Logger::run()
 
 void Logger::append(const Level level, const juce::String& message, const juce::Time& timestamp)
 {
-    const auto line = timestamp.formatted("%Y-%m-%d %H:%M:%S") + " [" + levelName(level) + "] " + message + "\n";
+    const auto line = timestamp.formatted("%Y-%m-%d %H:%M:%S") + juce::String::formatted(".%03d", timestamp.getMilliseconds())
+        + " [" + levelName(level) + "] " + message + "\n";
     if (logFile != juce::File())
+    {
+        const std::scoped_lock fileLock(fileMutex);
         logFile.appendText(line, false, false, "UTF-8");
+    }
     const std::scoped_lock lock(mutex);
     recent.push_back({ level, message, timestamp });
     constexpr size_t maximumRecentEntries = 500;
