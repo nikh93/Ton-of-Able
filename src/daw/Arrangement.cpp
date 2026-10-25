@@ -733,6 +733,15 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
                                    .setProperty("name", chord.name, nullptr), nullptr);
         root.appendChild(chords, nullptr);
     }
+    if (! state.chordSections.empty())
+    {
+        juce::ValueTree sections("ChordSections");
+        for (const auto& section : state.chordSections)
+            sections.appendChild(juce::ValueTree("s").setProperty("name", section.name, nullptr).setProperty("firstBar", section.firstBar, nullptr)
+                                     .setProperty("bars", section.bars, nullptr).setProperty("text", section.text, nullptr)
+                                     .setProperty("key", section.key, nullptr), nullptr);
+        root.appendChild(sections, nullptr);
+    }
     if (state.hasExportRange())
     {
         root.setProperty("exportStart", state.exportStart, nullptr);
@@ -858,6 +867,10 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
     for (const auto& chord : root.getChildWithName("Chords"))
         edit::setChord(state, static_cast<double>(chord.getProperty("bar", 0.0)), static_cast<double>(chord.getProperty("length", 1.0)),
                        chord.getProperty("name").toString());
+    for (const auto& section : root.getChildWithName("ChordSections"))
+        state.chordSections.push_back({ section.getProperty("name").toString(), std::max(0, static_cast<int>(section.getProperty("firstBar", 0))),
+                                        juce::jlimit(1, 512, static_cast<int>(section.getProperty("bars", 4))), section.getProperty("text").toString(),
+                                        section.getProperty("key").toString() });
     for (const auto& node : root)
     {
         if (! node.hasType("Track"))

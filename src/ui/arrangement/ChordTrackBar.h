@@ -20,6 +20,8 @@ public:
     void update();
     /** "Begleitung erzeugen …" in the context menu. */
     std::function<void()> onAccompaniment;
+    /** The chord progression editor, starting at this bar (0-based). */
+    std::function<void(int bar)> onOpenEditor;
 
     void paint(juce::Graphics&) override;
     void resized() override;

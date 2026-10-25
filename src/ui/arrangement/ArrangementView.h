@@ -8,6 +8,7 @@
 
 #include "TimelineComponent.h"
 #include "AccompanimentPanel.h"
+#include "ChordProgressionEditor.h"
 #include "ChordTrackBar.h"
 #include "ExportRangeBar.h"
 #include "PianoRollComponent.h"
@@ -47,6 +48,8 @@ public:
     std::function<juce::ValueTree()> createSpaceEffect;
     /** "Begleitung aus Akkorden": creates tracks (null id) or edits one accompaniment track. */
     void openAccompaniment(const juce::Uuid& trackId);
+    /** The chord progression editor (sections, library, auto mode), starting at bar. */
+    void openProgressionEditor(int bar);
     void openPianoRoll(const juce::Uuid& clipId);
 
     void paint(juce::Graphics&) override;
@@ -108,6 +111,6 @@ private:
     std::shared_ptr<juce::FileChooser> chooser;
     bool followEnabled = true;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows, drumWindows, pianoWindows;
-    std::unique_ptr<juce::DocumentWindow> accompanimentWindow;
+    std::unique_ptr<juce::DocumentWindow> accompanimentWindow, progressionWindow;
 };
 } // namespace nam::ui

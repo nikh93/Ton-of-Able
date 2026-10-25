@@ -49,6 +49,8 @@ set(DAW_SOURCES
     src/audio/effects/FlipFlopOctaver.h
     src/daw/DawText.h
     src/daw/Drums.cpp
+    src/daw/Harmony.cpp
+    src/daw/Harmony.h
     src/daw/Accompaniment.cpp
     src/daw/Accompaniment.h
     src/daw/Synth.cpp
@@ -163,6 +165,8 @@ target_sources(NamTestProgram PRIVATE
     src/ui/arrangement/ExportRangeBar.h
     src/ui/arrangement/ChordTrackBar.cpp
     src/ui/arrangement/ChordTrackBar.h
+    src/ui/arrangement/ChordProgressionEditor.cpp
+    src/ui/arrangement/ChordProgressionEditor.h
     src/ui/arrangement/AccompanimentPanel.cpp
     src/ui/arrangement/AccompanimentPanel.h
     src/ui/arrangement/TrackHeaderComponent.h

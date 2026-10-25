@@ -6,6 +6,8 @@
 
 #include "../src/daw/Accompaniment.h"
 #include "../src/daw/Arrangement.h"
+#include "../src/daw/Harmony.h"
+#include "../src/daw/DawText.h"
 #include "../src/daw/ArrangementEngine.h"
 #include "../src/daw/AudioCodecs.h"
 #include "../src/daw/Synth.h"
@@ -672,6 +674,111 @@ public:
 };
 
 AccompanimentTests accompanimentTests;
+
+class HarmonyTests final : public juce::UnitTest
+{
+public:
+    HarmonyTests() : juce::UnitTest("Chord progressions and keys", "DAW") {}
+
+    void runTest() override
+    {
+        using namespace harmony;
+        const auto chords = [](const char* degrees, int tonic, Mode mode) { return toChords(text(degrees), { tonic, mode }); };
+
+        beginTest("Degrees become the chords of the key");
+        expectEquals(chords("i | bVI | bIII | bVII", 9, Mode::aeolian), juce::String("Am | F | C | G"));
+        expectEquals(chords("ii7 V7 | Imaj7", 0, Mode::ionian), juce::String("Dm7 G7 | Cmaj7"));
+        expectEquals(chords("vii", 0, Mode::ionian), juce::String("Hdim"));
+        expectEquals(chords("vii7", 0, Mode::ionian), juce::String("Hm7b5"));
+        expectEquals(chords("i | bII", 4, Mode::phrygian), juce::String("Em | F"));
+        expectEquals(chords("i7 | IV7", 2, Mode::dorian), juce::String("Dm7 | G7"));
+        expectEquals(chords("I | II", 5, Mode::lydian), juce::String("F | G"));
+        expectEquals(chords("I | bVII | IV", 7, Mode::mixolydian), juce::String("G | F | C"));
+        expectEquals(chords("i° | bII", 11, Mode::locrian), juce::String("Hdim | C"));
+        expectEquals(chords("V7 | i | ii(m7b5) | bVII", 9, Mode::harmonicMinor), juce::String("E7 | Am | Hm7b5 | G"));
+        expectEquals(chords("i(maj7) | bIII+ | IV7", 9, Mode::melodicMinor), juce::String("Am(maj7) | Caug | D7"));
+        expectEquals(chords("I(7) | IV(7) | IV IV(m)", 0, Mode::ionian), juce::String("C7 | F7 | F Fm"));
+        expectEquals(chords("I | IV | V", 3, Mode::ionian), juce::String("Eb | Ab | Bb"));        // flats in flat keys
+        expectEquals(chords("I | IV | V", 6, Mode::ionian), juce::String("Gb | H | Db"));          // B natural is "H"
+        expectEquals(chords("I | IV | V", 4, Mode::ionian), juce::String("E | A | H"));
+        expectEquals(chords("i | iv | V", 1, Mode::harmonicMinor), juce::String("C#m | F#m | G#"));
+        expectEquals(toRomans(text("i | bVI | v7 | V7 | bVII7"), { 9, Mode::aeolian }), juce::String("i | bVI | v7 | V7 | bVII7"));
+        expectEquals(chords("bVII7 | vii7", 9, Mode::aeolian), juce::String("G7 | G#m7")); // vii is relative to major: G#
+        expectEquals(toRomans(text("ii7 | vii7 | i(maj7)"), { 9, Mode::harmonicMinor }), text("iiø7 | vii°7 | i(maj7)"));
+
+        beginTest("Every progression of the library gives valid chords in every key");
+        int progressions = 0;
+        for (int modeIndex = 0; modeIndex < numModes; ++modeIndex)
+        {
+            const auto mode = static_cast<Mode>(modeIndex);
+            const auto& entries = library(mode);
+            expectGreaterOrEqual(static_cast<int>(entries.size()), 8, modeName(mode));
+            std::set<int> lengths;
+            for (const auto& entry : entries)
+            {
+                ++progressions;
+                lengths.insert(entry.bars());
+                for (int tonic = 0; tonic < 12; ++tonic)
+                    for (const auto& bar : parseBars(toChords(entry.degrees, { tonic, mode })))
+                        for (const auto& name : bar)
+                            expect(edit::isChordName(name), modeName(mode) + " " + entry.name + ": " + name);
+            }
+            expect(lengths.count(2) > 0 && lengths.count(4) > 0 && lengths.count(8) > 0, modeName(mode));
+        }
+        expectGreaterThan(progressions, 80);
+
+        beginTest("Sections repeat their progression over the bars");
+        ArrangementState state;
+        edit::setChord(state, 5.0, 1.0, "E7");
+        apply(state, { "Strophe", 2, 6, "Am | F G | % | -", {} });
+        expectEquals(edit::chordAt(state, 2.0)->name, juce::String("Am"));
+        expectEquals(edit::chordAt(state, 3.0)->name, juce::String("F"));
+        expectEquals(edit::chordAt(state, 3.5)->name, juce::String("G"));
+        expectEquals(edit::chordAt(state, 4.5)->name, juce::String("G"));  // "%" repeats the bar before
+        expect(edit::chordAt(state, 5.0) == nullptr);                      // "-" is a rest, E7 is gone
+        expectEquals(edit::chordAt(state, 6.0)->name, juce::String("Am")); // repeated from the start
+        expect(edit::chordAt(state, 8.0) == nullptr);
+
+        beginTest("Auto mode: a key, phrases with cadences, the end on the tonic");
+        juce::Random random(42);
+        for (int run = 0; run < 40; ++run)
+        {
+            const auto bars = 2 + random.nextInt(31);
+            const auto result = autoFill(4, bars, random);
+            int covered = 0, next = 4;
+            for (const auto& section : result.sections)
+            {
+                expectEquals(section.firstBar, next);
+                next += section.bars;
+                covered += section.bars;
+                expectEquals(static_cast<int>(parseBars(section.text).size()), section.bars);
+                for (const auto& bar : parseBars(section.text))
+                    for (const auto& name : bar)
+                        expect(edit::isChordName(name), name);
+            }
+            expectEquals(covered, bars);
+            ArrangementState filled;
+            for (const auto& section : result.sections)
+                apply(filled, section);
+            const auto* last = edit::chordAt(filled, 4.0 + bars - 0.1);
+            expect(last != nullptr);
+            // The last chord is the tonic (root of the key).
+            const auto tones = accompaniment::parse(last->name);
+            expect(tones.has_value() && tones->root == result.key.tonic, keyName(result.key) + ": " + last->name);
+        }
+        const auto fixed = autoFill(0, 16, random, Key { 2, Mode::dorian });
+        expect(fixed.key == Key { 2, Mode::dorian });
+        expectEquals(static_cast<int>(fixed.sections.size()), 4);
+        expect(fixed.sections[0].text.startsWith("Dm"));
+
+        beginTest("Sections are saved with the project");
+        state.chordSections = fixed.sections;
+        const auto loaded = fromValueTree(toValueTree(state, {}), {});
+        expect(loaded.chordSections == state.chordSections);
+    }
+};
+
+HarmonyTests harmonyTests;
 
 // Records the events an instrument receives (offsets made absolute by the test).
 struct EventLog final : TrackInstrument

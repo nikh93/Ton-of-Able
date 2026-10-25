@@ -40,7 +40,7 @@ ChordTrackBar::ChordTrackBar(daw::ArrangementController& c, const TimelineCompon
     : controller(c), timeline(t), labelWidth(width)
 {
     setTooltip(text("Lead-Sheet: Takt anklicken und Akkord tippen (z. B. Am7, G/H). Zwei Akkorde wie „Am G“ teilen den Takt. "
-                    "Enter übernimmt, Tab springt zum nächsten Takt, Shift+Klick wählt eine Takthälfte, Rechtsklick: ganzer/halber Takt, löschen, Begleitung erzeugen."));
+                    "Enter übernimmt, Tab springt zum nächsten Takt, Shift+Klick wählt eine Takthälfte, Rechtsklick: ganzer/halber Takt, löschen, Akkordfolgen-Editor mit Bibliothek und Auto-Modus, Begleitung erzeugen."));
 }
 
 ChordTrackBar::~ChordTrackBar() = default;
@@ -87,6 +87,8 @@ void ChordTrackBar::paint(juce::Graphics& g)
     g.setColour(Theme::subduedText());
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.drawText(text("AKKORDE"), label, juce::Justification::centredLeft);
+    g.setFont(juce::FontOptions(11.0f));
+    g.drawText(text("Editor …"), label, juce::Justification::centredRight);
 
     juce::Graphics::ScopedSaveState save(g);
     g.reduceClipRegion(getLocalBounds().withTrimmedLeft(labelWidth));
@@ -121,7 +123,12 @@ void ChordTrackBar::resized()
 void ChordTrackBar::mouseDown(const juce::MouseEvent& event)
 {
     if (event.position.x < static_cast<float>(labelWidth))
+    {
+        // The label opens the progression editor.
+        if (onOpenEditor)
+            onOpenEditor(std::max(0, static_cast<int>(std::floor(xToBar(static_cast<float>(labelWidth))))));
         return;
+    }
     const auto [bar, length] = slotAt(event.position.x, event.mods.isShiftDown());
     if (event.mods.isPopupMenu())
         showMenu(std::floor(bar));
@@ -222,6 +229,7 @@ void ChordTrackBar::showMenu(double bar)
         startEditing(bar + 0.5, 0.5);
     });
     menu.addSeparator();
+    menu.addItem(text("Akkordfolgen-Editor & Bibliothek …"), onOpenEditor != nullptr, false, [this, bar] { if (onOpenEditor) onOpenEditor(static_cast<int>(bar)); });
     menu.addItem(text("Begleitung aus Akkorden erzeugen …"), onAccompaniment != nullptr, false, [this] { if (onAccompaniment) onAccompaniment(); });
     menu.addSeparator();
     menu.addItem(text("Akkord löschen"), first != nullptr || second != nullptr, false, [this, bar]

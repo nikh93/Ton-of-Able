@@ -115,6 +115,18 @@ struct ChordSymbol
     bool operator==(const ChordSymbol&) const = default;
 };
 
+/** A part of the song in the chord progression editor: a progression (chord
+    names, bars separated by "|") written over a range of bars, repeated. */
+struct ChordSection
+{
+    juce::String name;
+    int firstBar = 0;    // 0-based
+    int bars = 4;
+    juce::String text;   // e.g. "Am | F | C G/H | Dm7 G"
+    juce::String key;    // shown only, e.g. "A Äolisch"
+    bool operator==(const ChordSection&) const = default;
+};
+
 /** How a track accompanies the lead sheet ("Begleitung aus Akkorden"). */
 struct AccompanimentStyle
 {
@@ -224,6 +236,8 @@ struct ArrangementState
     juce::int64 loopEnd = 0;
     /** Lead sheet: chords sorted by bar, never overlapping. */
     std::vector<ChordSymbol> chords;
+    /** The sections of the chord progression editor (kept to edit them again). */
+    std::vector<ChordSection> chordSections;
     /** Export range; empty (end <= start) means the whole song. */
     juce::int64 exportStart = 0;
     juce::int64 exportEnd = 0;

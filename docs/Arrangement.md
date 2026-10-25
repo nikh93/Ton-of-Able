@@ -192,6 +192,30 @@ Die Leiste **AKKORDE** über dem Lineal hält die Akkordfolge des Songs fest –
 - Grundton und Bass werden großgeschrieben (`am` → `Am`, `c/e` → `C/E`); H ist der deutsche Name für B, beide werden akzeptiert. Nicht erkannte Namen erscheinen rot.
 - Akkorde hängen an Takten, nicht an Sekunden: Bei Tempowechseln bleiben sie auf ihrem Takt. Sie werden mit dem Projekt gespeichert, jede Änderung lässt sich rückgängig machen.
 
+## Akkordfolgen-Editor, Bibliothek und Auto-Modus
+
+Rechtsklick in die Akkordleiste → **Akkordfolgen-Editor & Bibliothek …** (oder Klick auf „AKKORDE · Editor …“ links). Der Editor arbeitet mit **Abschnitten**: eine Folge über einen Taktbereich, die dort wiederholt wird – z. B. „Strophe“ Takt 1–8 und „Refrain“ Takt 9–16. So muss man nichts doppelt eintippen.
+
+- **Abschnitte** (links): *+ Abschnitt*, *Duplizieren* (gleiche Folge direkt dahinter, z. B. die zweite Strophe), *Löschen*. Für den markierten Abschnitt: Name, *Ab Takt*, *Takte* und die **Folge** als Akkordnamen, z. B. `Am | F | C G/H | Dm7 G`. Takte werden mit `|` getrennt, zwei Akkorde in einem Takt sind halbe Takte, `%` wiederholt den Takt davor, `-` ist eine Pause. Unbekannte Akkordnamen werden sofort rot angezeigt.
+- **Bibliothek** (rechts): **Grundton** und **Tonart** wählen – Ionisch (Dur), Dorisch, Phrygisch, Lydisch, Mixolydisch, Äolisch (Moll), Lokrisch, Harmonisch Moll, Melodisch Moll. Die Liste zeigt jede Folge als **Stufen** (z. B. `i | bVI | bIII | bVII`) und darunter als Akkorde in der gewählten Tonart (`Am | F | C | G`). Filter nach Länge (2, 4, 8, 12, 16 Takte) oder nur Kadenzen. Doppelklick oder *← In Abschnitt übernehmen* schreibt die Folge in den markierten Abschnitt.
+- **Stufen-Schreibweise:** bezogen auf die Dur-Tonleiter wie in Pop und Jazz üblich – Großbuchstaben Dur, Kleinbuchstaben Moll, ° vermindert, ø halbvermindert, + übermäßig, b/# erniedrigt/erhöht. Also z. B. `bVII` in Mixolydisch und Moll, `II` in Lydisch, `bII` in Phrygisch, `V7` in harmonisch Moll, `i(maj7)` in melodisch Moll.
+- **Auto-Modus** (unten): *Würfeln* wählt eine Tonart – zufällig (meist Dur oder Moll, seltener die anderen Modi; gitarrenfreundliche Grundtöne häufiger) oder die eingestellte, wenn „Tonart zufällig“ aus ist – und füllt die gewünschte Zahl Takte ab dem markierten Abschnitt mit Phrasen aus vier Takten: zwei Takte Eröffnung aus der Bibliothek plus zwei Takte Kadenz. Form A · A' · B · A'': Halbschluss in der Mitte, Trug- oder Ganzschluss in A', ein vollständiger Schluss auf der Tonika am Ende. Übrige Takte werden mit Tonika bzw. Schlusskadenz gefüllt. Gefällt das Ergebnis nicht: nochmal würfeln.
+- **In Akkordleiste schreiben** überträgt alle Abschnitte (ein Schritt für Rückgängig). Die Abschnitte werden im Projekt gespeichert und stehen beim nächsten Öffnen wieder da. Verknüpfte Begleitspuren ziehen sofort mit.
+
+**Bibliothek (Auswahl):**
+
+| Tonart | Folgen (Stufen) | Kadenzen |
+|---|---|---|
+| Ionisch (Dur) | I–IV · I–V–vi–IV · I–vi–IV–V · vi–IV–I–V · I–vi–ii–V · IVmaj7–V7–iii7–vi7 · ii7–V7–Imaj7 · Kanon I–V–vi–iii–IV–I–IV–V · Rhythm Changes · Blues 12 Takte · 16-Takt-Song | V–I · ii–V–I · IV V–I · IV–I · Halbschluss ii–V / IV–V · Trugschluss V–vi |
+| Dorisch | i7–IV7 · i7–ii7 · i–IV–i–IV · i–bVII–IV–i · i–bIII–IV–i · 8 und 16 Takte | IV–i · bVII–i · v–i |
+| Phrygisch | i–bII · i–bII–bIII–bII · i–iv–bII–i · i–bvii–bVI–bII | bII–i · bvii–i · iv–i |
+| Lydisch | I–II · Imaj7–II · I–II–iii–II · vi–vii–II–I · I–V–II–I | II–I · vii–I · V–I |
+| Mixolydisch | I–bVII · I–bVII–IV–I · I–IV–bVII–IV · I–v–IV–I · I7–IV–bVII–I7 | bVII–I · bVII IV–I · v–I |
+| Äolisch (Moll) | i–bVII · i–bVI–bIII–bVII · i–bVII–bVI–bVII · i–iv–bVII–bIII · i–iv–v–i · Moll-Quintfall 8 Takte · 16 Takte | bVII–i · bVI bVII–i · iv–i · iv V–i |
+| Lokrisch | i°–bII · i°–bII–biii–bII · i°–bV–bII–i° | bII–i° · bvii–i° |
+| Harmonisch Moll | i–V · i–iv–V–i · Andalusische Kadenz i–bVII–bVI–V · i–bVI–V–i · iiø7–V7–i · Flamenco 8 Takte | V7–i · iv V–i · iiø7 V7–i · Trugschluss V–bVI |
+| Melodisch Moll | i(maj7)–IV7 · i–IV · i(maj7)–ii7–V7–i(maj7) · i–bIII+–IV–V | V7–i · IV7 V7–i · ii7 V7–i |
+
 ## Begleitung aus Akkorden
 
 Rechtsklick in die Akkordleiste → **Begleitung aus Akkorden erzeugen …** macht aus den Akkorden eine sphärische Synth-Begleitung. Jede gewählte Ebene wird eine eigene MIDI-Spur:

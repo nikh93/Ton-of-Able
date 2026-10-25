@@ -85,6 +85,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     addAndMakeVisible(exportRange);
     addAndMakeVisible(chordBar);
     chordBar.onAccompaniment = [this] { openAccompaniment({}); };
+    chordBar.onOpenEditor = [this](int bar) { openProgressionEditor(bar); };
     for (auto* bar : { &horizontal, &vertical })
     {
         bar->setAutoHide(false);
@@ -343,6 +344,20 @@ void ArrangementView::openAccompaniment(const juce::Uuid& trackId)
     accompanimentWindow = std::move(window);
 }
 
+void ArrangementView::openProgressionEditor(int bar)
+{
+    auto editor = std::make_unique<ChordProgressionEditor>(controller, bar);
+    editor->onClose = [this] { juce::MessageManager::callAsync([safe = juce::Component::SafePointer<ArrangementView>(this)] { if (safe != nullptr) safe->progressionWindow.reset(); }); };
+    const auto size = editor->getBounds();
+    auto window = std::make_unique<FxWindow>(std::move(editor));
+    window->setName(daw::text("Akkordfolgen"));
+    window->setResizeLimits(size.getWidth(), size.getHeight(), size.getWidth() + 600, size.getHeight() + 400);
+    window->centreWithSize(size.getWidth(), size.getHeight());
+    window->setVisible(true);
+    window->toFront(true);
+    progressionWindow = std::move(window);
+}
+
 void ArrangementView::openDrumMachine(const juce::Uuid& trackId, int pattern)
 {
     if (! createDrumEditor || controller.state().findTrack(trackId) == nullptr)
@@ -370,6 +385,7 @@ ArrangementView::~ArrangementView()
     drumWindows.clear();
     pianoWindows.clear();
     accompanimentWindow.reset();
+    progressionWindow.reset();
     controller.onChanged = nullptr;
     controller.onMessage = nullptr;
 }
