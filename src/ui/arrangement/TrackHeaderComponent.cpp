@@ -61,7 +61,7 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
         solo.setToggleState(mixer->soloed.load(), juce::dontSendNotification);
         controller.markDirty();
     };
-    // Active mute is yellow, active solo blue (as in Ableton), both with dark text.
+    // Active mute is yellow, active solo blue, both with dark text.
     mute.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe8b33c));
     solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff5aa9e6));
     for (auto* button : { &mute, &solo })

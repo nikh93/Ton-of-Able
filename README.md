@@ -5,7 +5,7 @@
 A guitar amp modeler and multitrack recorder for Windows 10/11 and Linux: play live through
 [Neural Amp Modeler](https://www.neuralampmodeler.com/) captures, cabinet IRs,
 effects and VST3 plugins, and record, edit and mix whole songs in an
-Ableton-style arrangement. The interface is in German.
+arrangement view. The interface is in German.
 
 ## Features
 

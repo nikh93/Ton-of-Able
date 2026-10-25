@@ -26,7 +26,7 @@ Phase 13 abgeschlossen – Haupt-GUI hierarchisch neu gegliedert: kompakte Audio
 
 Phase 14 abgeschlossen – Zeichensatzfehler in der GUI behoben: deutsche und grafische Beschriftungen werden über explizite JUCE-UTF-8-Konvertierung gesetzt; problematische Plain-Narrow-Literals wie `WAV öffnen` können dadurch nicht mehr als `WAV Ã¶ffnen` erscheinen.
 
-Phase 15 abgeschlossen – Mehrspur-Arrangement nach Ableton-Vorbild: echte Mehrspuraufnahme vom NAM-Rig (Stereo) oder von trockenen Interface-Eingängen, bis zu 32 Spuren gleichzeitig, Count-In, Metronom, Loop, automatischer Latenzausgleich, Input-Monitoring; Clips verschieben/kopieren/kürzen/teilen, Fades, Mehrfachauswahl, Raster, Undo/Redo, Ctrl+Mausrad-Zoom; Projekte (.tonproj) mit Audio-Ordner und Autosave.
+Phase 15 abgeschlossen – Mehrspur-Arrangement: echte Mehrspuraufnahme vom NAM-Rig (Stereo) oder von trockenen Interface-Eingängen, bis zu 32 Spuren gleichzeitig, Count-In, Metronom, Loop, automatischer Latenzausgleich, Input-Monitoring; Clips verschieben/kopieren/kürzen/teilen, Fades, Mehrfachauswahl, Raster, Undo/Redo, Ctrl+Mausrad-Zoom; Projekte (.tonproj) mit Audio-Ordner und Autosave.
 
 Phase 16 abgeschlossen – Time-Stretch und Transponieren mit der Rubber Band Library (R3-Engine, Offline-Rendering im Hintergrund, Varispeed-Vorschau); Import von WAV/AIFF/FLAC/Ogg/MP3 direkt sowie AAC/Opus/ALAC/… und Audio aus Videodateien über FFmpeg; Export von Mix, Loop-Bereich, Stems und Einzelspuren als WAV/AIFF/FLAC/Ogg bzw. MP3/AAC/Opus über FFmpeg.
 

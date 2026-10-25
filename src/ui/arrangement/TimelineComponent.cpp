@@ -96,7 +96,7 @@ TimelineComponent::Hit TimelineComponent::hitTest(juce::Point<float> point) cons
 
 juce::int64 TimelineComponent::snap(juce::int64 position, const juce::ModifierKeys& mods) const
 {
-    // Alt temporarily disables the grid, as in Ableton.
+    // Alt temporarily disables the grid.
     if (mods.isAltDown() || snapBars <= 0.0)
         return std::max<juce::int64>(0, position);
     return std::max<juce::int64>(0, controller.grid().snap(position, snapBars));

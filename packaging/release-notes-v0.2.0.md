@@ -5,7 +5,7 @@ Zweite Version für Windows 10/11 (64 Bit): aus dem Amp-Modeler wird ein Mehrspu
 **Ohne Installation:** ZIP entpacken und `Ton of Able.exe` starten. Die exe, der Ordner `resources`, `ffmpeg.exe` und die Plugins müssen im selben Ordner bleiben.
 
 **Neu**
-- **Arrangement nach Ableton-Vorbild:** echte Mehrspuraufnahme vom Rig oder von trockenen Eingängen, Count-In, Metronom, Latenzausgleich; Clips verschieben, kopieren, kürzen, teilen, Fades, Undo/Redo, Zoom mit Strg + Mausrad.
+- **Mehrspur-Arrangement:** echte Mehrspuraufnahme vom Rig oder von trockenen Eingängen, Count-In, Metronom, Latenzausgleich; Clips verschieben, kopieren, kürzen, teilen, Fades, Undo/Redo, Zoom mit Strg + Mausrad.
 - **Time-Stretch und Transponieren** mit der Rubber Band Library.
 - **Import/Export** von WAV, AIFF, FLAC, Ogg, MP3, AAC, Opus und Audio aus Videodateien (FFmpeg liegt bei), Export von Mix, Loop-Bereich und Stems.
 - **Effekte und NAMs pro Spur**, als Insert oder direkt bei der Aufnahme eingerechnet; **10-Band-Graphic-EQ**.

@@ -20,7 +20,7 @@ namespace nam::ui
 {
 /** Multitrack arrangement view: transport and tool bars, track headers,
     timeline and scroll bars. Keyboard commands arrive through the app's
-    command manager; their default keys follow Ableton Live where possible
+    command manager; their default keys follow common DAW conventions where possible
     (Space, F9, Ctrl+E, Ctrl+D, Ctrl+T, Ctrl+L, Ctrl+Z ...) and can be changed. */
 class ArrangementView final : public juce::Component, private juce::Timer, private juce::ScrollBar::Listener
 {

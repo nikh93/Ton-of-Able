@@ -969,7 +969,7 @@ void ArrangementController::stop()
     if (audio.isRecording())
         finishRecording();
     if (! audio.isPlaying())
-        audio.setPosition(0); // second stop returns to the start, as in Ableton
+        audio.setPosition(0); // second stop returns to the start
     audio.stop();
     if (onChanged) onChanged();
 }

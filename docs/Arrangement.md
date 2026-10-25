@@ -1,6 +1,6 @@
 # Arrangement (Mehrspur-Aufnahme und -Bearbeitung)
 
-Das Arrangement ist die Mehrspur-Ansicht von Ton of Able, angelehnt an die Arrangement-Ansicht von Ableton Live.
+Das Arrangement ist die Mehrspur-Ansicht von Ton of Able.
 Umschalten über die Reiter **RIG / ARRANGEMENT / BIBLIOTHEK** oben oder **Tab** (Rig ↔ Arrangement).
 Das Live-Rig (NAM, IR, Effekte, VST3) läuft in beiden Ansichten weiter.
 
@@ -32,7 +32,7 @@ Rechtsklick auf den Spurkopf: Umbenennen, Farbe, Spur-Effekte, Spur exportieren,
 - Mehrere scharfe Spuren werden gleichzeitig aufgenommen (bis zu 32).
 - Die Treiberlatenz und die Latenz der Effektkette werden automatisch ausgeglichen.
 - Liegen Takes trotzdem leicht daneben: **Projekt → Aufnahme-Latenz feinjustieren**.
-- Neue Takes überschreiben den darunterliegenden Bereich wie in Ableton. **Ctrl+Z** stellt ihn wieder her.
+- Neue Takes überschreiben den darunterliegenden Bereich. **Ctrl+Z** stellt ihn wieder her.
 
 ### Loop-Aufnahme mit Takes
 
