@@ -26,6 +26,13 @@ Audio / Latenz
 - Ohne ASIO laeuft die App im Windows-Exklusiv-Modus (geringe Latenz).
   Dann sind andere Programme (YouTube, Discord ...) stumm, solange die App
   laeuft. Umstellen kannst du das in den Audio-Einstellungen der App.
+- Interface ohne eigenen ASIO-Treiber? ASIO4ALL liegt bei: im Installer
+  als Option "ASIO4ALL installieren", sonst im Ordner "Treiber"
+  (ASIO4ALL-setup.exe). Danach in den Audio-Einstellungen "ASIO" und
+  "ASIO4ALL v2" waehlen und im ASIO4ALL-Fenster (Schraubenschluessel-Symbol
+  in der Taskleiste) Eingang und Ausgang anhaken. Hinweis: ASIO4ALL ist
+  EIN Geraet fuer Ein- und Ausgang; getrennte Auswahl gibt es dann nur dort.
+  Hat dein Interface einen eigenen ASIO-Treiber, nimm lieber den.
 
 Bedienung
 ---------

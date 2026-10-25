@@ -20,6 +20,8 @@ Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 
 - **Export mit Fortschritt:** Während des Exports zeigt ein Balken den Fortschritt in Prozent (bei MP3/AAC/Opus danach „Konvertiere …“), mit „Abbrechen“ – angefangene Dateien werden dann gelöscht.
 - **Export-Bereich:** Neuer Balken unter den Spuren, dessen Anfang und Ende man zieht; er gilt für Mix, Stems und einzelne Spuren (ohne Einstellung: ganzer Song) und wird mit dem Projekt gespeichert. Der frühere Menüpunkt „Mix – nur Loop-Bereich“ entfällt.
 
+- **ASIO4ALL im Installer:** optionale Aufgabe „ASIO4ALL installieren“ für Interfaces ohne eigenen ASIO-Treiber (auch im ZIP im Ordner „Treiber“).
+
 **Behoben**
 - Drum-Spuren: Die Spur-Effekte wirken jetzt auch auf das Drum-Instrument (bisher lief es an der Kette vorbei, auch beim Export).
 - Spur- und Send-Effekte arbeiten in Stereo: Panorama und Stereobild der Spuren bleiben in Return-Spuren (Hall, Delay) und Spurketten erhalten, statt auf Mono zusammengemischt zu werden.

@@ -13,6 +13,8 @@
   #define OutputName "Ton-of-Able-setup"
 #endif
 #define AppExe "Ton of Able.exe"
+; ASIO4ALL is optional: the task only exists when the CI found the installer.
+#define HaveAsio4All FileExists(SourceDir + "\Treiber\ASIO4ALL-setup.exe")
 
 [Setup]
 ; Never change the AppId: updates and the uninstaller find earlier installs by it.
@@ -57,6 +59,12 @@ de.PresetTask=Werks-Presets für Valhalla Supermassive installieren
 en.PresetTask=Install the factory presets for Valhalla Supermassive
 de.PluginGroup=Plugins:
 en.PluginGroup=Plugins:
+de.DriverGroup=Treiber:
+en.DriverGroup=Drivers:
+de.AsioTask=ASIO4ALL installieren (ASIO-Treiber für Interfaces ohne eigenen ASIO-Treiber)
+en.AsioTask=Install ASIO4ALL (ASIO driver for interfaces without their own)
+de.AsioStatus=ASIO4ALL wird installiert …
+en.AsioStatus=Installing ASIO4ALL …
 de.ProjectType=Ton of Able Projekt
 en.ProjectType=Ton of Able project
 de.ReadMe=Ton of Able – Liesmich
@@ -66,6 +74,10 @@ en.ReadMe=Ton of Able – Read me
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "tonproj"; Description: "{cm:AssocTask}"; GroupDescription: "{cm:AssocGroup}"
 Name: "presets"; Description: "{cm:PresetTask}"; GroupDescription: "{cm:PluginGroup}"
+#if HaveAsio4All
+; Off by default: interfaces with their own ASIO driver (Focusrite, Steinberg, RME …) do not need it.
+Name: "asio4all"; Description: "{cm:AsioTask}"; GroupDescription: "{cm:DriverGroup}"; Flags: unchecked
+#endif
 
 [Files]
 ; The app finds its resources, FFmpeg and the bundled VST3 plugins next to the exe.
@@ -86,4 +98,8 @@ Root: HKA; Subkey: "Software\Classes\TonOfAble.Project\DefaultIcon"; ValueType: 
 Root: HKA; Subkey: "Software\Classes\TonOfAble.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: tonproj
 
 [Run]
+#if HaveAsio4All
+; The driver installer (NSIS) runs silently; shellexec lets it ask for admin rights in a per-user install.
+Filename: "{app}\Treiber\ASIO4ALL-setup.exe"; Parameters: "/S"; StatusMsg: "{cm:AsioStatus}"; Tasks: asio4all; Flags: shellexec waituntilterminated skipifdoesntexist
+#endif
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,Ton of Able}"; Flags: nowait postinstall skipifsilent

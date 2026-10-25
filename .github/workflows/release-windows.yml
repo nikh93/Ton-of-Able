@@ -92,6 +92,34 @@ jobs:
             Write-Host "::notice title=Plugin extras::No release 'plugin-extras' - Valhalla Freq Echo/Space Modulator not bundled"
           }
 
+          # ASIO4ALL (freeware by Michael Tippach): universal ASIO driver for interfaces without
+          # their own. Taken from the release "plugin-extras" (asset ASIO4ALL*.exe) if uploaded
+          # there, else downloaded; the installer offers it as an optional task.
+          New-Item -ItemType Directory -Force "$pkg/Treiber" | Out-Null
+          $asio = "$pkg/Treiber/ASIO4ALL-setup.exe"
+          if (gh release view plugin-extras 2>$null) {
+            gh release download plugin-extras -p 'ASIO4ALL*.exe' -D asio4all 2>$null
+            $found = Get-ChildItem asio4all -Filter '*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { Copy-Item $found.FullName $asio }
+          }
+          if (-not (Test-Path $asio)) {
+            foreach ($url in 'https://asio4all.org/downloads/ASIO4ALL_2_16_English.exe',
+                             'https://www.asio4all.org/downloads/ASIO4ALL_2_16_English.exe',
+                             'https://asio4all.org/downloads_11/ASIO4ALL_2_16_English.exe') {
+              try { Invoke-WebRequest $url -OutFile $asio -UserAgent 'Mozilla/5.0' -ErrorAction Stop } catch { continue }
+              # A real installer starts with "MZ"; a blocked download is an HTML page.
+              $head = [System.IO.File]::ReadAllBytes($asio)[0..1]
+              if ($head[0] -eq 0x4D -and $head[1] -eq 0x5A) { break }
+              Remove-Item $asio
+            }
+          }
+          if (Test-Path $asio) {
+            Write-Host ('::notice title=ASIO4ALL::bundled ({0:N1} MB)' -f ((Get-Item $asio).Length / 1MB))
+          } else {
+            Remove-Item "$pkg/Treiber" -Recurse
+            Write-Host "::warning title=ASIO4ALL::not bundled - upload ASIO4ALL_2_16_English.exe to the release 'plugin-extras'"
+          }
+
           # FFmpeg (LGPL, static) for AAC, Opus, MP3 export and audio from video files.
           $assets = gh api repos/BtbN/FFmpeg-Builds/releases/tags/latest --jq '.assets[] | .name + " " + .browser_download_url' | ForEach-Object { $_ -split ' ', 2 }
           $ffmpegUrl = $null
