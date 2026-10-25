@@ -862,6 +862,39 @@ public:
         }
         expectEquals(grooves::autoFill(0, 16, 16, random, "Funk").genre, juce::String("Funk"));
 
+        beginTest("Auto mode follows the parts of the chord editor");
+        {
+            const std::vector<ChordSection> parts { { "A", 0, 8, "Am | F | C | G", {} }, { "A'", 8, 8, "Am | F | C | G", {} },
+                                                   { "B", 16, 8, "F | G | Am | Am", {} }, { "A''", 24, 8, "Am | F | G | Am", {} } };
+            for (int run = 0; run < 10; ++run)
+            {
+                const auto result = grooves::autoFill(parts, 16, random);
+                expectEquals(static_cast<int>(result.sections.size()), 5);
+                expectEquals(result.sections[0].name, juce::String("A"));
+                expectEquals(result.sections[2].name, juce::String("B"));
+                expectEquals(result.sections[3].name, juce::String("A''"));
+                expectEquals(result.sections[3].bars, 7);
+                expectEquals(result.sections[4].name, text("Schluss"));
+                expectEquals(result.sections[4].firstBar, 31);
+                expectEquals(result.sections[1].groove, result.sections[0].groove);  // A' like A
+                expectEquals(result.sections[3].groove, result.sections[0].groove);  // A'' like A
+                expect(result.sections[2].groove != result.sections[0].groove);      // B: the chorus groove
+                expect(! result.sections[0].crash && result.sections[2].crash);
+                for (const auto& section : result.sections)
+                    expect(std::any_of(result.patterns.begin(), result.patterns.end(), [&](const DrumPattern& p) { return p.name == section.groove; }));
+            }
+            // Generic names: the progression decides; a gap is filled with the verse groove.
+            const std::vector<ChordSection> generic { { "Teil 1", 0, 4, "Am | F", {} }, { "Teil 2", 8, 4, "C | G", {} }, { "Teil 3", 12, 4, "Am | F", {} } };
+            const auto filled = grooves::autoFill(generic, 16, random, "Rock");
+            expectEquals(filled.genre, juce::String("Rock"));
+            expectEquals(filled.sections[1].name, text("Zwischenspiel"));
+            expectEquals(filled.sections[1].firstBar, 4);
+            expectEquals(filled.sections[1].groove, filled.sections[0].groove);
+            expectEquals(filled.sections[3].groove, filled.sections[0].groove);
+            expect(filled.sections[2].groove != filled.sections[0].groove);
+            expectEquals(grooves::partKind({ "Strophe 2", 0, 4, {}, {} }), juce::String("strophe"));
+        }
+
         beginTest("Drum sections are saved with the project");
         state.tracks[static_cast<size_t>(index)].drumSections = { { "A", 0, 8, rock.pattern.name, rockFill.pattern.name, 4, true } };
         const auto loaded = fromValueTree(toValueTree(state, {}), {});

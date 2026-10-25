@@ -37,6 +37,7 @@ private:
     void refreshLibrary();
     void takeFromLibrary(bool asFill);
     void runAuto();
+    void updateFollow();
     void write();
 
     daw::ArrangementController& controller;
@@ -58,7 +59,7 @@ private:
                  barsSlider { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft },
                  autoBars { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft };
     juce::ComboBox grooveBox, fillBox, everyBox, styleBox, kindBox, autoStyle;
-    juce::ToggleButton crashToggle, tempoToggle;
+    juce::ToggleButton crashToggle, tempoToggle, followChords;
     juce::Random random;
 };
 } // namespace nam::ui

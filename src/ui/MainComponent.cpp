@@ -1240,6 +1240,7 @@ void MainComponent::configureArrangement()
             return arrangementController.setTrackInstrument(id, kitId.isEmpty() ? daw::builtInInstrumentSettings() : daw::SampleKit::settingsFor(kitId));
         };
         host.openEditor = [this](const juce::Uuid& id) { openInstrumentEditor(id); };
+        host.openArrangement = [this](const juce::Uuid& id) { arrangementView.openDrumArrangement(id, 0); };
         return std::make_unique<nam::ui::DrumMachineComponent>(arrangementController, trackId, pattern, std::move(host));
     };
 

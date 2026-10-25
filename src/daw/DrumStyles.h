@@ -45,4 +45,14 @@ struct AutoResult
     double bpm = 120.0;                // a tempo that suits the style
 };
 [[nodiscard]] AutoResult autoFill(int firstBar, int bars, int stepsPerBar, juce::Random&, const juce::String& genre = {});
+/** Auto mode that follows the parts of the chord progression editor: one drum
+    section per chord section (same boundaries and names). Parts of the same
+    kind - same name apart from numbers and primes (A, A', A''; "Strophe 2"),
+    else the same progression - share a groove; the first kind gets the verse
+    groove, the second the chorus groove, further kinds other grooves of the
+    style. Bars between the parts are filled with the verse groove, the last
+    bar becomes the ending. */
+[[nodiscard]] AutoResult autoFill(const std::vector<ChordSection>& parts, int stepsPerBar, juce::Random&, const juce::String& genre = {});
+/** The kind of a part: its name without numbers and primes, else its progression. */
+[[nodiscard]] juce::String partKind(const ChordSection&);
 } // namespace daw::grooves

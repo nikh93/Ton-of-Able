@@ -237,7 +237,14 @@ DrumArrangementEditor::DrumArrangementEditor(daw::ArrangementController& c, cons
     crashToggle.onClick = [this] { storeSection(); };
     tempoToggle.setButtonText(text("Tempo passend setzen"));
     tempoToggle.setTooltip(text("Beim Schreiben das Song-Tempo auf ein typisches Tempo des gewürfelten Stils setzen."));
-    for (auto* toggle : { &crashToggle, &tempoToggle })
+    const auto& chordParts = controller.state().chordSections;
+    followChords.setButtonText(text("Akkord-Abschnitte folgen (") + juce::String(static_cast<int>(chordParts.size())) + ")");
+    followChords.setTooltip(text("Der Auto-Modus übernimmt die Abschnitte aus dem Akkordfolgen-Editor: gleiche Grenzen und Namen, "
+                                 "gleichartige Teile (A, A', A'' oder Strophe 1, Strophe 2) bekommen denselben Groove, B/Refrain einen eigenen."));
+    followChords.setToggleState(! chordParts.empty(), juce::dontSendNotification);
+    followChords.setEnabled(! chordParts.empty());
+    followChords.onClick = [this] { updateFollow(); };
+    for (auto* toggle : { &crashToggle, &tempoToggle, &followChords })
     {
         toggle->setColour(juce::ToggleButton::textColourId, Theme::text());
         toggle->setColour(juce::ToggleButton::tickColourId, Theme::amber());
@@ -280,7 +287,8 @@ DrumArrangementEditor::DrumArrangementEditor(daw::ArrangementController& c, cons
     }
     else
         addSection(std::max(0, clickedBar), 8);
-    setSize(1100, 700);
+    updateFollow();
+    setSize(1180, 700);
 }
 
 DrumArrangementEditor::~DrumArrangementEditor()
@@ -435,12 +443,37 @@ void DrumArrangementEditor::takeFromLibrary(bool asFillPattern)
     sectionBox.repaintRow(selected);
 }
 
+void DrumArrangementEditor::updateFollow()
+{
+    const auto& parts = controller.state().chordSections;
+    const auto following = followChords.getToggleState() && ! parts.empty();
+    autoBars.setEnabled(! following);
+    if (following)
+    {
+        int first = parts.front().firstBar, end = first;
+        for (const auto& part : parts)
+        {
+            first = std::min(first, part.firstBar);
+            end = std::max(end, part.firstBar + part.bars);
+        }
+        autoBars.setValue(end - first, juce::dontSendNotification);
+    }
+}
+
 void DrumArrangementEditor::runAuto()
 {
-    const auto first = selected >= 0 ? sections[static_cast<size_t>(selected)].firstBar : 0;
-    const auto bars = static_cast<int>(autoBars.getValue());
+    const auto& parts = controller.state().chordSections;
+    const auto following = followChords.getToggleState() && ! parts.empty();
+    auto first = selected >= 0 ? sections[static_cast<size_t>(selected)].firstBar : 0;
+    auto bars = static_cast<int>(autoBars.getValue());
     const auto wanted = autoStyle.getSelectedId() == 100 ? juce::String() : grooves::genres()[autoStyle.getSelectedId() - 1];
-    const auto result = grooves::autoFill(first, bars, grooves::stepsPerBar(controller.state()), random, wanted);
+    const auto steps = grooves::stepsPerBar(controller.state());
+    const auto result = following ? grooves::autoFill(parts, steps, random, wanted) : grooves::autoFill(first, bars, steps, random, wanted);
+    if (following && ! result.sections.empty())
+    {
+        first = result.sections.front().firstBar;
+        bars = result.sections.back().firstBar + result.sections.back().bars - first;
+    }
     if (result.sections.empty())
     {
         autoResult.setText(text("Für diese Taktart gibt es keine passenden Grooves."), juce::dontSendNotification);
@@ -455,6 +488,7 @@ void DrumArrangementEditor::runAuto()
     std::stable_sort(sections.begin(), sections.end(), [](const daw::DrumSection& a, const daw::DrumSection& b) { return a.firstBar < b.firstBar; });
     suggestedBpm = result.bpm;
     autoResult.setText(text("Gewürfelt: ") + result.genre + text(" · ") + juce::String(bars) + text(" Takte ab Takt ") + juce::String(first + 1)
+                       + (following ? text(" · folgt den Akkord-Abschnitten") : juce::String())
                        + text(" · passendes Tempo ") + juce::String(static_cast<int>(result.bpm)) + text(" BPM"), juce::dontSendNotification);
     {
         const juce::ScopedValueSetter<bool> guard(updating, true);
@@ -568,17 +602,18 @@ void DrumArrangementEditor::resized()
     autoTitle.setBounds(bottom.removeFromTop(22));
     row = bottom.removeFromTop(30);
     autoStyleLabel.setBounds(row.removeFromLeft(36));
-    autoStyle.setBounds(row.removeFromLeft(160).reduced(0, 2));
+    autoStyle.setBounds(row.removeFromLeft(140).reduced(0, 2));
     row.removeFromLeft(12);
     autoBarsLabel.setBounds(row.removeFromLeft(44));
     autoBars.setBounds(row.removeFromLeft(110));
     row.removeFromLeft(12);
     autoButton.setBounds(row.removeFromLeft(100));
     row.removeFromLeft(12);
-    tempoToggle.setBounds(row.removeFromLeft(190));
+    followChords.setBounds(row.removeFromLeft(220));
+    tempoToggle.setBounds(row.removeFromLeft(170));
     closeButton.setBounds(row.removeFromRight(100));
     row.removeFromRight(8);
-    writeButton.setBounds(row.removeFromRight(200));
+    writeButton.setBounds(row.removeFromRight(180));
     autoResult.setBounds(bottom.removeFromTop(24).withTrimmedLeft(36));
 }
 } // namespace nam::ui

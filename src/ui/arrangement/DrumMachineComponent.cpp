@@ -62,6 +62,17 @@ DrumMachineComponent::DrumMachineComponent(daw::ArrangementController& c, const 
     editor.setTooltip(text("Oberfläche des VST3-Instruments öffnen (Kit-Auswahl usw.)"));
     editor.onClick = [this] { if (host.openEditor) host.openEditor(trackId); };
     addAndMakeVisible(editor);
+    arrangement.setButtonText(text("Drum-Arrangement …"));
+    arrangement.setTooltip(text("Abschnitte mit Grooves, Fills und Crashes über ganze Teile des Songs legen – mit Groove-Bibliothek und Auto-Modus"));
+    arrangement.onClick = [this] { if (host.openArrangement) host.openArrangement(trackId); };
+    addAndMakeVisible(arrangement);
+    morePatterns.setTooltip(text("Weitere Patterns dieser Spur, z. B. aus der Groove-Bibliothek des Drum-Arrangements"));
+    morePatterns.onChange = [this]
+    {
+        if (const auto id = morePatterns.getSelectedId(); id > 0)
+            selectPattern(id - 1);
+    };
+    addChildComponent(morePatterns);
 
     for (int index = 0; index < 8; ++index)
     {
@@ -149,8 +160,20 @@ const daw::DrumPattern* DrumMachineComponent::pattern() const
 
 void DrumMachineComponent::selectPattern(int index)
 {
-    selected = juce::jlimit(0, 7, index);
-    patternButtons[selected]->setToggleState(true, juce::dontSendNotification);
+    const auto* t = track();
+    const auto count = t != nullptr ? static_cast<int>(t->patterns.size()) : 8;
+    selected = juce::jlimit(0, std::max(0, count - 1), index);
+    if (selected < patternButtons.size())
+    {
+        patternButtons[selected]->setToggleState(true, juce::dontSendNotification);
+        morePatterns.setSelectedId(0, juce::dontSendNotification);
+    }
+    else
+    {
+        for (auto* button : patternButtons)
+            button->setToggleState(false, juce::dontSendNotification);
+        morePatterns.setSelectedId(selected + 1, juce::dontSendNotification);
+    }
     if (auditioning)
         controller.setPatternAudition(trackId, selected);
     refreshControls();
@@ -203,8 +226,25 @@ void DrumMachineComponent::refreshSources()
                  juce::dontSendNotification);
 }
 
+void DrumMachineComponent::refreshMorePatterns()
+{
+    const auto* t = track();
+    const auto count = t != nullptr ? static_cast<int>(t->patterns.size()) : 0;
+    if (count == morePatternCount)
+        return;
+    morePatternCount = count;
+    morePatterns.clear(juce::dontSendNotification);
+    for (int index = patternButtons.size(); index < count; ++index)
+        morePatterns.addItem(t->patterns[static_cast<size_t>(index)].name, index + 1);
+    morePatterns.setTextWhenNothingSelected(text("Weitere: ") + juce::String(std::max(0, count - patternButtons.size())));
+    morePatterns.setVisible(count > patternButtons.size());
+    if (selected >= patternButtons.size())
+        morePatterns.setSelectedId(selected + 1, juce::dontSendNotification);
+}
+
 void DrumMachineComponent::refreshControls()
 {
+    refreshMorePatterns();
     const auto* t = track();
     title.setText(text("Drumcomputer: ") + (t != nullptr ? t->name : juce::String()), juce::dontSendNotification);
     if (const auto* p = pattern())
@@ -430,10 +470,14 @@ void DrumMachineComponent::resized()
 {
     auto area = getLocalBounds().reduced(14);
     auto top = area.removeFromTop(30);
-    title.setBounds(top.removeFromLeft(320));
     editor.setBounds(top.removeFromRight(120));
     top.removeFromRight(8);
     source.setBounds(top.removeFromRight(300));
+    top.removeFromRight(8);
+    arrangement.setBounds(top.removeFromRight(160));
+    top.removeFromRight(8);
+    morePatterns.setBounds(top.removeFromRight(180));
+    title.setBounds(top);
     area.removeFromTop(4);
     info.setBounds(area.removeFromTop(20));
     area.removeFromTop(8);

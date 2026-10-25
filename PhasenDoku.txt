@@ -170,3 +170,9 @@ Phase 41 abgeschlossen – Drum-Arrangement-Editor, Tonart beim Würfeln:
 - Auto-Modus: Stil fest oder zufällig (nur Stile mit Patterns der Taktart), Strophen-/Refrain-Groove, Fills, 8-Takt-Teile (4 bei kurzen Songs), Crash bei neuen Teilen, Schlusstakt, passendes Tempo optional.
 - UI: DrumArrangementEditor (Abschnitte, Bibliothek mit Step-Raster, Würfeln, Schreiben als ein Undo-Schritt), erreichbar über Spurkopf- und Spurmenü der Drum-Spur.
 - Tests: Bibliothek vollständig und eindeutig, Abschnitt mit Crash/Fills/Zusammenfassen und Schnitt am Rand, Pause leert, Auto-Modus lückenlos mit passenden Patterns und Tempo (30 Läufe, 4/4 und 12er-Takte), fester Stil, Speichern, fester Grundton/Modus im Akkord-Würfeln. Im Programm geprüft: Editor öffnen, würfeln, in die Drum-Spur schreiben.
+
+Phase 42 abgeschlossen – Drums folgen den Akkord-Abschnitten:
+- grooves::autoFill(parts …): eine Drum-Sektion je Akkord-Abschnitt (Grenzen, Namen); Art eines Teils = Name ohne Ziffern/Striche, bei „Teil n“ die Akkordfolge; erste Art Strophen-Groove, zweite Refrain-Groove (Fill auch nach 4 Takten), weitere ein anderer Groove des Stils; Schluss/Outro behält den Hauptgroove; Lücken als „Zwischenspiel“; letzter Takt Schluss; Crash ab dem zweiten Teil.
+- Drum-Editor: Schalter „Akkord-Abschnitte folgen (n)“, an wenn es Abschnitte gibt; Takte zeigt deren Spanne.
+- Drumcomputer: Knopf „Drum-Arrangement …“; Auswahl „Weitere: …“ für Patterns jenseits A–H (aus der Groove-Bibliothek), selectPattern ohne Begrenzung auf acht.
+- Tests: A/A'/B/A'' (gleicher Groove für A-Teile, eigener für B, Schluss im letzten Takt, Crash), generische Namen mit Lücke, partKind. Im Programm geprüft: Akkorde würfeln, Drum-Editor aus dem Drumcomputer öffnen, Würfeln folgt den vier Abschnitten.

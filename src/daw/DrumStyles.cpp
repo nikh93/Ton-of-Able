@@ -315,4 +315,128 @@ AutoResult autoFill(int firstBar, int bars, int steps, juce::Random& random, con
     }
     return result;
 }
+juce::String partKind(const ChordSection& part)
+{
+    auto name = part.name.trim();
+    while (name.isNotEmpty() && (juce::CharacterFunctions::isDigit(name.getLastCharacter()) || name.getLastCharacter() == '\''
+                                 || name.getLastCharacter() == ' ' || name.getLastCharacter() == 0x2019 || name.getLastCharacter() == 0x2032))
+        name = name.dropLastCharacters(1);
+    // Generic names from the editor ("Teil 3") say nothing about the kind: the progression does.
+    if (name.isEmpty() || name == text("Teil"))
+        return "#" + part.text.removeCharacters(" ");
+    return name.toLowerCase();
+}
+
+AutoResult autoFill(const std::vector<ChordSection>& chordParts, int steps, juce::Random& random, const juce::String& wanted)
+{
+    auto parts = chordParts;
+    parts.erase(std::remove_if(parts.begin(), parts.end(), [](const ChordSection& p) { return p.bars <= 0; }), parts.end());
+    std::stable_sort(parts.begin(), parts.end(), [](const ChordSection& a, const ChordSection& b) { return a.firstBar < b.firstBar; });
+    if (parts.empty())
+        return {};
+    const auto first = parts.front().firstBar;
+    int end = first;
+    for (const auto& part : parts)
+        end = std::max(end, part.firstBar + part.bars);
+
+    // Style, grooves and fills as in the plain auto mode.
+    auto result = autoFill(first, end - first, steps, random, wanted);
+    if (result.sections.empty())
+        return result;
+    const auto grooves = find(result.genre, steps, false);
+    const auto fills = find(result.genre, steps, true);
+    const auto verse = result.sections.front().groove;
+    juce::String chorus;
+    for (const auto& section : result.sections)
+        if (section.groove != verse && section.name != text("Schluss"))
+            chorus = section.groove;
+    if (chorus.isEmpty())
+        chorus = verse;
+    const auto verseFill = result.sections.front().fill;
+    juce::String chorusFill = verseFill;
+    for (const auto& section : result.sections)
+        if (section.groove == chorus && section.fill.isNotEmpty())
+            chorusFill = section.fill;
+    const auto ending = result.sections.back().name == text("Schluss") ? result.sections.back().groove : juce::String();
+
+    // One groove per kind of part.
+    juce::StringArray kinds;
+    std::map<juce::String, std::pair<juce::String, juce::String>> grooveOf; // kind -> groove, fill
+    const auto addPattern = [&result](const DrumPattern& pattern)
+    {
+        if (std::none_of(result.patterns.begin(), result.patterns.end(), [&](const DrumPattern& p) { return p.name == pattern.name; }))
+            result.patterns.push_back(pattern);
+    };
+    for (const auto& part : parts)
+    {
+        const auto kind = partKind(part);
+        if (grooveOf.count(kind) > 0)
+            continue;
+        if (kind == "schluss" || kind == "ende" || kind == "outro" || kind == "coda")
+        {
+            grooveOf[kind] = { verse, verseFill }; // a closing part keeps the main groove
+            continue;
+        }
+        const auto index = kinds.size();
+        kinds.add(kind);
+        if (index == 0) grooveOf[kind] = { verse, verseFill };
+        else if (index == 1) grooveOf[kind] = { chorus, chorusFill };
+        else
+        {
+            // A third kind (bridge, solo ...): another groove of the style if there is one.
+            const auto* other = grooves[static_cast<size_t>(random.nextInt(static_cast<int>(grooves.size())))];
+            for (const auto* candidate : grooves)
+                if (candidate->pattern.name != verse && candidate->pattern.name != chorus)
+                    other = candidate;
+            const auto* fill = fills[static_cast<size_t>(random.nextInt(static_cast<int>(fills.size())))];
+            addPattern(other->pattern);
+            addPattern(fill->pattern);
+            grooveOf[kind] = { other->pattern.name, fill->pattern.name };
+        }
+    }
+
+    std::vector<DrumSection> sections;
+    auto bar = first;
+    const auto add = [&](const juce::String& name, int from, int count, const juce::String& kind)
+    {
+        if (count <= 0)
+            return;
+        DrumSection section;
+        section.name = name;
+        section.firstBar = from;
+        section.bars = count;
+        section.groove = grooveOf[kind].first;
+        section.fill = grooveOf[kind].second;
+        section.fillEvery = kinds.indexOf(kind) == 1 && count >= 8 ? 4 : 0;
+        section.crash = ! sections.empty();
+        sections.push_back(section);
+    };
+    for (const auto& part : parts)
+    {
+        if (part.firstBar < bar)
+            continue; // overlapping parts: the earlier one wins
+        if (part.firstBar > bar)
+        {
+            grooveOf[text("zwischenspiel")] = { verse, verseFill };
+            add(text("Zwischenspiel"), bar, part.firstBar - bar, text("zwischenspiel"));
+        }
+        add(part.name.isNotEmpty() ? part.name : text("Teil"), part.firstBar, part.bars, partKind(part));
+        bar = part.firstBar + part.bars;
+    }
+    // The last bar ends the song.
+    if (ending.isNotEmpty() && ! sections.empty() && end - first >= 5)
+    {
+        auto& last = sections.back();
+        if (last.bars > 1)
+        {
+            --last.bars;
+            sections.push_back({ text("Schluss"), end - 1, 1, ending, {}, -1, false });
+        }
+    }
+    else
+        result.patterns.erase(std::remove_if(result.patterns.begin(), result.patterns.end(), [&](const DrumPattern& p) { return p.name == ending && ending.isNotEmpty(); }),
+                              result.patterns.end());
+    result.sections = sections;
+    return result;
+}
 } // namespace daw::grooves

@@ -24,6 +24,8 @@ public:
         std::function<void(const juce::Uuid& trackId)> openEditor;
         /** Selects a bundled sample kit; an empty id selects the synthesized kit. */
         std::function<juce::Result(const juce::Uuid& trackId, const juce::String& kitId)> setKit;
+        /** The drum arrangement editor of this track (sections, groove library, auto mode). */
+        std::function<void(const juce::Uuid& trackId)> openArrangement;
     };
 
     DrumMachineComponent(daw::ArrangementController&, const juce::Uuid& trackId, int pattern, Host);
@@ -42,6 +44,7 @@ private:
     void timerCallback() override;
     void refreshSources();
     void refreshControls();
+    void refreshMorePatterns();
     [[nodiscard]] const daw::Track* track() const;
     [[nodiscard]] const daw::DrumPattern* pattern() const;
     [[nodiscard]] juce::Rectangle<int> cellBounds(int lane, int step) const;
@@ -59,7 +62,9 @@ private:
 
     juce::Label title, info;
     juce::ComboBox source;
-    juce::TextButton editor { "Plugin-Editor" };
+    juce::TextButton editor { "Plugin-Editor" }, arrangement;
+    juce::ComboBox morePatterns;   // patterns beyond A-H (e.g. from the groove library)
+    int morePatternCount = -1;
     juce::OwnedArray<juce::TextButton> patternButtons;
     juce::ComboBox length;
     juce::Label swingLabel { {}, "Swing" };
