@@ -127,6 +127,20 @@ struct ChordSection
     bool operator==(const ChordSection&) const = default;
 };
 
+/** A part of a drum track in the drum arrangement editor: a groove over a
+    range of bars, with a fill every few bars and a crash on its first beat. */
+struct DrumSection
+{
+    juce::String name;
+    int firstBar = 0;     // 0-based
+    int bars = 8;
+    juce::String groove;  // pattern name on the track; empty = no drums in this range
+    juce::String fill;    // pattern name; empty = no fill
+    int fillEvery = 0;    // bars; 0 = only in the last bar, < 0 = never
+    bool crash = true;    // crash cymbal on the first beat
+    bool operator==(const DrumSection&) const = default;
+};
+
 /** How a track accompanies the lead sheet ("Begleitung aus Akkorden"). */
 struct AccompanimentStyle
 {
@@ -215,6 +229,7 @@ struct Track
     int returnSlot = -1;             // >= 0: return track (send effect A-D), fed only by sends
     std::shared_ptr<const FrozenRender> frozen;
     std::optional<Accompaniment> accompaniment; // MIDI track generated from the chords
+    std::vector<DrumSection> drumSections;      // drum tracks: the parts of the drum arrangement editor
 
     [[nodiscard]] bool isReturn() const noexcept { return returnSlot >= 0; }
     /** Drum and MIDI tracks: an instrument makes the sound. */

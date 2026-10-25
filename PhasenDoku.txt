@@ -163,3 +163,10 @@ Phase 40 abgeschlossen – Akkordfolgen-Editor, Bibliothek, Auto-Modus:
 - Auto-Modus: gewichtete Zufallswahl von Modus und Grundton (oder feste Tonart), Phrasen aus 2 Takten Eröffnung + 2 Takten Kadenz, Form A A' B A'' (Halbschluss, Trug-/Ganzschluss, Schlusskadenz), Rest mit Tonika/Schlusskadenz.
 - UI: ChordProgressionEditor (Abschnittsliste, Bibliothek mit Stufen und Akkorden, Längenfilter, Würfeln, „In Akkordleiste schreiben“ als ein Undo-Schritt), erreichbar über Rechtsklick und das Label der Akkordleiste.
 - Tests: Auflösung in allen Modi und Schreibweisen, alle Bibliotheksfolgen in allen 12 Tonarten gültig, Längen 2/4/8 pro Modus, Abschnitte mit Wiederholung/%/-, Auto-Modus (lückenlos, gültig, endet auf der Tonika; 40 Zufallsläufe), Speichern. Im Programm geprüft: Editor, Übernehmen aus der Bibliothek, Würfeln, Schreiben, Begleitung zieht mit.
+
+Phase 41 abgeschlossen – Drum-Arrangement-Editor, Tonart beim Würfeln:
+- Akkord-Editor: Grundton und Tonart des Auto-Modus einzeln fest oder zufällig (harmony::autoFill mit optionalem Grundton und Modus).
+- daw::grooves: Bibliothek mit 14 Stilen (je 2–4 Grooves und Fills, 16 bzw. 12 Schritte, Swing, typisches Tempo), Patterns als Text-Raster definiert. DrumSection (Groove, Fill, Fill-Abstand, Crash) je Drum-Spur, gespeichert. apply(): Bereich leeren (Clips an den Rändern geteilt), Takte belegen (Crash-Variante, Fills), gleiche Takte zu einem Clip zusammenfassen.
+- Auto-Modus: Stil fest oder zufällig (nur Stile mit Patterns der Taktart), Strophen-/Refrain-Groove, Fills, 8-Takt-Teile (4 bei kurzen Songs), Crash bei neuen Teilen, Schlusstakt, passendes Tempo optional.
+- UI: DrumArrangementEditor (Abschnitte, Bibliothek mit Step-Raster, Würfeln, Schreiben als ein Undo-Schritt), erreichbar über Spurkopf- und Spurmenü der Drum-Spur.
+- Tests: Bibliothek vollständig und eindeutig, Abschnitt mit Crash/Fills/Zusammenfassen und Schnitt am Rand, Pause leert, Auto-Modus lückenlos mit passenden Patterns und Tempo (30 Läufe, 4/4 und 12er-Takte), fester Stil, Speichern, fester Grundton/Modus im Akkord-Würfeln. Im Programm geprüft: Editor öffnen, würfeln, in die Drum-Spur schreiben.

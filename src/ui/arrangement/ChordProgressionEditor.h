@@ -54,8 +54,8 @@ private:
     juce::Slider fromSlider { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft },
                  barsSlider { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft },
                  autoBars { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft };
-    juce::ComboBox tonicBox, modeBox, lengthBox;
-    juce::ToggleButton randomKey;
+    juce::ComboBox tonicBox, modeBox, lengthBox, autoTonic, autoMode;
+    juce::Label autoKeyLabel;
     juce::Random random;
 };
 } // namespace nam::ui

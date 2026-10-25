@@ -359,6 +359,8 @@ void TrackHeaderComponent::showMenu()
         menu.addItem(8, text("Sends …"));
         if (! isDrumTrack && ! isMidiTrack)
             menu.addItem(10, text("Re-Amp: ins Live-Rig spielen"), ! frozen, reamping);
+        if (isDrumTrack)
+            menu.addItem(14, text("Drum-Arrangement: Editor & Groove-Bibliothek …"));
         if (generated)
         {
             menu.addSeparator();
@@ -404,6 +406,7 @@ void TrackHeaderComponent::showMenu()
             case 11: if (self.onEditAccompaniment) self.onEditAccompaniment(trackId); break;
             case 12: self.controller.relinkAccompaniment(trackId); break;
             case 13: self.controller.unlinkAccompaniment(trackId); break;
+            case 14: if (self.onOpenDrumArrangement) self.onOpenDrumArrangement(trackId); break;
             default: break;
         }
     });

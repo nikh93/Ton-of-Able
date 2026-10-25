@@ -59,7 +59,7 @@ struct Progression
 /** Writes a section onto the lead sheet: its bars are cleared, then the progression is repeated over them. */
 void apply(ArrangementState&, const ChordSection&);
 
-/** Auto mode: a key (random unless given) and sections that fill bars from
+/** Auto mode: a key (tonic and mode each random unless given) and sections that fill bars from
     firstBar with phrases of four bars, each closing with a fitting cadence
     (half cadence in the middle, a full cadence at the end), A A' B A form. */
 struct AutoResult
@@ -67,5 +67,5 @@ struct AutoResult
     Key key;
     std::vector<ChordSection> sections;
 };
-[[nodiscard]] AutoResult autoFill(int firstBar, int bars, juce::Random&, std::optional<Key> key = std::nullopt);
+[[nodiscard]] AutoResult autoFill(int firstBar, int bars, juce::Random&, std::optional<int> tonic = std::nullopt, std::optional<Mode> mode = std::nullopt);
 } // namespace daw::harmony

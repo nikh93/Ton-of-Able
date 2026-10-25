@@ -161,7 +161,7 @@ ChordProgressionEditor::ChordProgressionEditor(daw::ArrangementController& c, in
     button(writeButton, text("In Akkordleiste schreiben"), [this] { writeToLeadSheet(); }, true);
     button(closeButton, text("Schließen"), [this] { if (onClose) onClose(); });
     takeButton.setTooltip(text("Die gewählte Folge in der eingestellten Tonart in den markierten Abschnitt schreiben (auch per Doppelklick)."));
-    autoButton.setTooltip(text("Wählt eine Tonart (zufällig oder die eingestellte) und füllt die Takte mit Phrasen aus vier Takten: "
+    autoButton.setTooltip(text("Wählt eine Tonart (Grundton und Modus fest oder zufällig) und füllt die Takte mit Phrasen aus vier Takten: "
                                "Eröffnung plus Kadenz, Halbschluss in der Mitte, Ganzschluss am Ende, Form A A' B A."));
 
     for (auto* editor : { &nameEditor, &textEditor })
@@ -203,12 +203,22 @@ ChordProgressionEditor::ChordProgressionEditor(daw::ArrangementController& c, in
         box->onChange = [this] { refreshLibrary(); };
         addAndMakeVisible(*box);
     }
-    randomKey.setButtonText(text("Tonart zufällig"));
-    randomKey.setToggleState(true, juce::dontSendNotification);
-    randomKey.setColour(juce::ToggleButton::textColourId, Theme::text());
-    randomKey.setColour(juce::ToggleButton::tickColourId, Theme::amber());
-    randomKey.setTooltip(text("Aus: der Auto-Modus nimmt die oben eingestellte Tonart."));
-    addAndMakeVisible(randomKey);
+    // The auto mode has its own key choice: each part fixed or random.
+    autoTonic.addItem(text("Zufällig"), 100);
+    autoMode.addItem(text("Zufällig"), 100);
+    for (int pitch = 0; pitch < 12; ++pitch)
+        autoTonic.addItem(tonicBox.getItemText(pitch), pitch + 1);
+    for (int mode = 0; mode < harmony::numModes; ++mode)
+        autoMode.addItem(harmony::modeName(static_cast<harmony::Mode>(mode)), mode + 1);
+    autoTonic.setSelectedId(100, juce::dontSendNotification);
+    autoMode.setSelectedId(100, juce::dontSendNotification);
+    autoTonic.setTooltip(text("Grundton für das Würfeln – fest oder zufällig."));
+    autoMode.setTooltip(text("Tonart für das Würfeln – fest (z. B. Dorisch) oder zufällig."));
+    addAndMakeVisible(autoTonic);
+    addAndMakeVisible(autoMode);
+    autoKeyLabel.setText(text("Tonart"), juce::dontSendNotification);
+    autoKeyLabel.setColour(juce::Label::textColourId, Theme::subduedText());
+    addAndMakeVisible(autoKeyLabel);
 
     // Start at the clicked bar: its section, or a new one there.
     int found = -1;
@@ -349,7 +359,10 @@ void ChordProgressionEditor::runAuto()
 {
     const auto first = selected >= 0 ? sections[static_cast<size_t>(selected)].firstBar : 0;
     const auto bars = static_cast<int>(autoBars.getValue());
-    const auto result = harmony::autoFill(first, bars, random, randomKey.getToggleState() ? std::nullopt : std::optional<harmony::Key>(key()));
+    const auto tonicChoice = autoTonic.getSelectedId(), modeChoice = autoMode.getSelectedId();
+    const auto result = harmony::autoFill(first, bars, random,
+                                          tonicChoice >= 1 && tonicChoice <= 12 ? std::optional<int>(tonicChoice - 1) : std::nullopt,
+                                          modeChoice >= 1 && modeChoice <= harmony::numModes ? std::optional<harmony::Mode>(static_cast<harmony::Mode>(modeChoice - 1)) : std::nullopt);
     // The generated sections replace those inside the range.
     sections.erase(std::remove_if(sections.begin(), sections.end(), [&](const daw::ChordSection& s) { return s.firstBar < first + bars && s.firstBar + s.bars > first; }),
                    sections.end());
@@ -452,14 +465,18 @@ void ChordProgressionEditor::resized()
     row = bottom.removeFromTop(30);
     autoBarsLabel.setBounds(row.removeFromLeft(48));
     autoBars.setBounds(row.removeFromLeft(110));
+    row.removeFromLeft(14);
+    autoKeyLabel.setBounds(row.removeFromLeft(48));
+    autoTonic.setBounds(row.removeFromLeft(110).reduced(0, 2));
+    row.removeFromLeft(6);
+    autoMode.setBounds(row.removeFromLeft(160).reduced(0, 2));
+    row.removeFromLeft(10);
+    autoButton.setBounds(row.removeFromLeft(100));
     row.removeFromLeft(12);
-    randomKey.setBounds(row.removeFromLeft(150));
-    autoButton.setBounds(row.removeFromLeft(110));
-    row.removeFromLeft(12);
-    closeButton.setBounds(row.removeFromRight(110));
+    closeButton.setBounds(row.removeFromRight(100));
     row.removeFromRight(8);
-    writeButton.setBounds(row.removeFromRight(210));
-    autoResult.setBounds(row);
+    writeButton.setBounds(row.removeFromRight(200));
+    autoResult.setBounds(bottom.removeFromTop(24).withTrimmedLeft(48));
     hint.toFront(false);
 }
 } // namespace nam::ui

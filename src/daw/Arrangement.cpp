@@ -782,6 +782,16 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
                 patterns.addChild(pattern.toValueTree(), -1, nullptr);
             node.addChild(patterns, -1, nullptr);
             node.addChild(track.instrument->settings.createCopy(), -1, nullptr);
+            if (! track.drumSections.empty())
+            {
+                juce::ValueTree sections("DrumSections");
+                for (const auto& section : track.drumSections)
+                    sections.appendChild(juce::ValueTree("s").setProperty("name", section.name, nullptr).setProperty("firstBar", section.firstBar, nullptr)
+                                             .setProperty("bars", section.bars, nullptr).setProperty("groove", section.groove, nullptr)
+                                             .setProperty("fill", section.fill, nullptr).setProperty("fillEvery", section.fillEvery, nullptr)
+                                             .setProperty("crash", section.crash, nullptr), nullptr);
+                node.addChild(sections, -1, nullptr);
+            }
         }
         if (track.midi)
         {
@@ -924,6 +934,11 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
                 track.patterns.push_back(DrumPattern::fromValueTree(pattern));
             if (track.patterns.empty())
                 track.patterns = defaultDrumPatterns();
+            for (const auto& section : node.getChildWithName("DrumSections"))
+                track.drumSections.push_back({ section.getProperty("name").toString(), std::max(0, static_cast<int>(section.getProperty("firstBar", 0))),
+                                               juce::jlimit(1, 1024, static_cast<int>(section.getProperty("bars", 8))), section.getProperty("groove").toString(),
+                                               section.getProperty("fill").toString(), static_cast<int>(section.getProperty("fillEvery", 0)),
+                                               static_cast<bool>(section.getProperty("crash", true)) });
             if (const auto instrument = node.getChildWithName("Instrument"); instrument.isValid())
                 track.instrument->settings = instrument.createCopy();
         }

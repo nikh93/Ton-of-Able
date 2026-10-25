@@ -28,6 +28,8 @@ public:
     std::function<void(const juce::Uuid&, juce::Component& target)> onInstrumentMenu;
     /** Accompaniment tracks: edit the style of the generated part. */
     std::function<void(const juce::Uuid&)> onEditAccompaniment;
+    /** Drum tracks: the drum arrangement editor. */
+    std::function<void(const juce::Uuid&)> onOpenDrumArrangement;
 
     void paint(juce::Graphics&) override;
     void resized() override;

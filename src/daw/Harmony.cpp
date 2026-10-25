@@ -420,14 +420,14 @@ void apply(ArrangementState& state, const ChordSection& section)
     }
 }
 
-AutoResult autoFill(int firstBar, int bars, juce::Random& random, std::optional<Key> fixedKey)
+AutoResult autoFill(int firstBar, int bars, juce::Random& random, std::optional<int> fixedTonic, std::optional<Mode> fixedMode)
 {
     AutoResult result;
-    if (fixedKey)
-        result.key = *fixedKey;
+    // Mostly major and minor, now and then a colourful mode; guitar-friendly keys more often.
+    if (fixedMode)
+        result.key.mode = *fixedMode;
     else
     {
-        // Mostly major and minor, now and then a colourful mode; guitar-friendly keys more often.
         static const std::array<std::pair<Mode, int>, numModes> modeWeights { {
             { Mode::ionian, 30 }, { Mode::aeolian, 26 }, { Mode::dorian, 10 }, { Mode::mixolydian, 9 }, { Mode::harmonicMinor, 9 },
             { Mode::lydian, 6 }, { Mode::phrygian, 5 }, { Mode::melodicMinor, 4 }, { Mode::locrian, 1 } } };
@@ -437,6 +437,11 @@ AutoResult autoFill(int firstBar, int bars, juce::Random& random, std::optional<
             if (pick < weight) { result.key.mode = mode; break; }
             pick -= weight;
         }
+    }
+    if (fixedTonic)
+        result.key.tonic = wrap(*fixedTonic);
+    else
+    {
         static const std::array<int, 12> tonicWeights { 3, 1, 3, 1, 3, 2, 1, 3, 1, 3, 1, 1 };
         auto tonicPick = random.nextInt(23);
         for (int tonic = 0; tonic < 12; ++tonic)

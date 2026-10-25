@@ -10,6 +10,7 @@
 #include "AccompanimentPanel.h"
 #include "ChordProgressionEditor.h"
 #include "ChordTrackBar.h"
+#include "DrumArrangementEditor.h"
 #include "ExportRangeBar.h"
 #include "PianoRollComponent.h"
 #include "ui/components/Icons.h"
@@ -50,6 +51,8 @@ public:
     void openAccompaniment(const juce::Uuid& trackId);
     /** The chord progression editor (sections, library, auto mode), starting at bar. */
     void openProgressionEditor(int bar);
+    /** The drum arrangement editor of a drum track, starting at bar. */
+    void openDrumArrangement(const juce::Uuid& trackId, int bar);
     void openPianoRoll(const juce::Uuid& clipId);
 
     void paint(juce::Graphics&) override;
@@ -111,6 +114,6 @@ private:
     std::shared_ptr<juce::FileChooser> chooser;
     bool followEnabled = true;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows, drumWindows, pianoWindows;
-    std::unique_ptr<juce::DocumentWindow> accompanimentWindow, progressionWindow;
+    std::unique_ptr<juce::DocumentWindow> accompanimentWindow, progressionWindow, drumArrangementWindow;
 };
 } // namespace nam::ui

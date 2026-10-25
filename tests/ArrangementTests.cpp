@@ -7,6 +7,7 @@
 #include "../src/daw/Accompaniment.h"
 #include "../src/daw/Arrangement.h"
 #include "../src/daw/Harmony.h"
+#include "../src/daw/DrumStyles.h"
 #include "../src/daw/DawText.h"
 #include "../src/daw/ArrangementEngine.h"
 #include "../src/daw/AudioCodecs.h"
@@ -766,10 +767,15 @@ public:
             const auto tones = accompaniment::parse(last->name);
             expect(tones.has_value() && tones->root == result.key.tonic, keyName(result.key) + ": " + last->name);
         }
-        const auto fixed = autoFill(0, 16, random, Key { 2, Mode::dorian });
+        const auto fixed = autoFill(0, 16, random, 2, Mode::dorian);
         expect(fixed.key == Key { 2, Mode::dorian });
         expectEquals(static_cast<int>(fixed.sections.size()), 4);
         expect(fixed.sections[0].text.startsWith("Dm"));
+        for (int run = 0; run < 10; ++run)
+        {
+            expectEquals(autoFill(0, 8, random, 4, std::nullopt).key.tonic, 4);           // E, any mode
+            expect(autoFill(0, 8, random, std::nullopt, Mode::lydian).key.mode == Mode::lydian); // any tonic, Lydian
+        }
 
         beginTest("Sections are saved with the project");
         state.chordSections = fixed.sections;
@@ -779,6 +785,91 @@ public:
 };
 
 HarmonyTests harmonyTests;
+
+class DrumArrangementTests final : public juce::UnitTest
+{
+public:
+    DrumArrangementTests() : juce::UnitTest("Drum arrangement", "DAW") {}
+
+    void runTest() override
+    {
+        beginTest("Every style has grooves and a fill; patterns fit 4/4 or 3/4 and 6/8");
+        for (const auto& genre : grooves::genres())
+        {
+            const auto steps = genre.startsWith("3/4") ? 12 : 16;
+            expectGreaterOrEqual(static_cast<int>(grooves::find(genre, steps, false).size()), 2, genre);
+            expectGreaterOrEqual(static_cast<int>(grooves::find(genre, steps, true).size()), 1, genre);
+        }
+        std::set<juce::String> names;
+        for (const auto& groove : grooves::library())
+        {
+            expect(groove.pattern.steps == 16 || groove.pattern.steps == 12, groove.pattern.name);
+            expect(! groove.pattern.isEmpty(), groove.pattern.name);
+            expect(names.insert(groove.pattern.name).second, "duplicate " + groove.pattern.name);
+        }
+
+        beginTest("A section: crash bar, groove runs as one clip, fills every four bars");
+        ArrangementState state;
+        const auto index = edit::addTrack(state, edit::makeDrumTrack(state, "Drums"));
+        auto& track = state.tracks[static_cast<size_t>(index)];
+        const auto bar = TimeGrid::of(state).samplesPerBar();
+        // An old clip across the start of the range is cut there.
+        edit::insert(state, edit::makePatternClip(0, "alt", 0, static_cast<juce::int64>(bar * 3)), index);
+        const auto& rock = *grooves::find("Rock", 16, false)[0];
+        const auto& rockFill = *grooves::find("Rock", 16, true)[0];
+        grooves::ensurePattern(track, rock.pattern);
+        grooves::ensurePattern(track, rockFill.pattern);
+        grooves::apply(state, index, { "Strophe", 2, 8, rock.pattern.name, rockFill.pattern.name, 4, true });
+        const auto& clips = state.tracks[static_cast<size_t>(index)].clips;
+        const auto& patterns = state.tracks[static_cast<size_t>(index)].patterns;
+        std::vector<std::pair<juce::String, int>> layout;
+        for (const auto& clip : clips)
+            layout.emplace_back(patterns[static_cast<size_t>(clip.pattern)].name, static_cast<int>(std::llround(static_cast<double>(clip.length) / bar)));
+        expectEquals(static_cast<int>(layout.size()), 6);
+        expectEquals(layout[0].second, 2);                                  // the old clip, cut at bar 3
+        expectEquals(layout[1].first, rock.pattern.name + " + Crash");
+        expectEquals(layout[2].first, rock.pattern.name);
+        expectEquals(layout[2].second, 2);
+        expectEquals(layout[3].first, rockFill.pattern.name);
+        expectEquals(layout[4].second, 3);
+        expectEquals(layout[5].first, rockFill.pattern.name);
+        expectEquals(clips.back().end(), static_cast<juce::int64>(std::llround(10 * bar)));
+        grooves::apply(state, index, { "Pause", 0, 10, {}, {}, -1, false }); // no groove: the range is emptied
+        expect(state.tracks[static_cast<size_t>(index)].clips.empty());
+
+        beginTest("Auto mode fills the bars with verses, choruses and an ending");
+        juce::Random random(7);
+        for (int run = 0; run < 30; ++run)
+        {
+            const auto bars = 2 + random.nextInt(40);
+            const auto steps = run % 3 == 0 ? 12 : 16;
+            const auto result = grooves::autoFill(4, bars, steps, random);
+            expect(result.genre.isNotEmpty());
+            int next = 4;
+            for (const auto& section : result.sections)
+            {
+                expectEquals(section.firstBar, next);
+                next += section.bars;
+                for (const auto& name : { section.groove, section.fill })
+                    if (name.isNotEmpty())
+                        expect(std::any_of(result.patterns.begin(), result.patterns.end(), [&](const DrumPattern& p) { return p.name == name && p.steps == steps; }), name);
+            }
+            expectEquals(next, 4 + bars);
+            if (bars >= 5)
+                expectEquals(result.sections.back().name, text("Schluss"));
+            const auto [low, high] = grooves::tempoRange(result.genre);
+            expect(result.bpm >= low && result.bpm <= high);
+        }
+        expectEquals(grooves::autoFill(0, 16, 16, random, "Funk").genre, juce::String("Funk"));
+
+        beginTest("Drum sections are saved with the project");
+        state.tracks[static_cast<size_t>(index)].drumSections = { { "A", 0, 8, rock.pattern.name, rockFill.pattern.name, 4, true } };
+        const auto loaded = fromValueTree(toValueTree(state, {}), {});
+        expect(loaded.tracks[static_cast<size_t>(index)].drumSections == state.tracks[static_cast<size_t>(index)].drumSections);
+    }
+};
+
+DrumArrangementTests drumArrangementTests;
 
 // Records the events an instrument receives (offsets made absolute by the test).
 struct EventLog final : TrackInstrument

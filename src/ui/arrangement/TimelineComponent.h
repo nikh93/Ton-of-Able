@@ -67,6 +67,8 @@ public:
     std::function<void()> onViewChanged;
     std::function<void()> onSelectionChanged;
     std::function<void(const juce::Uuid& trackId, int pattern)> onOpenDrums;
+    /** Drum tracks: the drum arrangement editor (sections, groove library, auto mode) at this bar. */
+    std::function<void(const juce::Uuid& trackId, int bar)> onOpenDrumArrangement;
     std::function<void(const juce::Uuid& clipId)> onOpenPianoRoll;
 
     void paint(juce::Graphics&) override;

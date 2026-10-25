@@ -269,6 +269,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
 
     timeline.onViewChanged = [this] { layoutHeaders(); updateScrollBars(); };
     timeline.onOpenDrums = [this](const juce::Uuid& id, int pattern) { openDrumMachine(id, pattern); };
+    timeline.onOpenDrumArrangement = [this](const juce::Uuid& id, int bar) { openDrumArrangement(id, bar); };
     timeline.onOpenPianoRoll = [this](const juce::Uuid& id) { openPianoRoll(id); };
     timeline.onSelectionChanged = [this] { for (auto& header : headers) header->repaint(); stateChanged(); };
 
@@ -358,6 +359,23 @@ void ArrangementView::openProgressionEditor(int bar)
     progressionWindow = std::move(window);
 }
 
+void ArrangementView::openDrumArrangement(const juce::Uuid& trackId, int bar)
+{
+    const auto* track = controller.state().findTrack(trackId);
+    if (track == nullptr || ! track->drums)
+        return;
+    auto editor = std::make_unique<DrumArrangementEditor>(controller, trackId, bar);
+    editor->onClose = [this] { juce::MessageManager::callAsync([safe = juce::Component::SafePointer<ArrangementView>(this)] { if (safe != nullptr) safe->drumArrangementWindow.reset(); }); };
+    const auto size = editor->getBounds();
+    auto window = std::make_unique<FxWindow>(std::move(editor));
+    window->setName(daw::text("Drum-Arrangement"));
+    window->setResizeLimits(size.getWidth(), size.getHeight(), size.getWidth() + 600, size.getHeight() + 400);
+    window->centreWithSize(size.getWidth(), size.getHeight());
+    window->setVisible(true);
+    window->toFront(true);
+    drumArrangementWindow = std::move(window);
+}
+
 void ArrangementView::openDrumMachine(const juce::Uuid& trackId, int pattern)
 {
     if (! createDrumEditor || controller.state().findTrack(trackId) == nullptr)
@@ -386,6 +404,7 @@ ArrangementView::~ArrangementView()
     pianoWindows.clear();
     accompanimentWindow.reset();
     progressionWindow.reset();
+    drumArrangementWindow.reset();
     controller.onChanged = nullptr;
     controller.onMessage = nullptr;
 }
@@ -484,6 +503,7 @@ void ArrangementView::rebuildHeaders()
                 header->onOpenDrums = [this](const juce::Uuid& id) { openDrumMachine(id, 0); };
                 header->onInstrumentMenu = [this](const juce::Uuid& id, juce::Component& target) { if (showInstrumentMenu) showInstrumentMenu(id, target); };
                 header->onEditAccompaniment = [this](const juce::Uuid& id) { openAccompaniment(id); };
+                header->onOpenDrumArrangement = [this](const juce::Uuid& id) { openDrumArrangement(id, 0); };
                 headerColumn->addAndMakeVisible(*header);
                 next.push_back(std::move(header));
             }

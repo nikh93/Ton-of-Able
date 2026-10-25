@@ -1272,6 +1272,11 @@ void TimelineComponent::showLaneMenu(int track, juce::int64 at)
             });
         menu.addSubMenu(text("Pattern-Clip einfügen (4 Takte)"), patterns);
         menu.addItem(text("Drumcomputer öffnen"), [this, trackId = owner.id] { if (onOpenDrums) onOpenDrums(trackId, 0); });
+        menu.addItem(text("Drum-Arrangement: Editor & Groove-Bibliothek …"), [this, trackId = owner.id, at]
+        {
+            if (onOpenDrumArrangement)
+                onOpenDrumArrangement(trackId, static_cast<int>(std::floor(static_cast<double>(at) / controller.grid().samplesPerBar())));
+        });
         menu.addSeparator();
     }
     if (track >= 0 && track < static_cast<int>(controller.state().tracks.size()) && controller.state().tracks[static_cast<size_t>(track)].midi)
