@@ -1,4 +1,6 @@
-Plugin-Verwaltung und Korrekturen an Spur- und Send-Effekten für Windows 10/11 (64 Bit) und – neu – Linux.
+Akkordleiste mit Akkordfolgen-Editor und Begleitung aus Akkorden, Drum-Arrangement mit Groove-Bibliothek, MIDI-Spuren mit Piano-Roll, Stimmgerät als VST3, Plugin-Verwaltung, Re-Amping und vieles mehr – für Windows 10/11 (64 Bit) und – neu – Linux.
+
+**Linux:** `Ton-of-Able-v0.2.2-x86_64.AppImage` ausführbar machen und starten, oder das tar.gz entpacken. Details in `LIESMICH-Linux.txt`.
 
 **Installation:** `Ton-of-Able-v0.2.2-setup.exe` ausführen – eine vorhandene Installation wird aktualisiert. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen“ → „Trotzdem ausführen“.
 
