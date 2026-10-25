@@ -40,7 +40,7 @@ ChordTrackBar::ChordTrackBar(daw::ArrangementController& c, const TimelineCompon
     : controller(c), timeline(t), labelWidth(width)
 {
     setTooltip(text("Lead-Sheet: Takt anklicken und Akkord tippen (z. B. Am7, G/H). Zwei Akkorde wie „Am G“ teilen den Takt. "
-                    "Enter übernimmt, Tab springt zum nächsten Takt, Shift+Klick wählt eine Takthälfte, Rechtsklick: ganzer/halber Takt, löschen."));
+                    "Enter übernimmt, Tab springt zum nächsten Takt, Shift+Klick wählt eine Takthälfte, Rechtsklick: ganzer/halber Takt, löschen, Begleitung erzeugen."));
 }
 
 ChordTrackBar::~ChordTrackBar() = default;
@@ -145,6 +145,7 @@ void ChordTrackBar::startEditing(double bar, double length)
         if (chord.bar >= bar - 1.0e-9 && chord.end() <= bar + length + 1.0e-9)
             names.add(chord.name);
     editor->setText(names.joinIntoString(" "), false);
+    editor->setSelectAllWhenFocused(true); // typing replaces the chord
     editor->selectAll();
     editor->onCommit = [this](bool moveOn) { commit(moveOn); };
     editor->onCancel = [this] { cancel(); };
@@ -220,6 +221,8 @@ void ChordTrackBar::showMenu(double bar)
         });
         startEditing(bar + 0.5, 0.5);
     });
+    menu.addSeparator();
+    menu.addItem(text("Begleitung aus Akkorden erzeugen …"), onAccompaniment != nullptr, false, [this] { if (onAccompaniment) onAccompaniment(); });
     menu.addSeparator();
     menu.addItem(text("Akkord löschen"), first != nullptr || second != nullptr, false, [this, bar]
     {

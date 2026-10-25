@@ -99,6 +99,13 @@ TrackHeaderComponent::TrackHeaderComponent(daw::ArrangementController& c, const 
     reampBadge.setColour(juce::TextButton::textColourOffId, Theme::onText());
     reampBadge.onClick = [this] { controller.setReampSource({}); };
     addChildComponent(reampBadge);
+    chordBadge.setButtonText(text("AKKORDE"));
+    chordBadge.setTooltip(text("Begleitung aus der Akkordleiste: Die Noten folgen jeder Akkordänderung. Klick: Stil ändern. "
+                               "Noten von Hand bearbeiten löst die Verknüpfung."));
+    chordBadge.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff6fc0a4));
+    chordBadge.setColour(juce::TextButton::textColourOffId, Theme::onText());
+    chordBadge.onClick = [this] { if (onEditAccompaniment) onEditAccompaniment(id); };
+    addChildComponent(chordBadge);
     role.setFont(juce::FontOptions(11.5f, juce::Font::bold));
     role.setColour(juce::Label::textColourId, Theme::subduedText());
     role.setInterceptsMouseClicks(false, false);
@@ -148,8 +155,11 @@ void TrackHeaderComponent::refresh(const daw::Track& track, const std::vector<da
     const auto* source = controller.state().reampTrack();
     const auto nowReamping = source != nullptr && source->id == track.id && ! nowFrozen;
     if (isDrumTrack != track.drums || isMidiTrack != track.midi || isReturnTrack != track.isReturn() || frozen != nowFrozen
-        || freezing != nowFreezing || reamping != nowReamping)
+        || freezing != nowFreezing || reamping != nowReamping
+        || linkedToChords != (track.accompaniment && track.accompaniment->linked) || generated != track.accompaniment.has_value())
     {
+        linkedToChords = track.accompaniment && track.accompaniment->linked;
+        generated = track.accompaniment.has_value();
         isMidiTrack = track.midi;
         arm.setTooltip(track.midi ? text("Scharf: die MIDI-Keyboards spielen diese Spur, die Aufnahme nimmt Noten auf")
                                   : text("Aufnahme scharf schalten"));
@@ -271,6 +281,9 @@ void TrackHeaderComponent::resized()
     reampBadge.setVisible(reamping);
     if (reamping)
         square(reampBadge, 56);
+    chordBadge.setVisible(linkedToChords);
+    if (linkedToChords)
+        square(chordBadge, 62);
     top.removeFromRight(3);
     name.setBounds(top.withTrimmedLeft(-4));
 
@@ -346,6 +359,15 @@ void TrackHeaderComponent::showMenu()
         menu.addItem(8, text("Sends …"));
         if (! isDrumTrack && ! isMidiTrack)
             menu.addItem(10, text("Re-Amp: ins Live-Rig spielen"), ! frozen, reamping);
+        if (generated)
+        {
+            menu.addSeparator();
+            menu.addItem(11, text("Begleitung: Stil ändern …"));
+            if (linkedToChords)
+                menu.addItem(13, text("Von den Akkorden lösen (Noten behalten)"));
+            else
+                menu.addItem(12, text("Wieder aus den Akkorden erzeugen (eigene Änderungen gehen verloren)"));
+        }
         menu.addSeparator();
         const auto* track = controller.state().findTrack(id);
         const auto hasRender = track != nullptr && track->frozen != nullptr;
@@ -379,6 +401,9 @@ void TrackHeaderComponent::showMenu()
             case 8: self.showSends(); break;
             case 9: self.controller.unfreezeTrack(trackId); break;
             case 10: self.controller.setReampSource(self.reamping ? juce::Uuid() : trackId); break;
+            case 11: if (self.onEditAccompaniment) self.onEditAccompaniment(trackId); break;
+            case 12: self.controller.relinkAccompaniment(trackId); break;
+            case 13: self.controller.unlinkAccompaniment(trackId); break;
             default: break;
         }
     });

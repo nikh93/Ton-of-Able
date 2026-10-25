@@ -95,6 +95,22 @@ public:
     void previewNote(const juce::Uuid& trackId, int note, int velocity);
     /** Replaces the notes of a MIDI clip as one undo step. */
     void setClipNotes(const juce::Uuid& clipId, MidiNotes notes, const juce::String& description);
+    // Accompaniment from the lead sheet: MIDI tracks whose clips follow the chords.
+    struct AccompanimentRequest
+    {
+        std::vector<AccompanimentStyle> layers;
+        bool swell = false;           // the pad fades in slowly on every chord
+        bool space = true;            // send the layers to an "Atmo-Hall" return track
+        juce::ValueTree spaceEffect;  // its effect settings (invalid: the return defaults)
+    };
+    /** Adds one track per layer (one undo step); returns their ids. */
+    std::vector<juce::Uuid> createAccompaniment(const AccompanimentRequest&);
+    /** New style for an accompaniment track; regenerates and links it again. */
+    void setAccompanimentStyle(const juce::Uuid& trackId, const AccompanimentStyle&);
+    /** Generates the clips from the chords again (hand edits are replaced) and links the track. */
+    void relinkAccompaniment(const juce::Uuid& trackId);
+    /** Keeps the notes as they are; chord changes no longer touch them. */
+    void unlinkAccompaniment(const juce::Uuid& trackId);
     /** Loops a pattern while the transport is stopped; null id stops it. */
     void setPatternAudition(const juce::Uuid& trackId, int patternIndex);
 

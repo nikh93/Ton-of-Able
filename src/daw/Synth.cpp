@@ -36,6 +36,10 @@ juce::String Synth::presetName(Preset preset)
         case Preset::keys: return "Keys";
         case Preset::bass: return "Bass";
         case Preset::lead: return "Lead";
+        case Preset::atmo: return "Atmo";
+        case Preset::swell: return "Swell";
+        case Preset::sub: return "Sub";
+        case Preset::glass: return "Glass";
     }
     return "Pad";
 }
@@ -54,12 +58,18 @@ Synth::Synth(Preset p) : preset(p)
         case Preset::keys: parameters = { 0.005f, 0.9f, 0.35f, 0.35f, 1400.0f, 2.5f, 0.1f, 0.04f, 0.1f, 0.24f }; break;
         case Preset::bass: parameters = { 0.004f, 0.35f, 0.6f, 0.12f, 300.0f, 2.8f, 0.3f, 0.03f, 0.7f, 0.32f }; break;
         case Preset::lead: parameters = { 0.01f, 0.3f, 0.75f, 0.25f, 2200.0f, 1.8f, 0.35f, 0.07f, 0.0f, 0.22f }; break;
+        case Preset::atmo: parameters = { 1.2f, 2.5f, 0.85f, 3.5f, 1000.0f, 0.8f, 0.2f, 0.16f, 0.12f, 0.17f, 0.9f, 0.6f }; break;
+        case Preset::swell: parameters = { 3.0f, 3.0f, 0.9f, 4.5f, 850.0f, 1.2f, 0.25f, 0.18f, 0.1f, 0.17f, 1.0f, 0.7f }; break;
+        case Preset::sub: parameters = { 0.08f, 1.0f, 0.9f, 0.9f, 180.0f, 0.6f, 0.05f, 0.02f, 0.9f, 0.30f, 0.0f, 0.0f }; break;
+        case Preset::glass: parameters = { 0.004f, 1.4f, 0.1f, 1.8f, 2600.0f, 1.0f, 0.15f, 0.06f, 0.0f, 0.14f, 1.0f, 0.3f }; break;
     }
 }
 
 void Synth::prepare(double rate, int)
 {
     sampleRate = rate > 0.0 ? rate : 48000.0;
+    chorusLine.assign(static_cast<size_t>(sampleRate * 0.05) + 2, 0.0f);
+    chorusWrite = 0;
     allNotesOff();
     for (auto& voice : voices)
         voice = {};
@@ -150,7 +160,7 @@ float Synth::renderVoice(Voice& voice) noexcept
     voice.phaseSub -= std::floor(voice.phaseSub);
 
     // State-variable low-pass; the envelope and the velocity open it.
-    const auto cutoff = std::min(sampleRate * 0.45, static_cast<double>(p.cutoff) * std::pow(2.0, p.envelopeAmount * voice.level * (0.5f + 0.5f * voice.velocity)));
+    const auto cutoff = std::min(sampleRate * 0.45, static_cast<double>(p.cutoff) * std::pow(2.0, driftOctaves + p.envelopeAmount * voice.level * (0.5f + 0.5f * voice.velocity)));
     const auto f = static_cast<float>(2.0 * std::sin(juce::MathConstants<double>::pi * cutoff / sampleRate));
     const auto q = 1.0f - p.resonance * 0.9f;
     voice.low += f * voice.band;
@@ -174,6 +184,13 @@ void Synth::render(const DrumEvent* events, int numEvents, float* left, float* r
     };
     for (int index = 0; index < previewCount; ++index)
         apply(previews[index]);
+    // The filter wanders slowly (one cycle in about 11 s): the pad breathes.
+    driftPhase += numSamples / sampleRate * 0.09;
+    driftPhase -= std::floor(driftPhase);
+    driftOctaves = parameters.drift * static_cast<float>(std::sin(twoPi * driftPhase));
+    const auto chorus = parameters.chorus > 0.0f && chorusLine.size() > 4;
+    const auto lineSize = static_cast<int>(chorusLine.size());
+    const auto chorusIncrement = 0.23 / sampleRate;
     int next = 0;
     for (int sample = 0; sample < numSamples; ++sample)
     {
@@ -185,8 +202,33 @@ void Synth::render(const DrumEvent* events, int numEvents, float* left, float* r
                 sum += renderVoice(voice);
         // Gentle saturation keeps chords from clipping.
         const auto out = std::tanh(sum * parameters.gain * 1.6f) * 0.7f;
-        left[sample] = out;
-        right[sample] = out;
+        if (! chorus)
+        {
+            left[sample] = out;
+            right[sample] = out;
+            continue;
+        }
+        // Stereo chorus: two taps around 14 ms, modulated in opposite directions.
+        chorusLine[static_cast<size_t>(chorusWrite)] = out;
+        const auto tap = [&](double modulation)
+        {
+            const auto delay = sampleRate * (0.014 + 0.004 * modulation);
+            auto position = static_cast<double>(chorusWrite) - delay;
+            while (position < 0.0)
+                position += lineSize;
+            const auto index = static_cast<int>(position);
+            const auto fraction = static_cast<float>(position - index);
+            const auto a = chorusLine[static_cast<size_t>(index % lineSize)], b = chorusLine[static_cast<size_t>((index + 1) % lineSize)];
+            return a + (b - a) * fraction;
+        };
+        const auto modulation = std::sin(twoPi * chorusPhase);
+        const auto wet = parameters.chorus * 0.6f;
+        left[sample] = out * (1.0f - 0.3f * parameters.chorus) + wet * tap(modulation);
+        right[sample] = out * (1.0f - 0.3f * parameters.chorus) + wet * tap(-modulation);
+        chorusWrite = (chorusWrite + 1) % lineSize;
+        chorusPhase += chorusIncrement;
+        if (chorusPhase >= 1.0)
+            chorusPhase -= 1.0;
     }
 }
 

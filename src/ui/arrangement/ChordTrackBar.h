@@ -18,6 +18,8 @@ public:
     ~ChordTrackBar() override;
     /** Repaints when the view or the chords changed (called from the view's timer). */
     void update();
+    /** "Begleitung erzeugen …" in the context menu. */
+    std::function<void()> onAccompaniment;
 
     void paint(juce::Graphics&) override;
     void resized() override;

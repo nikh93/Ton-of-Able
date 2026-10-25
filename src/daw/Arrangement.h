@@ -115,6 +115,28 @@ struct ChordSymbol
     bool operator==(const ChordSymbol&) const = default;
 };
 
+/** How a track accompanies the lead sheet ("Begleitung aus Akkorden"). */
+struct AccompanimentStyle
+{
+    enum class Layer { pad, bass, shimmer };
+    Layer layer = Layer::pad;
+    int range = 1;   // 0 low, 1 middle, 2 high
+    int colour = 1;  // 0 as written, 1 subtle (add9), 2 rich (7, 9, 11, 13)
+    int rhythm = 1;  // shimmer: 0 quarters, 1 eighths, 2 sixteenths
+    bool operator==(const AccompanimentStyle&) const = default;
+};
+
+/** A track generated from the chords. While linked, its clips follow every
+    change of the lead sheet; editing the clips by hand ends the link (the
+    signature of the generated clips no longer matches). */
+struct Accompaniment
+{
+    AccompanimentStyle style;
+    bool linked = true;
+    juce::String signature; // of the clips as generated
+    bool operator==(const Accompaniment&) const = default;
+};
+
 /** One region of a source file placed on the timeline.
 
     Timeline values (start, length, fades) are in project samples. offset is
@@ -180,6 +202,7 @@ struct Track
     std::shared_ptr<InstrumentSlot> instrument = std::make_shared<InstrumentSlot>();
     int returnSlot = -1;             // >= 0: return track (send effect A-D), fed only by sends
     std::shared_ptr<const FrozenRender> frozen;
+    std::optional<Accompaniment> accompaniment; // MIDI track generated from the chords
 
     [[nodiscard]] bool isReturn() const noexcept { return returnSlot >= 0; }
     /** Drum and MIDI tracks: an instrument makes the sound. */

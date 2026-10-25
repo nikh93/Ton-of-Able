@@ -192,6 +192,23 @@ Die Leiste **AKKORDE** über dem Lineal hält die Akkordfolge des Songs fest –
 - Grundton und Bass werden großgeschrieben (`am` → `Am`, `c/e` → `C/E`); H ist der deutsche Name für B, beide werden akzeptiert. Nicht erkannte Namen erscheinen rot.
 - Akkorde hängen an Takten, nicht an Sekunden: Bei Tempowechseln bleiben sie auf ihrem Takt. Sie werden mit dem Projekt gespeichert, jede Änderung lässt sich rückgängig machen.
 
+## Begleitung aus Akkorden
+
+Rechtsklick in die Akkordleiste → **Begleitung aus Akkorden erzeugen …** macht aus den Akkorden eine sphärische Synth-Begleitung. Jede gewählte Ebene wird eine eigene MIDI-Spur:
+
+| Ebene | Was sie spielt | Klang |
+|---|---|---|
+| **Pad** | volle Akkorde in offener Lage, Stimmen bewegen sich so wenig wie möglich, gemeinsame Töne klingen über den Akkordwechsel weiter | Synth „Atmo“ (breiter Stereo-Chorus, langsam atmender Filter) bzw. „Swell“ |
+| **Sub-Bass** | Grundton, bei Slash-Akkorden der Basston (`G/H` → H) | Synth „Sub“ |
+| **Shimmer** | die Akkordtöne hoch oben auf und ab in Vierteln, Achteln oder Sechzehnteln, jede Note klingt nach | Synth „Glass“ |
+
+- **Lage** (tief/mittel/hoch), **Farben** (wie notiert · dezent mit add9 · reich mit 7, 9, 11, 13) und der Shimmer-Rhythmus gelten für alle Ebenen. **Swell** lässt das Pad bei jedem Akkord langsam anschwellen.
+- **Raum:** Die Ebenen gehen per Send in eine Return-Spur **„Atmo-Hall“** – mit Valhalla Supermassive, wenn installiert, sonst Dragonfly Hall, sonst der eingebaute Hall (jeweils 100 % nass). Weitere Begleitungen nutzen dieselbe Return-Spur.
+- **Verknüpft:** Die Spuren tragen im Kopf das grüne Schild **AKKORDE**. Solange es da ist, folgen sie jeder Änderung der Akkordleiste (auch einer neuen Taktart): neuer Akkord, halbe Takte, gelöschter Akkord – die Noten werden sofort neu gesetzt. Klick auf das Schild ändert den Stil der Spur.
+- **Von Hand bearbeiten:** Wer Noten in der Piano-Roll ändert oder die Clips verschiebt/kürzt, löst die Verknüpfung automatisch – die eigenen Änderungen bleiben dann erhalten, das Schild verschwindet. Rechtsklick auf den Spurkopf: *Wieder aus den Akkorden erzeugen* (überschreibt die Änderungen) bzw. *Von den Akkorden lösen*.
+- Takte ohne Akkord, `N.C.` und rot markierte (unbekannte) Akkorde sind Pausen; zwischen solchen Lücken entstehen getrennte Clips. Statt des eingebauten Synths kann jede Spur über den Instrument-Knopf auch ein VST3-Instrument spielen – die Noten bleiben verknüpft.
+- Erzeugen, Ändern und jedes Nachziehen nach einer Akkordänderung sind ein gemeinsamer Schritt für Rückgängig (Strg+Z).
+
 ## MIDI-Spuren und Piano-Roll
 
 **+ Spur → MIDI-Spur** legt eine Instrumentspur an. Ihr Klang kommt vom Knopf im Spurkopf: der **eingebaute Synth** (Pad, Keys, Bass, Lead – funktioniert ohne Plugins) oder ein **VST3-Instrument** wie Vital oder Surge XT (dort auch „Plugin-Fenster öffnen“). VST3-Instrumente empfangen die Noten auf MIDI-Kanal 1.

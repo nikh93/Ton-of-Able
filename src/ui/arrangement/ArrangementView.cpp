@@ -84,6 +84,7 @@ ArrangementView::ArrangementView(daw::ArrangementController& c) : controller(c)
     addAndMakeVisible(timeline);
     addAndMakeVisible(exportRange);
     addAndMakeVisible(chordBar);
+    chordBar.onAccompaniment = [this] { openAccompaniment({}); };
     for (auto* bar : { &horizontal, &vertical })
     {
         bar->setAutoHide(false);
@@ -327,6 +328,21 @@ void ArrangementView::openPianoRoll(const juce::Uuid& clipId)
     pianoWindows[clipId] = std::move(window);
 }
 
+void ArrangementView::openAccompaniment(const juce::Uuid& trackId)
+{
+    auto panel = std::make_unique<AccompanimentPanel>(controller, trackId, createSpaceEffect);
+    panel->onDone = [this] { juce::MessageManager::callAsync([safe = juce::Component::SafePointer<ArrangementView>(this)] { if (safe != nullptr) safe->accompanimentWindow.reset(); }); };
+    const auto size = panel->getBounds();
+    auto window = std::make_unique<FxWindow>(std::move(panel));
+    window->setName(daw::text("Begleitung aus Akkorden"));
+    window->setResizeLimits(size.getWidth(), size.getHeight(), size.getWidth(), size.getHeight());
+    window->setResizable(false, false);
+    window->centreWithSize(size.getWidth(), size.getHeight());
+    window->setVisible(true);
+    window->toFront(true);
+    accompanimentWindow = std::move(window);
+}
+
 void ArrangementView::openDrumMachine(const juce::Uuid& trackId, int pattern)
 {
     if (! createDrumEditor || controller.state().findTrack(trackId) == nullptr)
@@ -353,6 +369,7 @@ ArrangementView::~ArrangementView()
     fxWindows.clear();
     drumWindows.clear();
     pianoWindows.clear();
+    accompanimentWindow.reset();
     controller.onChanged = nullptr;
     controller.onMessage = nullptr;
 }
@@ -450,6 +467,7 @@ void ArrangementView::rebuildHeaders()
                 header->onOpenFx = [this](const juce::Uuid& id) { openTrackFx(id); };
                 header->onOpenDrums = [this](const juce::Uuid& id) { openDrumMachine(id, 0); };
                 header->onInstrumentMenu = [this](const juce::Uuid& id, juce::Component& target) { if (showInstrumentMenu) showInstrumentMenu(id, target); };
+                header->onEditAccompaniment = [this](const juce::Uuid& id) { openAccompaniment(id); };
                 headerColumn->addAndMakeVisible(*header);
                 next.push_back(std::move(header));
             }

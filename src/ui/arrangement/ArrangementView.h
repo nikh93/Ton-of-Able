@@ -7,6 +7,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "TimelineComponent.h"
+#include "AccompanimentPanel.h"
 #include "ChordTrackBar.h"
 #include "ExportRangeBar.h"
 #include "PianoRollComponent.h"
@@ -42,6 +43,10 @@ public:
     void openDrumMachine(const juce::Uuid& trackId, int pattern);
     /** Instrument menu of a MIDI track (built-in synth, VST3 instruments), set by the main window. */
     std::function<void(const juce::Uuid& trackId, juce::Component& target)> showInstrumentMenu;
+    /** Effect settings for the "Atmo-Hall" return of accompaniments (e.g. Valhalla Supermassive). */
+    std::function<juce::ValueTree()> createSpaceEffect;
+    /** "Begleitung aus Akkorden": creates tracks (null id) or edits one accompaniment track. */
+    void openAccompaniment(const juce::Uuid& trackId);
     void openPianoRoll(const juce::Uuid& clipId);
 
     void paint(juce::Graphics&) override;
@@ -103,5 +108,6 @@ private:
     std::shared_ptr<juce::FileChooser> chooser;
     bool followEnabled = true;
     std::map<juce::Uuid, std::unique_ptr<juce::DocumentWindow>> fxWindows, drumWindows, pianoWindows;
+    std::unique_ptr<juce::DocumentWindow> accompanimentWindow;
 };
 } // namespace nam::ui

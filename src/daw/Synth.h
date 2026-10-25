@@ -6,12 +6,14 @@ namespace daw
 {
 /** The built-in instrument of MIDI tracks: a small polyphonic synthesizer
     (two detuned saws and a sub oscillator, filter and amp envelopes), so MIDI
-    tracks sound without any plugin. Presets: pad, keys, bass, lead. */
+    tracks sound without any plugin. Presets: pad, keys, bass, lead, and for
+    accompaniments the wide atmo/swell pads (stereo chorus, drifting filter),
+    a soft sub bass and glass (bell-like shimmer). */
 class Synth final : public TrackInstrument
 {
 public:
-    enum class Preset { pad, keys, bass, lead };
-    static constexpr int numPresets = 4;
+    enum class Preset { pad, keys, bass, lead, atmo, swell, sub, glass };
+    static constexpr int numPresets = 8;
     [[nodiscard]] static juce::String presetName(Preset);
     [[nodiscard]] static Preset presetFromSettings(const juce::ValueTree&);
 
@@ -27,6 +29,8 @@ private:
         float attack, decay, sustain, release; // seconds, level
         float cutoff, envelopeAmount, resonance; // Hz, octaves
         float detune, sub, gain;
+        float chorus = 0.0f;    // 0 ... 1: stereo chorus depth (0 = mono)
+        float drift = 0.0f;     // octaves the filter slowly wanders
     };
     struct Voice
     {
@@ -50,6 +54,10 @@ private:
     double sampleRate = 48000.0;
     std::array<Voice, 16> voices;
     juce::uint32 clock = 0;
+    std::vector<float> chorusLine; // delay line of the stereo chorus
+    int chorusWrite = 0;
+    double chorusPhase = 0.0, driftPhase = 0.0;
+    float driftOctaves = 0.0f;     // current filter offset, updated per block
 };
 
 /** Instrument settings of the built-in synth (default for new MIDI tracks). */

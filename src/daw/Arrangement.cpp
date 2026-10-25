@@ -779,6 +779,18 @@ juce::ValueTree toValueTree(const ArrangementState& state, const juce::File& pro
             node.setProperty("midi", true, nullptr);
             node.addChild(track.instrument->settings.createCopy(), -1, nullptr);
         }
+        if (track.accompaniment)
+        {
+            const auto& accompaniment = *track.accompaniment;
+            juce::ValueTree tree("Accompaniment");
+            tree.setProperty("layer", static_cast<int>(accompaniment.style.layer), nullptr);
+            tree.setProperty("range", accompaniment.style.range, nullptr);
+            tree.setProperty("colour", accompaniment.style.colour, nullptr);
+            tree.setProperty("rhythm", accompaniment.style.rhythm, nullptr);
+            tree.setProperty("linked", accompaniment.linked, nullptr);
+            tree.setProperty("signature", accompaniment.signature, nullptr);
+            node.addChild(tree, -1, nullptr);
+        }
         if (track.fx->settings.isValid())
         {
             juce::ValueTree fx("Fx");
@@ -881,6 +893,17 @@ ArrangementState fromValueTree(const juce::ValueTree& root, const juce::File& pr
             track.instrument->settings = synthInstrumentSettings();
             if (const auto instrument = node.getChildWithName("Instrument"); instrument.isValid())
                 track.instrument->settings = instrument.createCopy();
+            if (const auto tree = node.getChildWithName("Accompaniment"); tree.isValid())
+            {
+                Accompaniment accompaniment;
+                accompaniment.style.layer = static_cast<AccompanimentStyle::Layer>(juce::jlimit(0, 2, static_cast<int>(tree.getProperty("layer", 0))));
+                accompaniment.style.range = juce::jlimit(0, 2, static_cast<int>(tree.getProperty("range", 1)));
+                accompaniment.style.colour = juce::jlimit(0, 2, static_cast<int>(tree.getProperty("colour", 1)));
+                accompaniment.style.rhythm = juce::jlimit(0, 2, static_cast<int>(tree.getProperty("rhythm", 1)));
+                accompaniment.linked = tree.getProperty("linked", true);
+                accompaniment.signature = tree.getProperty("signature").toString();
+                track.accompaniment = accompaniment;
+            }
         }
         if (track.drums)
         {

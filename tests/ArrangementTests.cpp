@@ -1,8 +1,10 @@
 #include <cmath>
+#include <set>
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_core/juce_core.h>
 
+#include "../src/daw/Accompaniment.h"
 #include "../src/daw/Arrangement.h"
 #include "../src/daw/ArrangementEngine.h"
 #include "../src/daw/AudioCodecs.h"
@@ -509,6 +511,167 @@ public:
 };
 
 ChordTests chordTests;
+
+class AccompanimentTests final : public juce::UnitTest
+{
+public:
+    AccompanimentTests() : juce::UnitTest("Accompaniment from chords", "DAW") {}
+
+    static std::set<int> classesOf(const juce::String& name)
+    {
+        std::set<int> classes;
+        if (const auto chord = accompaniment::parse(name))
+            for (const auto interval : chord->intervals)
+                classes.insert((chord->root + interval) % 12);
+        return classes;
+    }
+
+    static std::set<int> soundingAt(const MidiNotes& notes, double time)
+    {
+        std::set<int> pitches;
+        for (const auto& note : notes)
+            if (note.start <= time && note.end() > time)
+                pitches.insert(note.pitch);
+        return pitches;
+    }
+
+    void runTest() override
+    {
+        using accompaniment::parse;
+        beginTest("Chord symbols become notes");
+        expect(classesOf("C") == std::set<int> { 0, 4, 7 });
+        expect(classesOf("Am7") == std::set<int> { 9, 0, 4, 7 });
+        expect(classesOf("Cmaj7") == std::set<int> { 0, 4, 7, 11 });
+        expect(classesOf("G7") == std::set<int> { 7, 11, 2, 5 });
+        expect(classesOf("F#m7b5") == std::set<int> { 6, 9, 0, 4 });
+        expect(classesOf("Dsus4") == std::set<int> { 2, 7, 9 });
+        expect(classesOf("Bbmaj9") == std::set<int> { 10, 2, 5, 9, 0 });
+        expect(classesOf("H7") == std::set<int> { 11, 3, 6, 9 });
+        expect(classesOf("Cdim7") == std::set<int> { 0, 3, 6, 9 });
+        expect(classesOf("Eadd9") == std::set<int> { 4, 8, 11, 6 });
+        expectEquals(parse("G/H")->bass, 11);
+        expectEquals(parse("Am/G")->bass, 7);
+        expect(! parse("N.C.").has_value());
+        expect(! parse("X7").has_value());
+
+        beginTest("Colours: add9 when subtle, sevenths and elevenths when rich");
+        const auto subtle = accompaniment::coloured(*parse("C"), 1);
+        expect(std::set<int>(subtle.intervals.begin(), subtle.intervals.end()) == std::set<int> { 0, 4, 7, 14 });
+        const auto rich = accompaniment::coloured(*parse("Am"), 2);
+        expect(std::set<int>(rich.intervals.begin(), rich.intervals.end()) == std::set<int> { 0, 3, 7, 10, 14, 17 });
+
+        beginTest("Pad: the right notes, smooth voice leading, common tones held");
+        std::vector<ChordSymbol> chords { { 0.0, 1.0, "Am" }, { 1.0, 1.0, "F" }, { 2.0, 1.0, "C" }, { 3.0, 1.0, "G" } };
+        AccompanimentStyle pad;
+        pad.colour = 0;
+        const auto notes = accompaniment::generate(chords, pad, 4.0);
+        for (size_t index = 0; index < chords.size(); ++index)
+        {
+            const auto pitches = soundingAt(notes, static_cast<double>(index) * 4.0 + 2.0);
+            std::set<int> classes;
+            for (const auto pitch : pitches)
+                classes.insert(pitch % 12);
+            expect(classes == classesOf(chords[index].name), chords[index].name);
+            expect(pitches.size() >= 3);
+            for (const auto pitch : pitches)
+                expect(pitch >= 50 && pitch <= 74);
+        }
+        // Am -> F share A and C: those notes are held over the bar line, not struck again.
+        int heldOver = 0;
+        for (const auto& note : notes)
+            if (note.start < 4.0 && note.end() > 6.0)
+                ++heldOver;
+        expectGreaterOrEqual(heldOver, 2);
+        // Nothing jumps far: every new note is close to a note of the chord before.
+        for (const auto& note : notes)
+            if (note.start > 0.0)
+            {
+                auto nearest = 127;
+                for (const auto pitch : soundingAt(notes, note.start - 0.5))
+                    nearest = std::min(nearest, std::abs(pitch - note.pitch));
+                expectLessOrEqual(nearest, 5);
+            }
+
+        beginTest("Bass plays the slash bass, shimmer runs in eighths, half bars work");
+        AccompanimentStyle bass;
+        bass.layer = AccompanimentStyle::Layer::bass;
+        const auto bassNotes = accompaniment::generate({ { 0.0, 0.5, "C" }, { 0.5, 0.5, "G/H" } }, bass, 4.0);
+        expectEquals(static_cast<int>(bassNotes.size()), 2);
+        expectEquals(bassNotes[0].pitch % 12, 0);
+        expectEquals(bassNotes[1].pitch % 12, 11);
+        expectEquals(bassNotes[1].start, 2.0);
+        AccompanimentStyle shimmer;
+        shimmer.layer = AccompanimentStyle::Layer::shimmer;
+        const auto shimmerNotes = accompaniment::generate({ { 0.0, 1.0, "Am" } }, shimmer, 4.0);
+        expectEquals(static_cast<int>(shimmerNotes.size()), 8);
+        for (const auto& note : shimmerNotes)
+            expect(classesOf("Am").count(note.pitch % 12) > 0 || note.pitch % 12 == 11); // with the added ninth
+
+        beginTest("Linked tracks follow the chords, hand edits end the link");
+        ArrangementState state;
+        for (const auto& chord : chords)
+            edit::setChord(state, chord.bar, chord.length, chord.name);
+        auto track = edit::makeMidiTrack(state, "Pad");
+        track.accompaniment = Accompaniment {};
+        accompaniment::regenerate(state, track);
+        edit::addTrack(state, std::move(track));
+        auto& added = state.tracks.back();
+        expectEquals(static_cast<int>(added.clips.size()), 1);
+        const auto clipId = added.clips[0].id;
+        const auto samplesPerBar = TimeGrid::of(state).samplesPerBar();
+        expectEquals(added.clips[0].length, static_cast<juce::int64>(std::llround(4 * samplesPerBar)));
+
+        edit::setChord(state, 4.0, 1.0, "Dm");         // a fifth bar
+        edit::setChord(state, 7.0, 1.0, "E7");         // after a gap: a second clip
+        accompaniment::update(state);
+        expect(state.tracks.back().accompaniment->linked);
+        expectEquals(static_cast<int>(state.tracks.back().clips.size()), 2);
+        expect(state.tracks.back().clips[0].id == clipId); // open piano rolls keep their clip
+        expectEquals(state.tracks.back().clips[0].length, static_cast<juce::int64>(std::llround(5 * samplesPerBar)));
+
+        state.beatsPerBar = 3;                          // the time signature moves the bars
+        accompaniment::update(state);
+        expectEquals(state.tracks.back().clips[0].length, static_cast<juce::int64>(std::llround(5 * TimeGrid::of(state).samplesPerBar())));
+
+        auto edited = *state.tracks.back().clips[0].notes;
+        edited.push_back({ 0.0, 1.0, 90, 100 });
+        edit::setNotes(state, clipId, edited);
+        edit::setChord(state, 0.0, 1.0, "Em");
+        accompaniment::update(state);
+        expect(! state.tracks.back().accompaniment->linked);
+        expectEquals(state.tracks.back().clips[0].notes->size(), edited.size()); // the user's notes stay
+        const auto& kept = *state.tracks.back().clips[0].notes;
+        expect(std::any_of(kept.begin(), kept.end(), [](const MidiNote& n) { return n.pitch == 90; }));
+
+        beginTest("The link is saved with the project");
+        accompaniment::regenerate(state, state.tracks.back());
+        const auto loaded = fromValueTree(toValueTree(state, {}), {});
+        expect(loaded.tracks.back().accompaniment == state.tracks.back().accompaniment);
+        auto reloaded = loaded;
+        edit::setChord(reloaded, 1.0, 1.0, "Dm");
+        accompaniment::update(reloaded);
+        expect(reloaded.tracks.back().accompaniment->linked);
+
+        beginTest("The atmo pad is stereo");
+        Synth synth(Synth::Preset::atmo);
+        synth.prepare(48000.0, 4800);
+        std::vector<float> left(48000), right(48000);
+        DrumEvent events[] { { 0, 57, 100 }, { 0, 64, 100 } };
+        synth.render(events, 2, left.data(), right.data(), 4800);
+        for (int block = 1; block < 10; ++block)
+            synth.render(nullptr, 0, left.data() + block * 4800, right.data() + block * 4800, 4800);
+        double difference = 0.0, level = 0.0;
+        for (size_t index = 24000; index < left.size(); ++index)
+        {
+            difference += std::abs(left[index] - right[index]);
+            level += std::abs(left[index]);
+        }
+        expectGreaterThan(level, 100.0);
+        expectGreaterThan(difference, level * 0.05);
+    }
+};
+
+AccompanimentTests accompanimentTests;
 
 // Records the events an instrument receives (offsets made absolute by the test).
 struct EventLog final : TrackInstrument

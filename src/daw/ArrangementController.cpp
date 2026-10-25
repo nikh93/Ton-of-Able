@@ -1,5 +1,7 @@
 #include "ArrangementController.h"
 
+#include "Accompaniment.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -88,6 +90,7 @@ void ArrangementController::perform(const juce::String& description, const std::
     redoStack.clear();
     redoNames.clear();
     change(current);
+    accompaniment::update(current);
     afterChange(true);
 }
 
@@ -125,6 +128,7 @@ void ArrangementController::endGesture(const juce::String& description)
     gestureOrigin.reset();
     redoStack.clear();
     redoNames.clear();
+    accompaniment::update(current);
     afterChange(true);
 }
 
@@ -766,6 +770,86 @@ juce::Uuid ArrangementController::addMidiTrack(const juce::String& name)
         edit::addTrack(state, std::move(track));
     });
     return id;
+}
+
+std::vector<juce::Uuid> ArrangementController::createAccompaniment(const AccompanimentRequest& request)
+{
+    std::vector<juce::Uuid> ids;
+    juce::Uuid newReturn;
+    int spaceSlot = -1;
+    perform(text("Begleitung aus Akkorden"), [&](ArrangementState& state)
+    {
+        if (request.space)
+        {
+            // One shared "Atmo-Hall" return; a later accompaniment uses it again.
+            for (const auto& track : state.tracks)
+                if (track.isReturn() && track.name.contains("Atmo"))
+                    spaceSlot = track.returnSlot;
+            if (spaceSlot < 0)
+            {
+                if (auto track = edit::makeReturnTrack(state))
+                {
+                    track->name = "Atmo-Hall";
+                    spaceSlot = track->returnSlot;
+                    newReturn = track->id;
+                    edit::addTrack(state, std::move(*track));
+                }
+                else
+                    spaceSlot = 0; // all four returns exist: Hall A
+            }
+        }
+        for (const auto& style : request.layers)
+        {
+            auto track = edit::makeMidiTrack(state, accompaniment::layerName(style.layer) + text(" (Akkorde)"));
+            const auto preset = style.layer == AccompanimentStyle::Layer::bass ? Synth::Preset::sub
+                              : style.layer == AccompanimentStyle::Layer::shimmer ? Synth::Preset::glass
+                              : request.swell ? Synth::Preset::swell : Synth::Preset::atmo;
+            track.instrument->settings = synthInstrumentSettings(preset);
+            track.mixer->volumeDb = style.layer == AccompanimentStyle::Layer::pad ? -3.0f : style.layer == AccompanimentStyle::Layer::bass ? -4.0f : -9.0f;
+            if (spaceSlot >= 0)
+                track.mixer->sendGain[static_cast<size_t>(spaceSlot)] = style.layer == AccompanimentStyle::Layer::bass ? 0.1f
+                                                                       : style.layer == AccompanimentStyle::Layer::shimmer ? 0.8f : 0.55f;
+            track.accompaniment = Accompaniment { style, true, {} };
+            accompaniment::regenerate(state, track);
+            ids.push_back(track.id);
+            edit::addTrack(state, std::move(track));
+        }
+    });
+    if (newReturn != juce::Uuid())
+        setTrackFx(newReturn, request.spaceEffect.isValid() ? request.spaceEffect : returnDefaults ? returnDefaults(spaceSlot) : juce::ValueTree(), true, false);
+    if (current.chords.empty())
+        message(text("Noch keine Akkorde – die Begleitung entsteht, sobald Akkorde in der Leiste stehen."));
+    return ids;
+}
+
+void ArrangementController::setAccompanimentStyle(const juce::Uuid& trackId, const AccompanimentStyle& style)
+{
+    perform(text("Begleitung ändern"), [&](ArrangementState& state)
+    {
+        if (auto* track = state.findTrack(trackId); track != nullptr && track->accompaniment)
+        {
+            track->accompaniment->style = style;
+            accompaniment::regenerate(state, *track);
+        }
+    });
+}
+
+void ArrangementController::relinkAccompaniment(const juce::Uuid& trackId)
+{
+    perform(text("Begleitung neu erzeugen"), [&](ArrangementState& state)
+    {
+        if (auto* track = state.findTrack(trackId); track != nullptr && track->accompaniment)
+            accompaniment::regenerate(state, *track);
+    });
+}
+
+void ArrangementController::unlinkAccompaniment(const juce::Uuid& trackId)
+{
+    perform(text("Begleitung von Akkorden lösen"), [&](ArrangementState& state)
+    {
+        if (auto* track = state.findTrack(trackId); track != nullptr && track->accompaniment)
+            track->accompaniment->linked = false;
+    });
 }
 
 void ArrangementController::setClipNotes(const juce::Uuid& clipId, MidiNotes notes, const juce::String& description)

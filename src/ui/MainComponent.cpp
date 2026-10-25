@@ -1227,6 +1227,7 @@ void MainComponent::configureArrangement()
         return std::make_shared<daw::DrumSynth>();
     });
     arrangementView.showInstrumentMenu = [this](const juce::Uuid& trackId, juce::Component& target) { showInstrumentMenu(trackId, target); };
+    arrangementView.createSpaceEffect = [this] { return spaceReverbSettings(); };
     arrangementView.createDrumEditor = [this](const juce::Uuid& trackId, int pattern) -> std::unique_ptr<juce::Component>
     {
         nam::ui::DrumMachineComponent::Host host;
@@ -1560,6 +1561,57 @@ void MainComponent::openInstrumentEditor(const juce::Uuid& trackId)
     auto window = std::make_unique<InstrumentEditorWindow>(instrument, editor);
     window->setVisible(true);
     instrumentEditors[trackId] = std::move(window);
+}
+
+juce::ValueTree MainComponent::spaceReverbSettings()
+{
+    // The "Atmo-Hall" return of accompaniments: Valhalla Supermassive if it is
+    // installed, else Dragonfly Hall, else the built-in reverb at its largest.
+    auto sound = SoundState::defaults();
+    sound.namBypassed = true;
+    sound.irBypassed = true;
+    const auto plugins = pluginCatalog.visible();
+    const juce::PluginDescription* choice = nullptr;
+    for (const auto* wanted : { "Supermassive", "Dragonfly Hall" })
+        for (const auto& description : plugins)
+            if (choice == nullptr && description.name.containsIgnoreCase(wanted) && ! description.isInstrument)
+                choice = &description;
+    if (choice != nullptr)
+    {
+        Vst3Slot slot;
+        if (slot.load(*choice).wasOk())
+        {
+            // 100 % wet, as a send effect should be.
+            if (auto* plugin = slot.instance())
+                for (auto* parameter : plugin->getParameters())
+                {
+                    const auto name = parameter->getName(64).trim().toLowerCase();
+                    if (name == "mix" || name == "wet" || name == "dry/wet")
+                        parameter->setValueNotifyingHost(1.0f);
+                    else if (name.contains("dry"))
+                        parameter->setValueNotifyingHost(0.0f);
+                }
+            const auto state = slot.saveState();
+            if (state.isValid() && state.hasProperty("descriptionXml"))
+            {
+                chain::Node node;
+                node.kind = "vst3";
+                node.name = choice->name;
+                node.plugin = state;
+                sound.layout.add(node, static_cast<int>(sound.layout.serial.size()));
+                return sound.toValueTree();
+            }
+        }
+    }
+    sound.reverbBypassed = false;
+    sound.reverbMix = 1.0f;
+    sound.reverbSize = 0.95f;
+    sound.reverbDecay = 6.0f;
+    sound.reverbDamping = 0.35f;
+    sound.reverbPreDelayMs = 40.0f;
+    sound.reverbLowCutHz = 200.0f;
+    sound.reverbHighCutHz = 9000.0f;
+    return sound.toValueTree();
 }
 
 void MainComponent::showInstrumentMenu(const juce::Uuid& trackId, juce::Component& target)

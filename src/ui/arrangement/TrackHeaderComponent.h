@@ -26,6 +26,8 @@ public:
     std::function<void(const juce::Uuid&)> onOpenDrums;
     /** MIDI tracks: the instrument menu under the instrument button. */
     std::function<void(const juce::Uuid&, juce::Component& target)> onInstrumentMenu;
+    /** Accompaniment tracks: edit the style of the generated part. */
+    std::function<void(const juce::Uuid&)> onEditAccompaniment;
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -49,7 +51,7 @@ private:
     std::shared_ptr<daw::TrackMixer> mixer;
     juce::Label name;
     IconButton arm { Icon::record }, monitor { Icon::headphones }, frozenBadge { Icon::snowflake };
-    juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" }, send { "SEND" }, reampBadge { "RE-AMP" };
+    juce::TextButton mute { "M" }, solo { "S" }, fx { "FX" }, send { "SEND" }, reampBadge { "RE-AMP" }, chordBadge;
     IconButton drums { Icon::sliders, "Drumcomputer" };
     IconButton instrumentButton { Icon::keyboard, "Synth" };
     juce::Label role;
@@ -60,6 +62,6 @@ private:
     bool isDrumTrack = false;
     bool isReturnTrack = false;
     bool isMidiTrack = false;
-    bool frozen = false, freezing = false, reamping = false;
+    bool frozen = false, freezing = false, reamping = false, linkedToChords = false, generated = false;
 };
 } // namespace nam::ui
